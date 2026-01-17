@@ -17,7 +17,7 @@ import { addScore, resetGameState } from '../state/gameState';
 type Collectible = {
   tile: TilePosition;
   pointType: number;
-  sprite: Phaser.Physics.Arcade.Sprite;
+  sprite: Phaser.GameObjects.Sprite;
 };
 
 type CollectibleConfig = {
@@ -50,7 +50,6 @@ export default class GameScene extends Phaser.Scene {
   private tiles!: Phaser.Tilemaps.Tileset;
   private floorLayer!: Phaser.Tilemaps.TilemapLayer;
   private wallsLayer!: Phaser.Tilemaps.TilemapLayer;
-  private points!: Phaser.Physics.Arcade.Group;
   private pacman!: PacmanSprite;
   private ghostGroup!: Phaser.Physics.Arcade.Group;
   private ghosts: GhostSprite[] = [];
@@ -184,14 +183,14 @@ export default class GameScene extends Phaser.Scene {
     return { ...config };
   }
 
-  private removeCollectible(sprite: Phaser.Physics.Arcade.Sprite): Collectible | undefined {
-    const tileKey: unknown = sprite.getData('tileKey');
-    if (typeof tileKey !== 'string') {
+  private consumeCollectibleAt(tile: TilePosition): Collectible | undefined {
+    const tileKey = this.getTileKey(tile);
+    const collectible = this.collectibles.get(tileKey);
+    if (!collectible) {
       return undefined;
     }
-    const collectible = this.collectibles.get(tileKey);
     this.collectibles.delete(tileKey);
-    sprite.destroy();
+    collectible.sprite.destroy();
     return collectible;
   }
 
@@ -298,12 +297,13 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  private awardCollectible(sprite: Phaser.Physics.Arcade.Sprite): void {
-    const collectible = this.removeCollectible(sprite);
+  private awardCollectibleAt(tile: TilePosition): void {
+    const collectible = this.consumeCollectibleAt(tile);
     if (!collectible) {
       return;
     }
     addScore(this.getScoreIncrement(collectible.pointType));
+    this.pacman.play('eat');
   }
 
   create(): void {
@@ -423,7 +423,6 @@ export default class GameScene extends Phaser.Scene {
       this.ghosts.push(ghost);
     }
 
-    this.points = this.physics.add.group();
     const dotObjects = dotLayer?.objects ?? [];
     dotObjects.forEach((dot) => {
       const pointType = this.getObjectNumberProperty(dot, 'pointType') ?? 0;
@@ -433,22 +432,13 @@ export default class GameScene extends Phaser.Scene {
         return;
       }
       const worldPosition = this.toWorldPosition(tile, { x: 0, y: 0 });
-      const point = this.points.create(worldPosition.x, worldPosition.y, config.texture) as Phaser.Physics.Arcade.Sprite;
+      const point = this.add.sprite(worldPosition.x, worldPosition.y, config.texture);
       point.displayHeight = config.size;
       point.displayWidth = config.size;
       point.setOrigin(0.5);
       const key = this.getTileKey(tile);
-      point.setData('tileKey', key);
       this.collectibles.set(key, { pointType, tile, sprite: point });
     });
-
-    const eatPoint: ArcadePhysicsCallback = (_pacman, point) => {
-      const sprite = point as Phaser.Physics.Arcade.Sprite;
-      this.awardCollectible(sprite);
-      this.pacman.play('eat');
-    };
-
-    this.physics.add.overlap(this.pacman, this.points, eatPoint, undefined, this);
 
     const camera = this.cameras.main;
     camera.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
@@ -556,12 +546,15 @@ export default class GameScene extends Phaser.Scene {
       (direction, movedY, movedX, tiles) => this.canMove(direction, movedY, movedX, tiles),
     );
 
+    this.awardCollectibleAt(this.pacman.tile);
+
     if (!this.isMoving) {
       return;
     }
 
     if (this.canMove(this.pacman.direction.current, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
       this.advanceEntity(this.pacman, this.pacman.direction.current, SPEED.pacman);
+      this.awardCollectibleAt(this.pacman.tile);
     }
   }
 }
