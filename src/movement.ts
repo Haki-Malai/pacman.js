@@ -1,6 +1,7 @@
+import { TILE_SIZE } from './config/constants';
 import { BufferedEntity, CollisionTiles, Direction } from './types';
 
-export const DEFAULT_TILE_SIZE = 16;
+export const DEFAULT_TILE_SIZE = TILE_SIZE;
 
 export type CanMoveFn = (
   _direction: Direction,

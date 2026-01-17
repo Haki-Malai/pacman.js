@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { INITIAL_LIVES } from '../config/constants';
 
 export type GameState = {
   score: number;
@@ -12,12 +13,12 @@ export const GameEvent = {
 
 const state: GameState = {
   score: 0,
-  lives: 3,
+  lives: INITIAL_LIVES,
 };
 
 export const gameEvents = new Phaser.Events.EventEmitter();
 
-export function resetGameState(initialScore = 0, initialLives = 3): void {
+export function resetGameState(initialScore = 0, initialLives = INITIAL_LIVES): void {
   state.score = initialScore;
   state.lives = initialLives;
   gameEvents.emit(GameEvent.ScoreChanged, state.score);

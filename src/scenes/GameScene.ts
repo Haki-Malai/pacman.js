@@ -1,10 +1,6 @@
 import Phaser from 'phaser';
-import {
-  DEFAULT_TILE_SIZE,
-  applyBufferedDirection,
-  canMove as canMoveHelper,
-  getAvailableDirections as getAvailableDirectionsHelper,
-} from '../movement';
+import { applyBufferedDirection, canMove as canMoveHelper, getAvailableDirections as getAvailableDirectionsHelper } from '../movement';
+import { CAMERA, COLLECTIBLE_CONFIG, INITIAL_LIVES, SPEED, SPRITE_SIZE, TILE_SIZE } from '../config/constants';
 import {
   CollisionTile,
   CollisionTiles,
@@ -26,8 +22,7 @@ type Collectible = {
 
 type CollectibleConfig = {
   texture: string;
-  width: number;
-  height: number;
+  size: number;
   score: number;
 };
 
@@ -61,7 +56,7 @@ export default class GameScene extends Phaser.Scene {
   private ghosts: GhostSprite[] = [];
   private collectibles: Map<string, Collectible> = new Map();
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private tileSize: number = DEFAULT_TILE_SIZE;
+  private tileSize: number = TILE_SIZE;
   private collisionGrid: CollisionTile[][] = [];
   private scaredKeyListenerAttached = false;
   private isMoving = true;
@@ -182,24 +177,11 @@ export default class GameScene extends Phaser.Scene {
   }
 
   private getCollectibleConfig(pointType: number): CollectibleConfig | null {
-    switch (pointType) {
-      case 0:
-        return { texture: 'point', width: 2.5, height: 2.5, score: 10 };
-      case 1:
-        return { texture: 'point', width: 4, height: 4, score: 50 };
-      case 2:
-        return { texture: 'cherry', width: 4, height: 4, score: 100 };
-      case 3:
-        return { texture: 'strawberry', width: 4, height: 4, score: 150 };
-      case 4:
-        return { texture: 'banana', width: 4, height: 4, score: 200 };
-      case 5:
-        return { texture: 'pear', width: 4, height: 4, score: 250 };
-      case 6:
-        return { texture: 'heart', width: 4, height: 4, score: 300 };
-      default:
-        return null;
+    const config = COLLECTIBLE_CONFIG[pointType];
+    if (!config) {
+      return null;
     }
+    return { ...config };
   }
 
   private removeCollectible(sprite: Phaser.Physics.Arcade.Sprite): Collectible | undefined {
@@ -325,16 +307,16 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    const SPRITE_WIDTH = 10;
-    const SPRITE_HEIGHT = 10;
+    const pacmanSize = SPRITE_SIZE.pacman;
+    const ghostSize = SPRITE_SIZE.ghost;
 
     this.collectibles.clear();
     this.ghosts = [];
     this.scaredKeyListenerAttached = false;
-    resetGameState();
+    resetGameState(0, INITIAL_LIVES);
 
     this.map = this.make.tilemap({ key: 'maze' });
-    this.tileSize = this.map.tileWidth || DEFAULT_TILE_SIZE;
+    this.tileSize = this.map.tileWidth || TILE_SIZE;
     this.tiles = this.map.addTilesetImage('tileset', 'tiles', this.tileSize, this.tileSize);
     this.floorLayer = this.map.createLayer('Floor', this.tiles, 0, 0).setDepth(0);
     this.wallsLayer = this.map.createLayer('Walls', this.tiles, 0, 0).setDepth(1);
@@ -356,8 +338,8 @@ export default class GameScene extends Phaser.Scene {
 
     const pacmanSpawnPosition = this.toWorldPosition(pacmanTile, { x: 0, y: 0 });
     this.pacman = this.physics.add.sprite(pacmanSpawnPosition.x, pacmanSpawnPosition.y, 'pacman').setDepth(2) as PacmanSprite;
-    this.pacman.displayWidth = SPRITE_WIDTH;
-    this.pacman.displayHeight = SPRITE_HEIGHT;
+    this.pacman.displayWidth = pacmanSize;
+    this.pacman.displayHeight = pacmanSize;
     this.pacman.direction = {
       next: 'right',
       current: 'right',
@@ -424,8 +406,8 @@ export default class GameScene extends Phaser.Scene {
       const spawnTile: TilePosition = { x: randomIntegerTemp, y: ghostY };
       const spawnWorld = this.toWorldPosition(spawnTile, { x: 0, y: 0 });
       const ghost = this.ghostGroup.create(spawnWorld.x, spawnWorld.y, ghostKey) as GhostSprite;
-      ghost.displayWidth = SPRITE_WIDTH + 1;
-      ghost.displayHeight = SPRITE_HEIGHT + 1;
+      ghost.displayWidth = ghostSize;
+      ghost.displayHeight = ghostSize;
       this.setEntityTile(ghost, spawnTile);
       ghost.key = ghostKey;
       ghost.state = {
@@ -435,7 +417,7 @@ export default class GameScene extends Phaser.Scene {
         dead: false,
         animation: 'default',
       };
-      ghost.speed = 1;
+      ghost.speed = SPEED.ghost;
       ghost.play(`${ghostKey}Idle`);
       ghost.direction = Math.random() < 0.5 ? 'right' : 'left';
       this.ghosts.push(ghost);
@@ -452,8 +434,8 @@ export default class GameScene extends Phaser.Scene {
       }
       const worldPosition = this.toWorldPosition(tile, { x: 0, y: 0 });
       const point = this.points.create(worldPosition.x, worldPosition.y, config.texture) as Phaser.Physics.Arcade.Sprite;
-      point.displayHeight = config.height;
-      point.displayWidth = config.width;
+      point.displayHeight = config.size;
+      point.displayWidth = config.size;
       point.setOrigin(0.5);
       const key = this.getTileKey(tile);
       point.setData('tileKey', key);
@@ -470,8 +452,8 @@ export default class GameScene extends Phaser.Scene {
 
     const camera = this.cameras.main;
     camera.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
-    camera.zoomTo(5);
-    camera.startFollow(this.pacman, true, 0.09, 0.09);
+    camera.zoomTo(CAMERA.zoom);
+    camera.startFollow(this.pacman, true, CAMERA.followLerp.x, CAMERA.followLerp.y);
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.registerKeyboardShortcuts();
@@ -579,7 +561,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     if (this.canMove(this.pacman.direction.current, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
-      this.advanceEntity(this.pacman, this.pacman.direction.current, 1);
+      this.advanceEntity(this.pacman, this.pacman.direction.current, SPEED.pacman);
     }
   }
 }
