@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import './style.css';
+import { applyBufferedDirection, canMove as canMoveHelper, getAvailableDirections as getAvailableDirectionsHelper } from './movement.js';
 
 class Game extends Phaser.Scene {
     constructor() {
@@ -89,29 +90,7 @@ class Game extends Phaser.Scene {
     }
 
     canMove(direction, movedY, movedX, collisionTiles) {
-        const tileSize = this.tileSize ?? 16;
-        if (direction === 'up') {
-            if (collisionTiles.current.up) {
-                return movedY < 0 && movedY >= -tileSize;
-            }
-            return true;
-        } else if (direction === 'down') {
-            if (collisionTiles.down.up) {
-                return movedY > 0 && movedY <= tileSize;
-            }
-            return true;
-        } else if (direction === 'right') {
-            if (collisionTiles.right.left) {
-                return movedX > 0 && movedX <= tileSize;
-            }
-            return true;
-        } else if (direction === 'left') {
-            if (collisionTiles.current.left) {
-                return movedX < 0 && movedX >= -tileSize;
-            }
-            return true;
-        }
-        return true;
+        return canMoveHelper(direction, movedY, movedX, collisionTiles, this.tileSize ?? 16);
     }
 
     advanceEntity(entity, direction, speed = 1) {
@@ -131,20 +110,7 @@ class Game extends Phaser.Scene {
     }
 
     getAvailableDirections(collisionTiles, currentDirection) {
-        const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
-        const directions = ['up', 'down', 'left', 'right'].filter((direction) => {
-            if (direction === opposites[currentDirection]) {
-                return false;
-            }
-            return this.canMove(direction, 0, 0, collisionTiles);
-        });
-        if (!directions.length && currentDirection && opposites[currentDirection]) {
-            const fallback = opposites[currentDirection];
-            if (this.canMove(fallback, 0, 0, collisionTiles)) {
-                directions.push(fallback);
-            }
-        }
-        return directions;
+        return getAvailableDirectionsHelper(collisionTiles, currentDirection, this.tileSize ?? 16);
     }
     
     preload() {
@@ -447,20 +413,12 @@ class Game extends Phaser.Scene {
         const collisionTiles = this.getCollisionTilesFor(this.pacman);
         
         // Here we check if we can set the current direction same to the next
-        if (this.pacman.direction.current != this.pacman.direction.next) {
-            if ((this.pacman.direction.next === 'left' || this.pacman.direction.next === 'right') && this.pacman.moved.x === 0 && this.pacman.moved.y === 0) {
-                if (this.canMove(this.pacman.direction.next, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
-                    this.pacman.direction.current = this.pacman.direction.next;
-                    this.pacman.moved.x = 0;
-                }
-            }
-            else if (((this.pacman.direction.next === 'up') || (this.pacman.direction.next === 'down')) && (this.pacman.moved.y === 0) && (this.pacman.moved.x === 0)) {
-                if (this.canMove(this.pacman.direction.next, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
-                    this.pacman.direction.current = this.pacman.direction.next;
-                    this.pacman.moved.y = 0;
-                }
-            }
-        }
+        applyBufferedDirection(
+            this.pacman,
+            collisionTiles,
+            this.tileSize ?? 16,
+            (direction) => this.canMove(direction, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)
+        );
         
         if (this.canMove(this.pacman.direction.current, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
             if (moving === false) {
