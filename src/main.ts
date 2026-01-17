@@ -19,6 +19,11 @@ import {
 } from './types';
 
 type OrientedTile = Phaser.Tilemaps.Tile & { propertiesOriented?: CollisionTile };
+type Collectible = {
+  tile: TilePosition;
+  pointType: number;
+  sprite: Phaser.Physics.Arcade.Sprite;
+};
 
 const createEmptyCollisionTile = (): CollisionTile => ({
   collides: false,
@@ -46,6 +51,7 @@ class Game extends Phaser.Scene {
   private pacman!: PacmanSprite;
   private ghostGroup!: Phaser.Physics.Arcade.Group;
   private ghosts: GhostSprite[] = [];
+  private collectibles: Map<string, Collectible> = new Map();
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private camera!: Phaser.Cameras.Scene2D.Camera;
   private tileSize: number = DEFAULT_TILE_SIZE;
@@ -113,6 +119,10 @@ class Game extends Phaser.Scene {
       };
     }
     return fallback;
+  }
+
+  private getTileKey(tile: TilePosition): string {
+    return `${tile.x},${tile.y}`;
   }
 
   private getTileProperties(tile?: OrientedTile | null): CollisionTile {
@@ -209,6 +219,35 @@ class Game extends Phaser.Scene {
       left: this.getCollisionTileAt(tileX - 1, tileY),
       right: this.getCollisionTileAt(tileX + 1, tileY),
     };
+  }
+
+  private getCollectibleConfig(pointType: number): { texture: string; width: number; height: number } | null {
+    switch (pointType) {
+      case 0:
+        return { texture: 'point', width: 2.5, height: 2.5 };
+      case 1:
+        return { texture: 'point', width: 4, height: 4 };
+      case 2:
+        return { texture: 'cherry', width: 4, height: 4 };
+      case 3:
+        return { texture: 'strawberry', width: 4, height: 4 };
+      case 4:
+        return { texture: 'banana', width: 4, height: 4 };
+      case 5:
+        return { texture: 'pear', width: 4, height: 4 };
+      case 6:
+        return { texture: 'heart', width: 4, height: 4 };
+      default:
+        return null;
+    }
+  }
+
+  private removeCollectible(sprite: Phaser.Physics.Arcade.Sprite): void {
+    const tileKey: unknown = sprite.getData('tileKey');
+    if (typeof tileKey === 'string') {
+      this.collectibles.delete(tileKey);
+    }
+    sprite.destroy();
   }
 
   private canMove(
@@ -400,54 +439,24 @@ class Game extends Phaser.Scene {
     const dotObjects = dotLayer?.objects ?? [];
     dotObjects.forEach((dot) => {
       const pointType = this.getObjectNumberProperty(dot, 'pointType') ?? 0;
-      let point: Phaser.Physics.Arcade.Sprite | undefined;
-      switch (pointType) {
-        case 0:
-          point = this.points.create(dot.x, dot.y, 'point') as Phaser.Physics.Arcade.Sprite;
-          point.displayHeight = 2.5;
-          point.displayWidth = 2.5;
-          break;
-        case 1:
-          point = this.points.create(dot.x, dot.y, 'point') as Phaser.Physics.Arcade.Sprite;
-          point.displayHeight = 4;
-          point.displayWidth = 4;
-          break;
-        case 2:
-          point = this.points.create(dot.x, dot.y, 'cherry') as Phaser.Physics.Arcade.Sprite;
-          point.displayHeight = 4;
-          point.displayWidth = 4;
-          break;
-        case 3:
-          point = this.points.create(dot.x, dot.y, 'strawberry') as Phaser.Physics.Arcade.Sprite;
-          point.displayHeight = 4;
-          point.displayWidth = 4;
-          break;
-        case 4:
-          point = this.points.create(dot.x, dot.y, 'banana') as Phaser.Physics.Arcade.Sprite;
-          point.displayHeight = 4;
-          point.displayWidth = 4;
-          break;
-        case 5:
-          point = this.points.create(dot.x, dot.y, 'pear') as Phaser.Physics.Arcade.Sprite;
-          point.displayHeight = 4;
-          point.displayWidth = 4;
-          break;
-        case 6:
-          point = this.points.create(dot.x, dot.y, 'heart') as Phaser.Physics.Arcade.Sprite;
-          point.displayHeight = 4;
-          point.displayWidth = 4;
-          break;
-        default:
-          break;
+      const tile = this.getObjectTilePosition(dot, { x: 0, y: 0 });
+      const config = this.getCollectibleConfig(pointType);
+      if (!config) {
+        return;
       }
-      if (point) {
-        point.setOrigin(0);
-      }
+      const worldPosition = this.toWorldPosition(tile, { x: 0, y: 0 });
+      const point = this.points.create(worldPosition.x, worldPosition.y, config.texture) as Phaser.Physics.Arcade.Sprite;
+      point.displayHeight = config.height;
+      point.displayWidth = config.width;
+      point.setOrigin(0.5);
+      const key = this.getTileKey(tile);
+      point.setData('tileKey', key);
+      this.collectibles.set(key, { pointType, tile, sprite: point });
     });
 
     const eatPoint: ArcadePhysicsCallback = (_pacman, point) => {
       const sprite = point as Phaser.Physics.Arcade.Sprite;
-      sprite.disableBody(true, true);
+      this.removeCollectible(sprite);
       this.pacman.play('eat');
     };
 
