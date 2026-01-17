@@ -2,13 +2,13 @@
 This is a pacman game i am currently working on for fun. I have developed it again with similar animations and sprites but due to it being my first javascript project it didn't come out as good and scalable. The code was messy and the bugs were countless. The old repository is [here](https://github.com/Haki-Malai/Games/tree/main/Pac-Man%20JavaScript).
 
 ## Getting started
-- `npm install`
-- `npm run dev` to launch the Vite dev server (serves from `public/assets` and `src/`).
-- `npm run build` to produce the deployable bundle in `dist/`.
-- `npm run preview` to serve the built bundle locally.
-- `npm run typecheck` to run the strict TypeScript compiler with `--noEmit`.
-- `npm run lint` to run ESLint against the TypeScript sources.
-- `npm run test` to execute the Vitest suite.
+- `pnpm install`
+- `pnpm dev` to launch the Vite dev server (serves from `public/assets` and `src/`).
+- `pnpm build` to produce the deployable bundle in `dist/`.
+- `pnpm preview` to serve the built bundle locally.
+- `pnpm typecheck` to run the strict TypeScript compiler with `--noEmit`.
+- `pnpm lint` to run ESLint against the TypeScript sources.
+- `pnpm test` to execute the Vitest suite.
 
 ## Project layout
 - `src/main.ts` contains the Phaser scene logic (imports Phaser from npm).
