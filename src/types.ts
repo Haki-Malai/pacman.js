@@ -7,6 +7,11 @@ export interface MovementProgress {
   y: number;
 }
 
+export interface TilePosition {
+  x: number;
+  y: number;
+}
+
 export interface DirectionState {
   current: Direction;
   next: Direction;
@@ -29,6 +34,10 @@ export interface BufferedEntity {
   direction: DirectionState;
 }
 
+export interface GridEntity {
+  tile: TilePosition;
+}
+
 export type GhostAnimationState = 'default' | 'scared';
 
 export type GhostKey = 'inky' | 'clyde' | 'pinky' | 'blinky';
@@ -44,6 +53,7 @@ export interface GhostState {
 export interface PacmanSprite extends Phaser.Physics.Arcade.Sprite {
   moved: MovementProgress;
   direction: DirectionState;
+  tile: TilePosition;
 }
 
 export type GhostSprite = Omit<Phaser.Physics.Arcade.Sprite, 'state'> & {
@@ -52,10 +62,12 @@ export type GhostSprite = Omit<Phaser.Physics.Arcade.Sprite, 'state'> & {
   state: GhostState;
   direction: Direction;
   speed: number;
+  tile: TilePosition;
 };
 
 export interface MovableEntity {
   x: number;
   y: number;
   moved: MovementProgress;
+  tile: TilePosition;
 }

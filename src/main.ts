@@ -6,7 +6,17 @@ import {
   canMove as canMoveHelper,
   getAvailableDirections as getAvailableDirectionsHelper,
 } from './movement';
-import { CollisionTile, CollisionTiles, Direction, GhostKey, GhostSprite, MovableEntity, PacmanSprite } from './types';
+import {
+  CollisionTile,
+  CollisionTiles,
+  Direction,
+  GhostKey,
+  GhostSprite,
+  MovableEntity,
+  PacmanSprite,
+  MovementProgress,
+  TilePosition,
+} from './types';
 
 type OrientedTile = Phaser.Tilemaps.Tile & { propertiesOriented?: CollisionTile };
 
@@ -20,6 +30,13 @@ const createEmptyCollisionTile = (): CollisionTile => ({
   right: false,
 });
 
+const DIRECTION_VECTORS: Record<Direction, { dx: number; dy: number }> = {
+  up: { dx: 0, dy: -1 },
+  down: { dx: 0, dy: 1 },
+  left: { dx: -1, dy: 0 },
+  right: { dx: 1, dy: 0 },
+};
+
 class Game extends Phaser.Scene {
   private map!: Phaser.Tilemaps.Tilemap;
   private tiles!: Phaser.Tilemaps.Tileset;
@@ -32,9 +49,70 @@ class Game extends Phaser.Scene {
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private camera!: Phaser.Cameras.Scene2D.Camera;
   private tileSize: number = DEFAULT_TILE_SIZE;
+  private collisionGrid: CollisionTile[][] = [];
+  private scaredKeyListenerAttached = false;
+  private toggleGhostFear = (): void => {
+    this.ghosts.forEach((ghost) => {
+      ghost.state.scared = !ghost.state.scared;
+    });
+  };
 
   constructor() {
     super({ key: 'game' });
+  }
+
+  private get tileCenterOffset(): number {
+    return this.tileSize / 2;
+  }
+
+  private toWorldPosition(tile: TilePosition, moved: MovementProgress): {
+    x: number;
+    y: number;
+  } {
+    const x = this.map.tileToWorldX(tile.x) + this.tileCenterOffset + moved.x;
+    const y = this.map.tileToWorldY(tile.y) + this.tileCenterOffset + moved.y;
+    return { x, y };
+  }
+
+  private syncEntityPosition(entity: PacmanSprite | GhostSprite): void {
+    const position = this.toWorldPosition(entity.tile, entity.moved);
+    entity.setPosition(position.x, position.y);
+  }
+
+  private setEntityTile(entity: PacmanSprite | GhostSprite, tile: TilePosition): void {
+    entity.tile = { ...tile };
+    entity.moved = { x: 0, y: 0 };
+    this.syncEntityPosition(entity);
+  }
+
+  private getObjectNumberProperty(
+    obj: Phaser.Types.Tilemaps.TiledObject | undefined,
+    name: string,
+  ): number | undefined {
+    if (!obj?.properties) {
+      return undefined;
+    }
+    const properties = obj.properties as Array<{ name: string; value: unknown }>;
+    const property = properties.find((prop) => prop.name === name);
+    return typeof property?.value === 'number' ? property.value : undefined;
+  }
+
+  private getObjectTilePosition(
+    obj: Phaser.Types.Tilemaps.TiledObject | undefined,
+    fallback: TilePosition,
+  ): TilePosition {
+    const gridX = this.getObjectNumberProperty(obj, 'gridX');
+    const gridY = this.getObjectNumberProperty(obj, 'gridY');
+    if (typeof gridX === 'number' && typeof gridY === 'number') {
+      return { x: gridX, y: gridY };
+    }
+    if (obj && typeof obj.x === 'number' && typeof obj.y === 'number') {
+      return {
+        x: this.map.worldToTileX(obj.x),
+        y: this.map.worldToTileY(obj.y),
+      };
+    }
+    return fallback;
   }
 
   private getTileProperties(tile?: OrientedTile | null): CollisionTile {
@@ -101,33 +179,36 @@ class Game extends Phaser.Scene {
       const base = normalize(orientedTile);
       orientedTile.propertiesOriented = orient(base, orientedTile);
     });
+
+    this.collisionGrid =
+      this.wallsLayer.layer?.data.map((row) =>
+        row.map((tile) => {
+          const orientedTile = (tile as OrientedTile | null) ?? null;
+          if (!orientedTile) {
+            return createEmptyCollisionTile();
+          }
+          return this.getTileProperties(orientedTile);
+        }),
+      ) ?? [];
+  }
+
+  private getCollisionTileAt(tileX: number, tileY: number): CollisionTile {
+    const row = this.collisionGrid[tileY];
+    if (!row) {
+      return createEmptyCollisionTile();
+    }
+    return row[tileX] ?? createEmptyCollisionTile();
   }
 
   private getCollisionTilesFor(entity: MovableEntity): CollisionTiles {
-    const tileSize = this.tileSize ?? DEFAULT_TILE_SIZE;
-    const offsets: Array<{ key: keyof CollisionTiles; dx: number; dy: number }> = [
-      { key: 'current', dx: 0, dy: 0 },
-      { key: 'up', dx: 0, dy: -tileSize },
-      { key: 'down', dx: 0, dy: tileSize },
-      { key: 'left', dx: -tileSize, dy: 0 },
-      { key: 'right', dx: tileSize, dy: 0 },
-    ];
-    const collisionTiles: CollisionTiles = {
-      current: createEmptyCollisionTile(),
-      up: createEmptyCollisionTile(),
-      down: createEmptyCollisionTile(),
-      left: createEmptyCollisionTile(),
-      right: createEmptyCollisionTile(),
+    const { x: tileX, y: tileY } = entity.tile;
+    return {
+      current: this.getCollisionTileAt(tileX, tileY),
+      up: this.getCollisionTileAt(tileX, tileY - 1),
+      down: this.getCollisionTileAt(tileX, tileY + 1),
+      left: this.getCollisionTileAt(tileX - 1, tileY),
+      right: this.getCollisionTileAt(tileX + 1, tileY),
     };
-
-    offsets.forEach(({ key, dx, dy }) => {
-      const tile = this.wallsLayer.getTileAtWorldXY(entity.x + dx, entity.y + dy, true, this.camera) as
-        | OrientedTile
-        | null;
-      collisionTiles[key] = this.getTileProperties(tile);
-    });
-
-    return collisionTiles;
   }
 
   private canMove(
@@ -140,24 +221,46 @@ class Game extends Phaser.Scene {
     return canMoveHelper(direction, movedY, movedX, collisionTiles, tileSize);
   }
 
-  private advanceEntity(entity: MovableEntity, direction: Direction, speed = 1): void {
-    if (direction === 'right') {
-      entity.x += speed;
-      entity.moved.x += speed;
-    } else if (direction === 'left') {
-      entity.x -= speed;
-      entity.moved.x -= speed;
-    } else if (direction === 'up') {
-      entity.y -= speed;
-      entity.moved.y -= speed;
-    } else if (direction === 'down') {
-      entity.y += speed;
-      entity.moved.y += speed;
+  private advanceEntity(entity: PacmanSprite | GhostSprite, direction: Direction, speed = 1): void {
+    const delta = DIRECTION_VECTORS[direction];
+    entity.moved.x += delta.dx * speed;
+    entity.moved.y += delta.dy * speed;
+
+    while (entity.moved.x >= this.tileSize) {
+      entity.tile.x += 1;
+      entity.moved.x -= this.tileSize;
     }
+    while (entity.moved.x <= -this.tileSize) {
+      entity.tile.x -= 1;
+      entity.moved.x += this.tileSize;
+    }
+    while (entity.moved.y >= this.tileSize) {
+      entity.tile.y += 1;
+      entity.moved.y -= this.tileSize;
+    }
+    while (entity.moved.y <= -this.tileSize) {
+      entity.tile.y -= 1;
+      entity.moved.y += this.tileSize;
+    }
+
+    this.syncEntityPosition(entity);
   }
 
   private getAvailableDirections(collisionTiles: CollisionTiles, currentDirection: Direction): Direction[] {
     return getAvailableDirectionsHelper(collisionTiles, currentDirection, this.tileSize);
+  }
+
+  private registerKeyboardShortcuts(): void {
+    if (this.scaredKeyListenerAttached) {
+      return;
+    }
+    this.scaredKeyListenerAttached = true;
+    this.input.keyboard.on('keydown-H', this.toggleGhostFear, this);
+    const shutdownEvent = 'shutdown';
+    this.events.once(shutdownEvent, () => {
+      this.input.keyboard.off('keydown-H', this.toggleGhostFear, this);
+      this.scaredKeyListenerAttached = false;
+    });
   }
 
   preload(): void {
@@ -188,33 +291,29 @@ class Game extends Phaser.Scene {
     this.wallsLayer = this.map.createLayer('Walls', this.tiles, 0, 0).setDepth(1);
     this.prepareCollisionLayer();
 
-    const getProperty = (obj: Phaser.Types.Tilemaps.TiledObject | undefined, name: string, fallback: number): number => {
-      if (!obj?.properties) return fallback;
-      const properties = obj.properties as Array<{ name: string; value: unknown }>;
-      const property = properties.find((prop) => prop.name === name);
-      return typeof property?.value === 'number' ? property.value : fallback;
-    };
-
     const spawnLayer = this.map.getObjectLayer('Spawns');
     const dotLayer = this.map.getObjectLayer('Dots');
     const spawnObjects = spawnLayer?.objects ?? [];
     const pacmanSpawn = spawnObjects.find((obj) => obj.type === 'pacman');
     const ghostHome = spawnObjects.find((obj) => obj.type === 'ghost-home');
-    const pacmanSpawnX = pacmanSpawn?.x ?? this.map.tileToWorldX(25) + SPRITE_WIDTH;
-    const pacmanSpawnY = pacmanSpawn?.y ?? this.map.tileToWorldY(26) + SPRITE_HEIGHT;
-    const ghostStartX = getProperty(ghostHome, 'startX', 0);
-    const ghostEndX = getProperty(ghostHome, 'endX', 0);
-    const ghostY = ghostHome && typeof ghostHome.y === 'number' ? Math.round(ghostHome.y / this.map.tileHeight) : 0;
-    const ghostCount = getProperty(ghostHome, 'ghostCount', 8);
+    const pacmanTile = this.getObjectTilePosition(pacmanSpawn, { x: 25, y: 26 });
+    const ghostStartX = this.getObjectNumberProperty(ghostHome, 'startX') ?? 0;
+    const ghostEndX = this.getObjectNumberProperty(ghostHome, 'endX') ?? 0;
+    const ghostY =
+      ghostHome && typeof ghostHome.y === 'number'
+        ? Math.round(ghostHome.y / this.map.tileHeight)
+        : 0;
+    const ghostCount = this.getObjectNumberProperty(ghostHome, 'ghostCount') ?? 8;
 
-    this.pacman = this.physics.add.sprite(pacmanSpawnX, pacmanSpawnY, 'pacman').setDepth(2) as PacmanSprite;
+    const pacmanSpawnPosition = this.toWorldPosition(pacmanTile, { x: 0, y: 0 });
+    this.pacman = this.physics.add.sprite(pacmanSpawnPosition.x, pacmanSpawnPosition.y, 'pacman').setDepth(2) as PacmanSprite;
     this.pacman.displayWidth = SPRITE_WIDTH;
     this.pacman.displayHeight = SPRITE_HEIGHT;
-    this.pacman.moved = { x: 0, y: 0 };
     this.pacman.direction = {
       next: 'right',
       current: 'right',
     };
+    this.setEntityTile(this.pacman, pacmanTile);
 
     this.anims.create({
       key: 'eat',
@@ -273,17 +372,16 @@ class Game extends Phaser.Scene {
       } else {
         ghostKey = 'blinky';
       }
-      const ghost = this.ghostGroup.create(
-        this.map.tileToWorldX(randomIntegerTemp) + SPRITE_WIDTH,
-        this.map.tileToWorldY(ghostY) + SPRITE_HEIGHT,
-        ghostKey,
-      ) as GhostSprite;
+      const spawnTile: TilePosition = { x: randomIntegerTemp, y: ghostY };
+      const spawnWorld = this.toWorldPosition(spawnTile, { x: 0, y: 0 });
+      const ghost = this.ghostGroup.create(spawnWorld.x, spawnWorld.y, ghostKey) as GhostSprite;
       ghost.displayWidth = SPRITE_WIDTH + 1;
       ghost.displayHeight = SPRITE_HEIGHT + 1;
       ghost.moved = {
         x: 0,
         y: 0,
       };
+      this.setEntityTile(ghost, spawnTile);
       ghost.key = ghostKey;
       ghost.state = {
         free: true,
@@ -296,18 +394,12 @@ class Game extends Phaser.Scene {
       ghost.play(`${ghostKey}Idle`);
       ghost.direction = Math.random() < 0.5 ? 'right' : 'left';
       this.ghosts.push(ghost);
-
-      window.addEventListener('keydown', (event: KeyboardEvent) => {
-        if (event.key.toLowerCase() === 'h') {
-          ghost.state.scared = !ghost.state.scared;
-        }
-      });
     }
 
     this.points = this.physics.add.group();
     const dotObjects = dotLayer?.objects ?? [];
     dotObjects.forEach((dot) => {
-      const pointType = getProperty(dot, 'pointType', 0);
+      const pointType = this.getObjectNumberProperty(dot, 'pointType') ?? 0;
       let point: Phaser.Physics.Arcade.Sprite | undefined;
       switch (pointType) {
         case 0:
@@ -366,14 +458,16 @@ class Game extends Phaser.Scene {
     this.cameras.main.startFollow(this.pacman, true, 0.09, 0.09);
 
     this.cursors = this.input.keyboard.createCursorKeys();
+    this.registerKeyboardShortcuts();
   }
 
   update(): void {
     this.ghosts.forEach((ghost) => {
-      if (moving && !ghost.state.soonFree) {
+      if (moving && !ghost.state.free && !ghost.state.soonFree) {
         ghost.state.soonFree = true;
         setTimeout(() => {
           ghost.state.free = true;
+          ghost.state.soonFree = false;
         }, 5000);
       }
 
@@ -417,14 +511,9 @@ class Game extends Phaser.Scene {
         if (!canMoveCurrent && ghost.moved.y === 0 && ghost.moved.x === 0) {
           ghost.direction = ghost.direction === 'right' ? 'left' : 'right';
         }
-        this.advanceEntity(ghost, ghost.direction, ghost.speed);
-      }
-
-      if (Math.abs(ghost.moved.y) === this.tileSize) {
-        ghost.moved.y = 0;
-      }
-      if (Math.abs(ghost.moved.x) === this.tileSize) {
-        ghost.moved.x = 0;
+        if (this.canMove(ghost.direction, ghost.moved.y, ghost.moved.x, collisionTiles)) {
+          this.advanceEntity(ghost, ghost.direction, ghost.speed);
+        }
       }
     });
 
@@ -439,13 +528,6 @@ class Game extends Phaser.Scene {
       this.pacman.angle = -90;
     } else if (this.pacman.direction.current === 'down' && this.pacman.angle !== 90) {
       this.pacman.angle = 90;
-    }
-
-    if (Math.abs(this.pacman.moved.y) === this.tileSize) {
-      this.pacman.moved.y = 0;
-    }
-    if (Math.abs(this.pacman.moved.x) === this.tileSize) {
-      this.pacman.moved.x = 0;
     }
 
     if (this.cursors.left?.isDown) {
