@@ -6,9 +6,12 @@ This is a pacman game i am currently working on for fun. I have developed it aga
 - `npm run dev` to launch the Vite dev server (serves from `public/assets` and `src/`).
 - `npm run build` to produce the deployable bundle in `dist/`.
 - `npm run preview` to serve the built bundle locally.
+- `npm run typecheck` to run the strict TypeScript compiler with `--noEmit`.
+- `npm run lint` to run ESLint against the TypeScript sources.
+- `npm run test` to execute the Vitest suite.
 
 ## Project layout
-- `src/main.js` contains the Phaser scene logic (imports Phaser from npm).
+- `src/main.ts` contains the Phaser scene logic (imports Phaser from npm).
 - `src/style.css` contains global styles.
 - `public/assets/` holds sprites, tilemaps, fonts, and other static assets copied to `dist/`.
 - `index.html` is the Vite entry HTML.

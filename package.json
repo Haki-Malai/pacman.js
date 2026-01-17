@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -17,9 +18,15 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@types/node": "^25.0.9",
+    "@typescript-eslint/eslint-plugin": "^8.53.0",
+    "@typescript-eslint/parser": "^8.53.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-vitest": "^0.5.4",
     "prettier": "^3.8.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.53.0",
     "vite": "^4.5.3",
     "vitest": "^4.0.17"
   }
