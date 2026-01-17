@@ -205,7 +205,7 @@ class Game extends Phaser.Scene {
             this.pacman.play('eat');
         }
     }
-    update(time, delta) {
+    update(_time, _delta) {
         const WEIRD_TILE_ROTATION = 4.71238898038469;
         // Moves the ghosts
         for (let i = 0; i < this.ghosts.length; i++) {
@@ -472,4 +472,4 @@ const config = {
     pixelArt: true,
     scene: [ Game ]
 };
-const GAME = new Phaser.Game(config);
+new Phaser.Game(config);
