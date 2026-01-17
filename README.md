@@ -17,7 +17,7 @@ This is a pacman game i am currently working on for fun. I have developed it aga
 - `index.html` is the Vite entry HTML.
 
 ## About the game
-The code is written with scalability in mind. For example, someone can make a new level with a .tmx and a .json files (the one that is already contained) that can be produced with the use of the software 'Tiled' and the '/assets/sprites/tileset.png', along with a json file in whitch there are (for now manually) written the points array and the starting axes of pacman.
+The code is written with scalability in mind. Levels are authored in Tiled using the included tileset and exported JSON map. Object layers supply Pacman and ghost spawns (including pen bounds) and place collectibles directly in the map data.
 
 ## To-Do List
 - [x] Draw Ghosts
