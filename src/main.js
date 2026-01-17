@@ -5,6 +5,147 @@ class Game extends Phaser.Scene {
     constructor() {
         super()
     }
+
+    getTileProperties(tile) {
+        const props = tile?.propertiesOriented ?? tile?.properties ?? {};
+        return {
+            collides: !!props.collides,
+            penGate: !!props.penGate,
+            portal: !!props.portal,
+            up: !!props.blocksUp,
+            down: !!props.blocksDown,
+            left: !!props.blocksLeft,
+            right: !!props.blocksRight
+        };
+    }
+
+    prepareCollisionLayer() {
+        const normalize = (tile) => {
+            const props = tile?.properties ?? {};
+            return {
+                collides: !!props.collides,
+                penGate: !!props.penGate,
+                portal: !!props.portal,
+                blocksUp: !!props.blocksUp,
+                blocksDown: !!props.blocksDown,
+                blocksLeft: !!props.blocksLeft,
+                blocksRight: !!props.blocksRight
+            };
+        };
+        const orient = (base, tile) => {
+            let edges = {
+                blocksUp: base.blocksUp,
+                blocksRight: base.blocksRight,
+                blocksDown: base.blocksDown,
+                blocksLeft: base.blocksLeft
+            };
+            const rotationSteps = ((Math.round((tile?.rotation ?? 0) / (Math.PI / 2)) % 4) + 4) % 4;
+            for (let i = 0; i < rotationSteps; i++) {
+                edges = {
+                    blocksUp: edges.blocksLeft,
+                    blocksRight: edges.blocksUp,
+                    blocksDown: edges.blocksRight,
+                    blocksLeft: edges.blocksDown
+                };
+            }
+            if (tile?.flipX) {
+                const left = edges.blocksLeft;
+                edges.blocksLeft = edges.blocksRight;
+                edges.blocksRight = left;
+            }
+            if (tile?.flipY) {
+                const up = edges.blocksUp;
+                edges.blocksUp = edges.blocksDown;
+                edges.blocksDown = up;
+            }
+            return {
+                collides: base.collides,
+                penGate: base.penGate,
+                portal: base.portal,
+                ...edges
+            };
+        };
+        this.wallsLayer.forEachTile((tile) => {
+            const base = normalize(tile);
+            tile.propertiesOriented = orient(base, tile);
+        });
+    }
+
+    getCollisionTilesFor(entity) {
+        const tileSize = this.tileSize ?? 16;
+        const offsets = [
+            { key: 'current', dx: 0, dy: 0 },
+            { key: 'up', dx: 0, dy: -tileSize },
+            { key: 'down', dx: 0, dy: tileSize },
+            { key: 'left', dx: -tileSize, dy: 0 },
+            { key: 'right', dx: tileSize, dy: 0 }
+        ];
+        const collisionTiles = {};
+        offsets.forEach(({ key, dx, dy }) => {
+            const tile = this.wallsLayer.getTileAtWorldXY(entity.x + dx, entity.y + dy, true, this.camera);
+            collisionTiles[key] = this.getTileProperties(tile);
+        });
+        return collisionTiles;
+    }
+
+    canMove(direction, movedY, movedX, collisionTiles) {
+        const tileSize = this.tileSize ?? 16;
+        if (direction === 'up') {
+            if (collisionTiles.current.up) {
+                return movedY < 0 && movedY >= -tileSize;
+            }
+            return true;
+        } else if (direction === 'down') {
+            if (collisionTiles.down.up) {
+                return movedY > 0 && movedY <= tileSize;
+            }
+            return true;
+        } else if (direction === 'right') {
+            if (collisionTiles.right.left) {
+                return movedX > 0 && movedX <= tileSize;
+            }
+            return true;
+        } else if (direction === 'left') {
+            if (collisionTiles.current.left) {
+                return movedX < 0 && movedX >= -tileSize;
+            }
+            return true;
+        }
+        return true;
+    }
+
+    advanceEntity(entity, direction, speed = 1) {
+        if (direction === 'right') {
+            entity.x += speed;
+            entity.moved.x += speed;
+        } else if (direction === 'left') {
+            entity.x -= speed;
+            entity.moved.x -= speed;
+        } else if (direction === 'up') {
+            entity.y -= speed;
+            entity.moved.y -= speed;
+        } else if (direction === 'down') {
+            entity.y += speed;
+            entity.moved.y += speed;
+        }
+    }
+
+    getAvailableDirections(collisionTiles, currentDirection) {
+        const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
+        const directions = ['up', 'down', 'left', 'right'].filter((direction) => {
+            if (direction === opposites[currentDirection]) {
+                return false;
+            }
+            return this.canMove(direction, 0, 0, collisionTiles);
+        });
+        if (!directions.length && currentDirection && opposites[currentDirection]) {
+            const fallback = opposites[currentDirection];
+            if (this.canMove(fallback, 0, 0, collisionTiles)) {
+                directions.push(fallback);
+            }
+        }
+        return directions;
+    }
     
     preload() {
         this.load.image('tiles', 'assets/sprites/Tileset.png');
@@ -28,8 +169,10 @@ class Game extends Phaser.Scene {
         const SPRITE_HEIGHT = 10;
         this.map = this.make.tilemap({ key: 'maze' });
         this.tiles = this.map.addTilesetImage('tileset', 'tiles', this.tileWidth=16, this.tileHeight=16);
+        this.tileSize = this.map.tileWidth;
         this.floorLayer = this.map.createLayer('Floor', this.tiles, 0, 0).setDepth(0);
         this.wallsLayer = this.map.createLayer('Walls', this.tiles, 0, 0).setDepth(1);
+        this.prepareCollisionLayer();
         const getProperty = (obj, name, fallback) => {
             if (!obj || !obj.properties) return fallback;
             const property = obj.properties.find((prop) => prop.name === name);
@@ -211,119 +354,59 @@ class Game extends Phaser.Scene {
         }
     }
     update(_time, _delta) {
-        const WEIRD_TILE_ROTATION = 4.71238898038469;
         // Moves the ghosts
         for (let i = 0; i < this.ghosts.length; i++) {
-            if (moving && !this.ghosts[i].state.soonFree) {
-                this.ghosts[i].state.soonFree = true;
-                setTimeout(() => {this.ghosts[i].state.free = true}, 5000);
+            const ghost = this.ghosts[i];
+            if (moving && !ghost.state.soonFree) {
+                ghost.state.soonFree = true;
+                setTimeout(() => {ghost.state.free = true}, 5000);
             }
             // Check if the animation is set, otherwise it will reset it before it loops
-            if (this.ghosts[i].state.scared && this.ghosts[i].state.animation != 'scared') {
-                this.ghosts[i].play('scaredIdle');
-                this.ghosts[i].state.animation = 'scared';
-                this.ghosts[i].speed = 0.5;
-            } else if (this.ghosts[i].state.animation === 'scared' && !this.ghosts[i].state.scared) {
-                this.ghosts[i].play(this.ghosts[i].key + 'Idle');
-                this.ghosts[i].state.animation = 'default';
-                this.ghosts[i].speed = 1;
+            if (ghost.state.scared && ghost.state.animation != 'scared') {
+                ghost.play('scaredIdle');
+                ghost.state.animation = 'scared';
+                ghost.speed = 0.5;
+            } else if (ghost.state.animation === 'scared' && !ghost.state.scared) {
+                ghost.play(ghost.key + 'Idle');
+                ghost.state.animation = 'default';
+                ghost.speed = 1;
             }
-            var collisionTiles = {
-                current : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y, true, this.camera).index,
-                currentRotation : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y, true, this.camera).rotation,
-                right : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x + 16, this.ghosts[i].y, true, this.camera).index,
-                rightRotation : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x + 16, this.ghosts[i].y, true, this.camera).rotation,
-                down : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y + 16, true, this.camera).index,
-                downRotation : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y + 16, true, this.camera).rotation
-            };
-            // Check if the ghost is in jail...
-            if (this.ghosts[i].state.free) {
-                // Just like below, checks if it should ad to the sprites x or y
-                if (canMove(this.ghosts[i].direction, this.ghosts[i].moved.y, this.ghosts[i].moved.x, collisionTiles)) {
-                    // Also change to turn change direction when possible and not only when it's necessery
-                    if (this.ghosts[i].moved.y === 0 && this.ghosts[i].moved.x === 0) {
-                        if (collisionTiles.current === 2 && (collisionTiles.currentRotation === 0 || collisionTiles.currentRotation === WEIRD_TILE_ROTATION)) {
-                            if (Math.floor(Math.random()*2) === 1 && i % 2 === 0) {
-                                this.ghosts[i].direction = 'up';
-                            }
-                        }
-                        if ((collisionTiles.down === 18 && collisionTiles.downRotation === WEIRD_TILE_ROTATION) || (collisionTiles.down === 2 && collisionTiles.downRotation === 0)) {
-                            if (Math.floor(Math.random()*2) === 1 && i % 2 === 1) {
-                                this.ghosts[i].direction = 'down';
-                            }
-                        }
-                        if ((collisionTiles.current === 19 && collisionTiles.currentRotation === 0)) {
-                            if (Math.floor(Math.random()*2) === 1 && i % 2 === 0) {
-                                this.ghosts[i].direction = 'left';
-                            }
-                        }
-                        if ((collisionTiles.right === 18 && collisionTiles.rightRotation === 0)) {
-                            if (Math.floor(Math.random()*2) === 1 && i % 2 === 1) {
-                                this.ghosts[i].direction = 'right';
-                            }
+            const collisionTiles = this.getCollisionTilesFor(ghost);
+            const canMoveCurrent = this.canMove(ghost.direction, ghost.moved.y, ghost.moved.x, collisionTiles);
+            if (ghost.state.free) {
+                if (canMoveCurrent) {
+                    if (ghost.moved.y === 0 && ghost.moved.x === 0) {
+                        const options = this.getAvailableDirections(collisionTiles, ghost.direction);
+                        if (options.length) {
+                            ghost.direction = options[Math.floor(Math.random() * options.length)];
                         }
                     }
-                    if (this.ghosts[i].direction === 'right') {
-                        this.ghosts[i].x += this.ghosts[i].speed;
-                        this.ghosts[i].moved.x += this.ghosts[i].speed;
-                    }
-                    else if (this.ghosts[i].direction === 'left') {
-                        this.ghosts[i].x -= this.ghosts[i].speed;
-                        this.ghosts[i].moved.x -= this.ghosts[i].speed;
-                    }
-                    else if (this.ghosts[i].direction === 'up') {
-                        this.ghosts[i].y -= this.ghosts[i].speed;
-                        this.ghosts[i].moved.y -= this.ghosts[i].speed;
-                    }
-                    else if (this.ghosts[i].direction === 'down') {
-                        this.ghosts[i].y += this.ghosts[i].speed;
-                        this.ghosts[i].moved.y += this.ghosts[i].speed;
-                    }
-                } else if (this.ghosts[i].moved.y === 0, this.ghosts[i].moved.x === 0) {
-                    // When not able to move in that direction, choose a random one but not one that is the opposite direction because it can look akward
-                    if (this.ghosts[i].direction == 'right' || this.ghosts[i].direction == 'left') {
-                        const DIRECTIONS = ['up', 'down'];
-                        do{
-                            var tempRandomInteger = Math.floor(Math.random() * 2);
-                            this.ghosts[i].direction = DIRECTIONS[tempRandomInteger];
-                        } while (!canMove(this.ghosts[i].direction, this.ghosts[i].moved.y, this.ghosts[i].moved.x, collisionTiles));
-                    } else if (this.ghosts[i].direction == 'up' || this.ghosts[i].direction == 'down') {
-                        const DIRECTIONS = ['right', 'left'];
-                        do{
-                            var tempRandomInteger = Math.floor(Math.random() * 2);
-                            this.ghosts[i].direction = DIRECTIONS[tempRandomInteger];
-                        } while (!canMove(this.ghosts[i].direction, this.ghosts[i].moved.y, this.ghosts[i].moved.x, collisionTiles));
+                    this.advanceEntity(ghost, ghost.direction, ghost.speed);
+                } else if (ghost.moved.y === 0 && ghost.moved.x === 0) {
+                    const perpendicular = ghost.direction === 'right' || ghost.direction === 'left' ? ['up', 'down'] : ['right', 'left'];
+                    const options = perpendicular.filter((direction) => this.canMove(direction, ghost.moved.y, ghost.moved.x, collisionTiles));
+                    if (options.length) {
+                        ghost.direction = options[Math.floor(Math.random() * options.length)];
+                    } else {
+                        const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
+                        const fallback = opposites[ghost.direction];
+                        if (fallback && this.canMove(fallback, ghost.moved.y, ghost.moved.x, collisionTiles)) {
+                            ghost.direction = fallback;
+                        }
                     }
                 }           
             } else {  // Jail movement
-                if (this.ghosts[i].moved.y === 0 && this.ghosts[i].moved.x === 0) {
-                    if (collisionTiles.current === 15 && collisionTiles.currentRotation === 0 && this.ghosts[i].direction === 'left') {
-                        this.ghosts[i].direction = 'right';
-                    }
-                    if (collisionTiles.right === 10 && collisionTiles.rightRotation === WEIRD_TILE_ROTATION && this.ghosts[i].direction === 'right') {
-                        this.ghosts[i].direction = 'left';
-                    }
+                if (!canMoveCurrent && ghost.moved.y === 0 && ghost.moved.x === 0) {
+                    ghost.direction = ghost.direction === 'right' ? 'left' : 'right';
                 }
-                if (this.ghosts[i].direction === 'right') {
-                    this.ghosts[i].x += this.ghosts[i].speed;
-                    this.ghosts[i].moved.x += this.ghosts[i].speed;
-                } else if (this.ghosts[i].direction === 'left') {
-                    this.ghosts[i].x -= this.ghosts[i].speed;
-                    this.ghosts[i].moved.x -= this.ghosts[i].speed;
-                } else if (this.pacman.direction.current === 'up') {
-                this.pacman.y -= this.ghosts[i].speed;
-                this.pacman.moved.y -= this.ghosts[i].speed;
-                } else if (this.pacman.direction.current === 'down') {
-                    this.pacman.y += this.ghosts[i].speed;
-                    this.pacman.moved.y += this.ghosts[i].speed;
-                }
+                this.advanceEntity(ghost, ghost.direction, ghost.speed);
             }
             // Reset values of moved
-            if (Math.abs(this.ghosts[i].moved.y) === 16) {
-                this.ghosts[i].moved.y = 0;
+            if (Math.abs(ghost.moved.y) === this.tileSize) {
+                ghost.moved.y = 0;
             }
-            if (Math.abs(this.ghosts[i].moved.x) === 16) {
-                this.ghosts[i].moved.x = 0;
+            if (Math.abs(ghost.moved.x) === this.tileSize) {
+                ghost.moved.x = 0;
             }
         }
 
@@ -341,11 +424,11 @@ class Game extends Phaser.Scene {
             this.pacman.angle = 90;
         }
 
-        // After 16 moved it means that we traveled a full box
-        if (Math.abs(this.pacman.moved.y) === 16) {
+        // After tileSize moved it means that we traveled a full box
+        if (Math.abs(this.pacman.moved.y) === this.tileSize) {
             this.pacman.moved.y = 0;
         }
-        if (Math.abs(this.pacman.moved.x) === 16) {
+        if (Math.abs(this.pacman.moved.x) === this.tileSize) {
             this.pacman.moved.x = 0;
         }
         
@@ -361,100 +444,34 @@ class Game extends Phaser.Scene {
         }
         
         // Those are needed for checking collision
-        var collisionTiles = {
-            current : this.wallsLayer.getTileAtWorldXY(this.pacman.x, this.pacman.y, true, this.camera).index,
-            currentRotation : this.wallsLayer.getTileAtWorldXY(this.pacman.x, this.pacman.y, true, this.camera).rotation,
-            right : this.wallsLayer.getTileAtWorldXY(this.pacman.x + 16, this.pacman.y, true, this.camera).index,
-            rightRotation : this.wallsLayer.getTileAtWorldXY(this.pacman.x + 16, this.pacman.y, true, this.camera).rotation,
-            down : this.wallsLayer.getTileAtWorldXY(this.pacman.x, this.pacman.y + 16, true, this.camera).index,
-            downRotation : this.wallsLayer.getTileAtWorldXY(this.pacman.x, this.pacman.y + 16, true, this.camera).rotation
-        };
+        const collisionTiles = this.getCollisionTilesFor(this.pacman);
         
         // Here we check if we can set the current direction same to the next
         if (this.pacman.direction.current != this.pacman.direction.next) {
             if ((this.pacman.direction.next === 'left' || this.pacman.direction.next === 'right') && this.pacman.moved.x === 0 && this.pacman.moved.y === 0) {
-                if (canMove(this.pacman.direction.next, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
+                if (this.canMove(this.pacman.direction.next, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
                     this.pacman.direction.current = this.pacman.direction.next;
                     this.pacman.moved.x = 0;
                 }
             }
             else if (((this.pacman.direction.next === 'up') || (this.pacman.direction.next === 'down')) && (this.pacman.moved.y === 0) && (this.pacman.moved.x === 0)) {
-                if (canMove(this.pacman.direction.next, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
+                if (this.canMove(this.pacman.direction.next, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
                     this.pacman.direction.current = this.pacman.direction.next;
                     this.pacman.moved.y = 0;
                 }
             }
         }
         
-        if (canMove(this.pacman.direction.current, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
+        if (this.canMove(this.pacman.direction.current, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
             if (moving === false) {
                 return false;
             }
-            if (this.pacman.direction.current === 'right') {
-                this.pacman.x += 1;
-                this.pacman.moved.x += 1;
-            }
-            else if (this.pacman.direction.current === 'left') {
-                this.pacman.x -= 1;
-                this.pacman.moved.x -= 1;
-            }
-            else if (this.pacman.direction.current === 'up') {
-                this.pacman.y -= 1;
-                this.pacman.moved.y -= 1;
-            }
-            else if (this.pacman.direction.current === 'down') {
-                this.pacman.y += 1;
-                this.pacman.moved.y += 1;
-            }
-        }
-        
-        function canMove(direction, movedY, movedX, collisionTiles) {
-            if (direction === 'up') {
-                if (((collisionTiles.current === 1 || collisionTiles.current === 3 || collisionTiles.current === 4 || collisionTiles.current === 9 || collisionTiles.current === 18 || collisionTiles.current === 23) && collisionTiles.currentRotation === 0) || ((collisionTiles.current === 9 || collisionTiles.current === 10) && collisionTiles.currentRotation > 4)) {
-                    if ((movedY >= -16) && (movedY < 0)) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                } else {
-                    return true;
-                }
-            } else if (direction === 'down') {
-                if (((collisionTiles.down === 3 || collisionTiles.down === 4 || collisionTiles.down === 15 || collisionTiles.down === 16 || collisionTiles.down === 18 || collisionTiles.down === 1 || collisionTiles.down === 24 || collisionTiles.down === 25 || collisionTiles.down === 26 || collisionTiles.down === 27 || collisionTiles.down === 28) && collisionTiles.downRotation === 0) || ((collisionTiles.down === 9 || collisionTiles.down === 10) && collisionTiles.downRotation > 4)) {
-                    if ((movedY <= 16) && (movedY > 0)) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                } else {
-                    return true;
-                }
-            } else if (direction === 'right') {
-                if (((collisionTiles.right === 1 || collisionTiles.right === 15 || collisionTiles.right === 24) && collisionTiles.rightRotation === 0) || ((collisionTiles.right === 3 || collisionTiles.right === 4 || collisionTiles.right === 10 || collisionTiles.right === 18 || collisionTiles.right === 23) && collisionTiles.rightRotation > 4)) {
-                    if ((movedX <= 16) && (movedX > 0)) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                } else {
-                    return true;
-                }
-            } else if (direction === 'left') {
-                if (((collisionTiles.current === 1 || collisionTiles.current === 16 || collisionTiles.current === 28) && collisionTiles.currentRotation === 0) || ((collisionTiles.current === 3 || collisionTiles.current == 4 || collisionTiles.current == 10 || collisionTiles.current == 18) && collisionTiles.currentRotation > 4)) {
-                    if ((movedX >= -16) && (movedX < 0)) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                } else {
-                    return true;
-                }
-            }
+            this.advanceEntity(this.pacman, this.pacman.direction.current, 1);
         }
     }
 }
 
-var moving = false;
+var moving = true;
 
 window.addEventListener("click", () => moving = !moving);
 

@@ -3900,7 +3900,7 @@
                 1610612739,
                 1610612739,
                 8,
-                8,
+                20,
                 0,
                 1610612739,
                 536870914,
@@ -3950,7 +3950,7 @@
                 536870914,
                 536870914,
                 1610612739,
-                8,
+                20,
                 8,
                 2147483650,
                 19,
@@ -69200,7 +69200,414 @@
             "spacing": 0,
             "tilecount": 28,
             "tileheight": 16,
-            "tilewidth": 16
+            "tilewidth": 16,
+            "tiles": [
+                {
+                    "id": 0,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksUp",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksDown",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksLeft",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksRight",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 1,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 2,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksUp",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksDown",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 3,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksUp",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksDown",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 4,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 5,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 6,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 7,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 8,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksUp",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 9,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 10,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 11,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 12,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 13,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 14,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksDown",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksRight",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 15,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksDown",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksLeft",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "penGate",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 16,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 17,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksUp",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksDown",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 18,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 19,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        },
+                        {
+                            "name": "portal",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 20,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 21,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": false
+                        }
+                    ]
+                },
+                {
+                    "id": 22,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksUp",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 23,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksDown",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksRight",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 24,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksDown",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 25,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksDown",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 26,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksDown",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                },
+                {
+                    "id": 27,
+                    "properties": [
+                        {
+                            "name": "collides",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksDown",
+                            "type": "bool",
+                            "value": true
+                        },
+                        {
+                            "name": "blocksLeft",
+                            "type": "bool",
+                            "value": true
+                        }
+                    ]
+                }
+            ]
         }
     ],
     "tilewidth": 16,
