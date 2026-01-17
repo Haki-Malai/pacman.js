@@ -16,6 +16,7 @@ import {
   MovementProgress,
   TilePosition,
 } from '../types';
+import { addScore, resetGameState } from '../state/gameState';
 
 type Collectible = {
   tile: TilePosition;
@@ -63,8 +64,6 @@ export default class GameScene extends Phaser.Scene {
   private tileSize: number = DEFAULT_TILE_SIZE;
   private collisionGrid: CollisionTile[][] = [];
   private scaredKeyListenerAttached = false;
-  private score = 0;
-  private lives = 3;
   private isMoving = true;
 
   private toggleGhostFear = (): void => {
@@ -84,22 +83,6 @@ export default class GameScene extends Phaser.Scene {
   private getScoreIncrement(pointType: number): number {
     const config = this.getCollectibleConfig(pointType);
     return config?.score ?? 0;
-  }
-
-  getScore(): number {
-    return this.score;
-  }
-
-  getLives(): number {
-    return this.lives;
-  }
-
-  private emitScore(): void {
-    this.game.events.emit('score-changed', this.score);
-  }
-
-  private emitLives(): void {
-    this.game.events.emit('lives-changed', this.lives);
   }
 
   private getTileProperties(tile?: OrientedTile | null): CollisionTile {
@@ -338,19 +321,17 @@ export default class GameScene extends Phaser.Scene {
     if (!collectible) {
       return;
     }
-    this.score += this.getScoreIncrement(collectible.pointType);
-    this.emitScore();
+    addScore(this.getScoreIncrement(collectible.pointType));
   }
 
   create(): void {
     const SPRITE_WIDTH = 10;
     const SPRITE_HEIGHT = 10;
 
-    this.score = 0;
-    this.lives = 3;
     this.collectibles.clear();
     this.ghosts = [];
     this.scaredKeyListenerAttached = false;
+    resetGameState();
 
     this.map = this.make.tilemap({ key: 'maze' });
     this.tileSize = this.map.tileWidth || DEFAULT_TILE_SIZE;
@@ -502,9 +483,6 @@ export default class GameScene extends Phaser.Scene {
     this.events.once(shutdownEvent, () => {
       this.input.off('pointerdown', toggleMovement);
     });
-
-    this.emitScore();
-    this.emitLives();
   }
 
   update(): void {

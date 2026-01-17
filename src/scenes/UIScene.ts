@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type GameScene from './GameScene';
+import { GameEvent, gameEvents, getGameState } from '../state/gameState';
 
 export default class UIScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
@@ -10,32 +10,28 @@ export default class UIScene extends Phaser.Scene {
   }
 
   create(): void {
-    const gameScene = this.scene.get('Game') as GameScene;
+    const { score, lives } = getGameState();
 
     this.scoreText = this.add
-      .text(8, 8, `Score: ${gameScene.getScore()}`, {
+      .text(8, 8, `Score: ${score}`, {
         color: '#ffffff',
         fontSize: '14px',
       })
       .setScrollFactor(0);
     this.livesText = this.add
-      .text(8, 26, `Lives: ${gameScene.getLives()}`, {
+      .text(8, 26, `Lives: ${lives}`, {
         color: '#ffffff',
         fontSize: '14px',
       })
       .setScrollFactor(0);
 
-    const scoreChangedEvent: string = 'score-changed';
-    const livesChangedEvent: string = 'lives-changed';
-
-    const events: Phaser.Events.EventEmitter = this.game.events;
-    events.on(scoreChangedEvent, this.handleScoreChanged, this);
-    events.on(livesChangedEvent, this.handleLivesChanged, this);
+    gameEvents.on(GameEvent.ScoreChanged, this.handleScoreChanged, this);
+    gameEvents.on(GameEvent.LivesChanged, this.handleLivesChanged, this);
 
     const shutdownEvent = 'shutdown';
     this.events.once(shutdownEvent, () => {
-      events.off(scoreChangedEvent, this.handleScoreChanged, this);
-      events.off(livesChangedEvent, this.handleLivesChanged, this);
+      gameEvents.off(GameEvent.ScoreChanged, this.handleScoreChanged, this);
+      gameEvents.off(GameEvent.LivesChanged, this.handleLivesChanged, this);
     });
   }
 
