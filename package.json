@@ -1,0 +1,17 @@
+{
+  "name": "pacman",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "phaser": "3.55.2"
+  },
+  "devDependencies": {
+    "vite": "^4.5.3"
+  }
+}
