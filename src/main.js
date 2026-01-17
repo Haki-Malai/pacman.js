@@ -21,7 +21,6 @@ class Game extends Phaser.Scene {
         this.load.spritesheet('inky', 'assets/sprites/Inky.png', { frameWidth: 85, frameHeight: 91});
         this.load.spritesheet('scared', 'assets/sprites/Scared.png', { frameWidth: 85, frameHeight: 91});
         this.load.tilemapTiledJSON('maze', 'assets/mazes/default/pacman.json');
-        this.load.json('levelData', 'assets/mazes/default/data.json');
     }
 
     create() {
@@ -29,11 +28,27 @@ class Game extends Phaser.Scene {
         const SPRITE_HEIGHT = 10;
         this.map = this.make.tilemap({ key: 'maze' });
         this.tiles = this.map.addTilesetImage('tileset', 'tiles', this.tileWidth=16, this.tileHeight=16);
-        this.layer = this.map.createLayer(0, this.tiles, 0, 0).setDepth(1);
-        this.levelData = this.cache.json.get('levelData');
+        this.floorLayer = this.map.createLayer('Floor', this.tiles, 0, 0).setDepth(0);
+        this.wallsLayer = this.map.createLayer('Walls', this.tiles, 0, 0).setDepth(1);
+        const getProperty = (obj, name, fallback) => {
+            if (!obj || !obj.properties) return fallback;
+            const property = obj.properties.find((prop) => prop.name === name);
+            return property ? property.value : fallback;
+        };
+        const spawnLayer = this.map.getObjectLayer('Spawns');
+        const dotLayer = this.map.getObjectLayer('Dots');
+        const spawnObjects = spawnLayer?.objects ?? [];
+        const pacmanSpawn = spawnObjects.find((obj) => obj.type === 'pacman');
+        const ghostHome = spawnObjects.find((obj) => obj.type === 'ghost-home');
+        const pacmanSpawnX = pacmanSpawn?.x ?? this.map.tileToWorldX(25) + SPRITE_WIDTH;
+        const pacmanSpawnY = pacmanSpawn?.y ?? this.map.tileToWorldY(26) + SPRITE_HEIGHT;
+        const ghostStartX = getProperty(ghostHome, 'startX', 0);
+        const ghostEndX = getProperty(ghostHome, 'endX', 0);
+        const ghostY = ghostHome ? Math.round(ghostHome.y / this.map.tileHeight) : 0;
+        const ghostCount = getProperty(ghostHome, 'ghostCount', 8);
         
         // Pacman sprite
-        this.pacman = this.physics.add.sprite(this.map.tileToWorldX(this.levelData.startsXAt)+SPRITE_WIDTH, this.map.tileToWorldY(this.levelData.startsYAt)+SPRITE_HEIGHT, 'pacman').setDepth(2);
+        this.pacman = this.physics.add.sprite(pacmanSpawnX, pacmanSpawnY, 'pacman').setDepth(2);
         this.pacman.displayWidth = SPRITE_WIDTH;
         this.pacman.displayHeight = SPRITE_HEIGHT;
         this.pacman.moved = {
@@ -90,7 +105,7 @@ class Game extends Phaser.Scene {
 
         // Ghost sprites
         this.ghostGroup = this.physics.add.group();
-        this.ghosts = new Array(this.levelData.amountOfGhosts)
+        this.ghosts = new Array(ghostCount)
         const divideBy4 = this.ghosts.length/4; // So there are almost the same amount of ghosts from a certain type
         for (let i = 0; i < this.ghosts.length; i++) {
         window.addEventListener('keydown', (e) => { //for testing
@@ -98,7 +113,7 @@ class Game extends Phaser.Scene {
             if (e.keyCode == 72) this.ghosts[i].state.scared = !this.ghosts[i].state.scared;
         });
             // Find random box in prison
-            var randomIntegerTemp = Math.floor(Math.random() * (this.levelData.prisonEndX - this.levelData.prisonStartX)) + this.levelData.prisonStartX;
+            var randomIntegerTemp = Math.floor(Math.random() * (ghostEndX - ghostStartX)) + ghostStartX;
             // Divide No# of ghosts by 4 so there are 4 of the same with a chance to be 1 less blinky than the others, for example if 7 ghosts 2*inky...1*blinky
             var tempKey
             if (i < divideBy4) {
@@ -111,7 +126,7 @@ class Game extends Phaser.Scene {
                 tempKey = 'blinky';
             }
             // Use temp for temporary holder for the sprite
-            var temp = this.ghostGroup.create(this.map.tileToWorldX(randomIntegerTemp)+SPRITE_WIDTH, this.map.tileToWorldY(this.levelData.prisonY)+SPRITE_HEIGHT, tempKey);
+            var temp = this.ghostGroup.create(this.map.tileToWorldX(randomIntegerTemp)+SPRITE_WIDTH, this.map.tileToWorldY(ghostY)+SPRITE_HEIGHT, tempKey);
             temp.displayWidth = SPRITE_WIDTH + 1;
             temp.displayHeight = SPRITE_HEIGHT + 1;
             temp.moved = {
@@ -137,50 +152,50 @@ class Game extends Phaser.Scene {
         }
 
         this.points = this.physics.add.group();
-
-        for (let i = 2; i < this.levelData.pointTypesGrid.length+1; i++) {
-            for (let j = 2; j < this.levelData.pointTypesGrid[0].length+1; j++) {
-                if (shouldAddPoint(this.layer.getTileAt(j, i), j, i, this.levelData)) {
-                    switch (this.levelData.pointTypesGrid[i-2][j-2]) {
-                        case 0:
-                            var temp = this.points.create(this.map.tileToWorldX(j)+10, this.map.tileToWorldY(i)+10, 'point');
-                            temp.displayHeight = 2.5;
-                            temp.displayWidth = 2.5;
-                            break;
-                        case 1:
-                            var temp = this.points.create(this.map.tileToWorldX(j)+10, this.map.tileToWorldY(i)+10, 'point');
-                            temp.displayHeight = 4;
-                            temp.displayWidth = 4;
-                            break;
-                        case 2:
-                            var temp = this.points.create(this.map.tileToWorldX(j)+10, this.map.tileToWorldY(i)+10, 'cherry');
-                            temp.displayHeight = 4;
-                            temp.displayWidth = 4;
-                            break;
-                        case 3:
-                            var temp = this.points.create(this.map.tileToWorldX(j)+10, this.map.tileToWorldY(i)+10, 'strawberry');
-                            temp.displayHeight = 4;
-                            temp.displayWidth = 4;
-                            break;
-                        case 4:
-                            var temp = this.points.create(this.map.tileToWorldX(j)+10, this.map.tileToWorldY(i)+10, 'banana');
-                            temp.displayHeight = 4;
-                            temp.displayWidth = 4;
-                            break;
-                        case 5:
-                            var temp = this.points.create(this.map.tileToWorldX(j)+10, this.map.tileToWorldY(i)+10, 'pear');
-                            temp.displayHeight = 4;
-                            temp.displayWidth = 4;
-                            break;
-                        case 6:
-                            var temp = this.points.create(this.map.tileToWorldX(j)+10, this.map.tileToWorldY(i)+10, 'heart');
-                            temp.displayHeight = 4;
-                            temp.displayWidth = 4;
-                            break;
-                    }
-                }
+        const dotObjects = dotLayer?.objects ?? [];
+        dotObjects.forEach((dot) => {
+            const pointType = getProperty(dot, 'pointType', 0);
+            let temp;
+            switch (pointType) {
+                case 0:
+                    temp = this.points.create(dot.x, dot.y, 'point');
+                    temp.displayHeight = 2.5;
+                    temp.displayWidth = 2.5;
+                    break;
+                case 1:
+                    temp = this.points.create(dot.x, dot.y, 'point');
+                    temp.displayHeight = 4;
+                    temp.displayWidth = 4;
+                    break;
+                case 2:
+                    temp = this.points.create(dot.x, dot.y, 'cherry');
+                    temp.displayHeight = 4;
+                    temp.displayWidth = 4;
+                    break;
+                case 3:
+                    temp = this.points.create(dot.x, dot.y, 'strawberry');
+                    temp.displayHeight = 4;
+                    temp.displayWidth = 4;
+                    break;
+                case 4:
+                    temp = this.points.create(dot.x, dot.y, 'banana');
+                    temp.displayHeight = 4;
+                    temp.displayWidth = 4;
+                    break;
+                case 5:
+                    temp = this.points.create(dot.x, dot.y, 'pear');
+                    temp.displayHeight = 4;
+                    temp.displayWidth = 4;
+                    break;
+                case 6:
+                    temp = this.points.create(dot.x, dot.y, 'heart');
+                    temp.displayHeight = 4;
+                    temp.displayWidth = 4;
+                    break;
+                default:
+                    break;
             }
-        }
+        });
 
         this.physics.add.overlap(this.pacman, this.points, eatPoint, null, this);
 
@@ -189,16 +204,6 @@ class Game extends Phaser.Scene {
         this.cameras.main.startFollow(this.pacman, true, 0.09, 0.09);
         
         this.cursors = this.input.keyboard.createCursorKeys();
-
-
-        function shouldAddPoint(tile, x, y, levelData) {
-            if ((tile.index != 15 || tile.rotation !=0) && (tile.index != 16 || tile.rotation !=0) && (tile.index != 24 || tile.rotation !=0) && (tile.index != 25 || tile.rotation !=0) && (tile.index != 26 || tile.rotation !=0) && (tile.index != 27 || tile.rotation !=0) && (tile.index != 28 || tile.rotation !=0)){
-                if (x != levelData.startsXAt || y != levelData.startsYAt) 
-                    return true;
-            } else {
-                return false;
-            }
-        }
 
         function eatPoint(pacman, point) { // Causion! Don't remove 'pacman' even if it's unused!
             point.disableBody(true, true);
@@ -224,12 +229,12 @@ class Game extends Phaser.Scene {
                 this.ghosts[i].speed = 1;
             }
             var collisionTiles = {
-                current : this.layer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y, true, this.camera).index,
-                currentRotation : this.layer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y, true, this.camera).rotation,
-                right : this.layer.getTileAtWorldXY(this.ghosts[i].x + 16, this.ghosts[i].y, true, this.camera).index,
-                rightRotation : this.layer.getTileAtWorldXY(this.ghosts[i].x + 16, this.ghosts[i].y, true, this.camera).rotation,
-                down : this.layer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y + 16, true, this.camera).index,
-                downRotation : this.layer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y + 16, true, this.camera).rotation
+                current : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y, true, this.camera).index,
+                currentRotation : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y, true, this.camera).rotation,
+                right : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x + 16, this.ghosts[i].y, true, this.camera).index,
+                rightRotation : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x + 16, this.ghosts[i].y, true, this.camera).rotation,
+                down : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y + 16, true, this.camera).index,
+                downRotation : this.wallsLayer.getTileAtWorldXY(this.ghosts[i].x, this.ghosts[i].y + 16, true, this.camera).rotation
             };
             // Check if the ghost is in jail...
             if (this.ghosts[i].state.free) {
@@ -357,12 +362,12 @@ class Game extends Phaser.Scene {
         
         // Those are needed for checking collision
         var collisionTiles = {
-            current : this.layer.getTileAtWorldXY(this.pacman.x, this.pacman.y, true, this.camera).index,
-            currentRotation : this.layer.getTileAtWorldXY(this.pacman.x, this.pacman.y, true, this.camera).rotation,
-            right : this.layer.getTileAtWorldXY(this.pacman.x + 16, this.pacman.y, true, this.camera).index,
-            rightRotation : this.layer.getTileAtWorldXY(this.pacman.x + 16, this.pacman.y, true, this.camera).rotation,
-            down : this.layer.getTileAtWorldXY(this.pacman.x, this.pacman.y + 16, true, this.camera).index,
-            downRotation : this.layer.getTileAtWorldXY(this.pacman.x, this.pacman.y + 16, true, this.camera).rotation
+            current : this.wallsLayer.getTileAtWorldXY(this.pacman.x, this.pacman.y, true, this.camera).index,
+            currentRotation : this.wallsLayer.getTileAtWorldXY(this.pacman.x, this.pacman.y, true, this.camera).rotation,
+            right : this.wallsLayer.getTileAtWorldXY(this.pacman.x + 16, this.pacman.y, true, this.camera).index,
+            rightRotation : this.wallsLayer.getTileAtWorldXY(this.pacman.x + 16, this.pacman.y, true, this.camera).rotation,
+            down : this.wallsLayer.getTileAtWorldXY(this.pacman.x, this.pacman.y + 16, true, this.camera).index,
+            downRotation : this.wallsLayer.getTileAtWorldXY(this.pacman.x, this.pacman.y + 16, true, this.camera).rotation
         };
         
         // Here we check if we can set the current direction same to the next
