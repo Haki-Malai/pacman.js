@@ -14,24 +14,15 @@ importers:
       '@types/node':
         specifier: ^25.0.9
         version: 25.0.9
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^8.53.0
-        version: 8.53.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2)(typescript@5.9.3))(eslint@9.39.2)(typescript@5.9.3)
-      '@typescript-eslint/parser':
-        specifier: ^8.53.0
-        version: 8.53.0(eslint@9.39.2)(typescript@5.9.3)
       '@vitest/coverage-v8':
         specifier: ^4.0.17
         version: 4.0.17(vitest@4.0.17(@types/node@25.0.9))
       eslint:
         specifier: ^9.39.2
         version: 9.39.2
-      eslint-config-prettier:
-        specifier: ^10.1.8
-        version: 10.1.8(eslint@9.39.2)
       eslint-plugin-vitest:
         specifier: ^0.5.4
-        version: 0.5.4(@typescript-eslint/eslint-plugin@8.53.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2)(typescript@5.9.3))(eslint@9.39.2)(typescript@5.9.3))(eslint@9.39.2)(typescript@5.9.3)(vitest@4.0.17(@types/node@25.0.9))
+        version: 0.5.4(eslint@9.39.2)(typescript@5.9.3)(vitest@4.0.17(@types/node@25.0.9))
       fast-check:
         specifier: ^4.5.3
         version: 4.5.3
@@ -807,12 +798,6 @@ packages:
   escape-string-regexp@4.0.0:
     resolution: {integrity: sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA==}
     engines: {node: '>=10'}
-
-  eslint-config-prettier@10.1.8:
-    resolution: {integrity: sha512-82GZUjRS0p/jganf6q1rEO25VSoHH0hKPCTrgillPjdI/3bgBhAE1QzHrHTizjpRvy6pGAvKjDJtk2pF9NDq8w==}
-    hasBin: true
-    peerDependencies:
-      eslint: '>=7.0.0'
 
   eslint-plugin-vitest@0.5.4:
     resolution: {integrity: sha512-um+odCkccAHU53WdKAw39MY61+1x990uXjSPguUCq3VcEHdqJrOb8OTMrbYlY6f9jAKx7x98kLVlIe3RJeJqoQ==}
@@ -2009,16 +1994,11 @@ snapshots:
 
   escape-string-regexp@4.0.0: {}
 
-  eslint-config-prettier@10.1.8(eslint@9.39.2):
-    dependencies:
-      eslint: 9.39.2
-
-  eslint-plugin-vitest@0.5.4(@typescript-eslint/eslint-plugin@8.53.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2)(typescript@5.9.3))(eslint@9.39.2)(typescript@5.9.3))(eslint@9.39.2)(typescript@5.9.3)(vitest@4.0.17(@types/node@25.0.9)):
+  eslint-plugin-vitest@0.5.4(eslint@9.39.2)(typescript@5.9.3)(vitest@4.0.17(@types/node@25.0.9)):
     dependencies:
       '@typescript-eslint/utils': 7.18.0(eslint@9.39.2)(typescript@5.9.3)
       eslint: 9.39.2
     optionalDependencies:
-      '@typescript-eslint/eslint-plugin': 8.53.0(@typescript-eslint/parser@8.53.0(eslint@9.39.2)(typescript@5.9.3))(eslint@9.39.2)(typescript@5.9.3)
       vitest: 4.0.17(@types/node@25.0.9)
     transitivePeerDependencies:
       - supports-color

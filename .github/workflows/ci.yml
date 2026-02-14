@@ -23,5 +23,7 @@ jobs:
         run: npm run test
       - name: Mechanics CI Gate
         run: npm run test:mechanics:ci
+      - name: Specifications Gate
+        run: npm run spec:check
       - name: Build
         run: npm run build

@@ -75,6 +75,29 @@ Before calling the task “done”, all of the following must pass with zero iss
 
 If any fail, fix and re-run until clean.
 
+## Behavior Contract Workflow (SPECIFICATIONS.md)
+
+- `SPECIFICATIONS.md` is mandatory context for every task.
+- `ROADMAP.md` is the prioritization guide for future product work and milestone sequencing.
+- Keep `SPECIFICATIONS.md` human-readable and product-facing (written for product owner/designer audiences, not code-level implementation detail).
+- If a change may alter behavior or decision logic:
+  - Present a **Proposed Behavior Delta** first.
+  - Request explicit user approval before code edits.
+- If a change is behavior-preserving (refactor/cleanup only):
+  - Pre-approval is not required.
+  - Post-change spec integrity check is still required.
+- Mandatory post-change sequence:
+  - Run `pnpm run typecheck`.
+  - Run `pnpm run lint`.
+  - Run `pnpm run test`.
+  - Run `pnpm run spec:check`.
+  - Reconcile resulting behavior with `SPECIFICATIONS.md`.
+  - If any ambiguity remains, stop and ask the user before proceeding.
+- Final report must explicitly state:
+  - whether behavior changed,
+  - whether `SPECIFICATIONS.md` was updated,
+  - whether any uncertainty remains.
+
 ## TypeScript standards (strict)
 
 ### No `any` by default
