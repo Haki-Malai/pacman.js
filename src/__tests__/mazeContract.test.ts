@@ -16,6 +16,9 @@ type TiledTile = {
 type TiledLayer = {
   name: string;
   type: string;
+  width?: number;
+  height?: number;
+  data?: number[];
   objects?: Array<{
     type: string;
     properties?: TiledProperty[];
@@ -42,16 +45,20 @@ const COLLISION_RULES: Record<number, { collides: boolean; up: boolean; down: bo
   14: { collides: false, up: false, down: false, left: false, right: false },
   15: { collides: false, up: false, down: false, left: false, right: false },
   16: { collides: true, up: true, down: true, left: true, right: true },
-  17: { collides: true, up: true, down: true, left: true, right: true },
-  18: { collides: true, up: true, down: true, left: true, right: true },
-  19: { collides: true, up: true, down: true, left: true, right: true },
-  20: { collides: true, up: true, down: true, left: true, right: true },
-  21: { collides: true, up: true, down: true, left: true, right: true },
+  17: { collides: false, up: false, down: false, left: false, right: false },
+  18: { collides: false, up: false, down: false, left: false, right: false },
+  19: { collides: false, up: false, down: false, left: false, right: false },
+  20: { collides: false, up: false, down: false, left: false, right: false },
+  21: { collides: false, up: false, down: false, left: false, right: false },
   23: { collides: false, up: false, down: false, left: false, right: false },
 };
 
 function readMap(): TiledMap {
   return JSON.parse(fs.readFileSync(MAZE_JSON_PATH, 'utf8')) as TiledMap;
+}
+
+function readMapText(): string {
+  return fs.readFileSync(MAZE_JSON_PATH, 'utf8');
 }
 
 function getPropertyValue(properties: TiledProperty[] | undefined, name: string): unknown {
@@ -100,6 +107,47 @@ describe('maze.json contract', () => {
       expect(getPropertyValue(tile?.properties, 'right')).toBe(rule.right);
       expect(getPropertyValue(tile?.properties, 'penGate')).toBe(false);
       expect(getPropertyValue(tile?.properties, 'portal')).toBe(false);
+    });
+  });
+
+  it('keeps Maze data formatted as one map row per line', () => {
+    const map = readMap();
+    const text = readMapText();
+    const mazeLayer = map.layers.find((layer) => layer.name === 'Maze');
+
+    expect(mazeLayer).toBeDefined();
+    const width = mazeLayer?.width;
+    const height = mazeLayer?.height;
+    expect(typeof width).toBe('number');
+    expect(typeof height).toBe('number');
+
+    const dataBlockMatch = text.match(/"data": \[\n([\s\S]*?)\n\s{6}\],\n\s{6}"height":/);
+    expect(dataBlockMatch).toBeTruthy();
+    const rows = (dataBlockMatch?.[1] ?? '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    expect(rows.length).toBe(height);
+
+    rows.forEach((row, index) => {
+      const hasTrailingComma = row.endsWith(',');
+      if (index < rows.length - 1) {
+        expect(hasTrailingComma).toBe(true);
+      } else {
+        expect(hasTrailingComma).toBe(false);
+      }
+
+      const normalized = hasTrailingComma ? row.slice(0, -1) : row;
+      const values = normalized
+        .split(',')
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+
+      expect(values.length).toBe(width);
+      values.forEach((value) => {
+        expect(/^\d+$/.test(value)).toBe(true);
+      });
     });
   });
 });

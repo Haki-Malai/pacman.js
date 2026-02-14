@@ -592,27 +592,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "up",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "down",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "left",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "right",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "penGate",
@@ -635,27 +635,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "up",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "down",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "left",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "right",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "penGate",
@@ -678,27 +678,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "up",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "down",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "left",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "right",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "penGate",
@@ -721,27 +721,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "up",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "down",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "left",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "right",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "penGate",
@@ -764,27 +764,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "up",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "down",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "left",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "right",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "penGate",

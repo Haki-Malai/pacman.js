@@ -19,6 +19,24 @@ type OrientedTile = Phaser.Tilemaps.Tile & { propertiesOriented?: CollisionTile 
 
 const GHOST_KEYS: GhostKey[] = ['inky', 'clyde', 'pinky', 'blinky'];
 
+type DebugTileInfo = {
+  x: number;
+  y: number;
+  gid: number | null;
+  localId: number | null;
+  imagePath: string;
+  collides: boolean;
+  penGate: boolean;
+  portal: boolean;
+  up: boolean;
+  right: boolean;
+  down: boolean;
+  left: boolean;
+  rotationDegrees: number;
+  flipX: boolean;
+  flipY: boolean;
+};
+
 const createEmptyCollisionTile = (): CollisionTile => ({
   collides: false,
   penGate: false,
@@ -49,15 +67,27 @@ export default class GameScene extends Phaser.Scene {
   private tileSize: number = TILE_SIZE;
   private collisionGrid: CollisionTile[][] = [];
   private collisionPropertiesByGid: Map<number, CollisionTile> = new Map();
+  private collisionImageByGid: Map<number, string> = new Map();
   private scaredKeyListenerAttached = false;
   private isMoving = true;
   private collisionDebugEnabled = false;
   private collisionDebugGraphics?: Phaser.GameObjects.Graphics;
+  private collisionDebugInfoPanel?: HTMLPreElement;
+  private hoveredDebugTile: TilePosition | null = null;
 
   private toggleGhostFear = (): void => {
     this.ghosts.forEach((ghost) => {
       ghost.state.scared = !ghost.state.scared;
     });
+  };
+
+  private handleCollisionDebugHotkey = (event: KeyboardEvent): void => {
+    if (event.shiftKey) {
+      event.preventDefault();
+      void this.copyVisibleCollisionDebugInfo();
+      return;
+    }
+    this.toggleCollisionDebug();
   };
 
   private toggleCollisionDebug = (): void => {
@@ -66,8 +96,15 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
     this.collisionDebugGraphics.visible = this.collisionDebugEnabled;
+    if (this.collisionDebugInfoPanel) {
+      this.collisionDebugInfoPanel.style.display = this.collisionDebugEnabled ? 'block' : 'none';
+    }
     if (!this.collisionDebugEnabled) {
       this.collisionDebugGraphics.clear();
+      if (this.collisionDebugInfoPanel) {
+        this.collisionDebugInfoPanel.textContent = '';
+      }
+      this.hoveredDebugTile = null;
     }
   };
 
@@ -96,6 +133,7 @@ export default class GameScene extends Phaser.Scene {
 
   private buildCollisionPropertiesLookup(): void {
     this.collisionPropertiesByGid.clear();
+    this.collisionImageByGid.clear();
 
     const cacheEntry = this.cache.tilemap.get('maze') as { data?: unknown } | undefined;
     const mapData = cacheEntry?.data;
@@ -129,6 +167,12 @@ export default class GameScene extends Phaser.Scene {
           return;
         }
 
+        const imagePath = rawTile.image;
+        if (typeof imagePath === 'string') {
+          const gid = firstgid + tileId;
+          this.collisionImageByGid.set(gid, imagePath);
+        }
+
         const propertyRecord: Record<string, unknown> = {};
         const properties = rawTile.properties;
         if (Array.isArray(properties)) {
@@ -150,6 +194,128 @@ export default class GameScene extends Phaser.Scene {
         this.collisionPropertiesByGid.set(gid, this.readCollisionTileFromProps(propertyRecord));
       });
     });
+  }
+
+  private updateHoveredDebugTile(pointer: Phaser.Input.Pointer): void {
+    if (!this.collisionDebugEnabled) {
+      return;
+    }
+
+    const worldPoint = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const tileX = this.map.worldToTileX(worldPoint.x);
+    const tileY = this.map.worldToTileY(worldPoint.y);
+    if (tileX < 0 || tileY < 0 || tileX >= this.map.width || tileY >= this.map.height) {
+      this.hoveredDebugTile = null;
+      return;
+    }
+    this.hoveredDebugTile = { x: tileX, y: tileY };
+  }
+
+  private getDebugTileInfo(tilePosition: TilePosition): DebugTileInfo {
+    const { x, y } = tilePosition;
+    const tile = this.wallsLayer.getTileAt(x, y) as OrientedTile | null;
+    const collision = this.getCollisionTileAt(x, y);
+
+    if (!tile || tile.index < 0) {
+      return {
+        x,
+        y,
+        gid: null,
+        localId: null,
+        imagePath: '(empty)',
+        collides: collision.collides,
+        penGate: collision.penGate,
+        portal: collision.portal,
+        up: collision.up,
+        right: collision.right,
+        down: collision.down,
+        left: collision.left,
+        rotationDegrees: 0,
+        flipX: false,
+        flipY: false,
+      };
+    }
+
+    const localId = tile.tileset ? tile.index - tile.tileset.firstgid : tile.index;
+    const rotationSteps = ((Math.round((tile.rotation ?? 0) / (Math.PI / 2)) % 4) + 4) % 4;
+
+    return {
+      x,
+      y,
+      gid: tile.index,
+      localId,
+      imagePath: this.collisionImageByGid.get(tile.index) ?? '(unknown)',
+      collides: collision.collides,
+      penGate: collision.penGate,
+      portal: collision.portal,
+      up: collision.up,
+      right: collision.right,
+      down: collision.down,
+      left: collision.left,
+      rotationDegrees: rotationSteps * 90,
+      flipX: tile.flipX,
+      flipY: tile.flipY,
+    };
+  }
+
+  private async copyTextToClipboard(text: string): Promise<boolean> {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      // Fall back to textarea copy if Clipboard API is unavailable or blocked.
+    }
+
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', 'true');
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const copied = document.execCommand('copy');
+      textarea.remove();
+      return copied;
+    } catch {
+      return false;
+    }
+  }
+
+  private async copyVisibleCollisionDebugInfo(): Promise<void> {
+    const visibleText = this.collisionDebugInfoPanel?.textContent;
+    if (!visibleText || visibleText.length === 0) {
+      return;
+    }
+
+    const copied = await this.copyTextToClipboard(visibleText);
+    if (!copied) {
+      this.setCollisionDebugInfo(`${visibleText}\ncopy failed (browser blocked clipboard access)`);
+    }
+  }
+
+  private getTileDebugInfo(tilePosition: TilePosition): string {
+    const info = this.getDebugTileInfo(tilePosition);
+    if (info.gid === null) {
+      return [
+        'Collision Debug',
+        `tile: (${info.x}, ${info.y})`,
+        'gid: empty',
+        'edges: up:false right:false down:false left:false',
+      ].join('\n');
+    }
+
+    return [
+      'Collision Debug',
+      `tile: (${info.x}, ${info.y}) gid:${info.gid} local:${info.localId}`,
+      `image: ${info.imagePath}`,
+      `collides:${info.collides} penGate:${info.penGate} portal:${info.portal}`,
+      `edges: up:${info.up} right:${info.right} down:${info.down} left:${info.left}`,
+      `transform: rot:${info.rotationDegrees}deg flipX:${info.flipX} flipY:${info.flipY}`,
+    ].join('\n');
   }
 
   private getTileProperties(tile?: OrientedTile | null): CollisionTile {
@@ -192,6 +358,16 @@ export default class GameScene extends Phaser.Scene {
         down: base.down,
         left: base.left,
       };
+
+      // Phaser composes tile transforms with flips in local space before rotation.
+      // Match that order so collision edges follow the rendered tile orientation.
+      if (tile.flipX) {
+        [edges.left, edges.right] = [edges.right, edges.left];
+      }
+      if (tile.flipY) {
+        [edges.up, edges.down] = [edges.down, edges.up];
+      }
+
       const rotationSteps = ((Math.round((tile.rotation ?? 0) / (Math.PI / 2)) % 4) + 4) % 4;
       for (let i = 0; i < rotationSteps; i++) {
         edges = {
@@ -200,12 +376,6 @@ export default class GameScene extends Phaser.Scene {
           down: edges.right,
           left: edges.down,
         };
-      }
-      if (tile.flipX) {
-        [edges.left, edges.right] = [edges.right, edges.left];
-      }
-      if (tile.flipY) {
-        [edges.up, edges.down] = [edges.down, edges.up];
       }
       return {
         collides: base.collides,
@@ -380,11 +550,7 @@ export default class GameScene extends Phaser.Scene {
     objectTile: Phaser.Types.Tilemaps.TiledObject | undefined,
     fallback: TilePosition,
   ): TilePosition {
-    const preferred = this.clampTilePosition(this.getObjectTilePosition(objectTile, fallback));
-    if (this.isTilePassable(preferred)) {
-      return preferred;
-    }
-    return this.findNearestPassableTile(preferred);
+    return this.clampTilePosition(this.getObjectTilePosition(objectTile, fallback));
   }
 
   private toWorldPosition(tile: TilePosition, moved: MovementProgress): { x: number; y: number } {
@@ -399,12 +565,12 @@ export default class GameScene extends Phaser.Scene {
     }
     this.scaredKeyListenerAttached = true;
     this.input.keyboard.on('keydown-H', this.toggleGhostFear, this);
-    this.input.keyboard.on('keydown-C', this.toggleCollisionDebug, this);
+    this.input.keyboard.on('keydown-C', this.handleCollisionDebugHotkey, this);
 
     const shutdownEvent = 'shutdown';
     this.events.once(shutdownEvent, () => {
       this.input.keyboard.off('keydown-H', this.toggleGhostFear, this);
-      this.input.keyboard.off('keydown-C', this.toggleCollisionDebug, this);
+      this.input.keyboard.off('keydown-C', this.handleCollisionDebugHotkey, this);
       this.scaredKeyListenerAttached = false;
     });
   }
@@ -420,6 +586,13 @@ export default class GameScene extends Phaser.Scene {
     this.collisionDebugGraphics.strokeRect(x + 1, y + 1, this.tileSize - 2, this.tileSize - 2);
   }
 
+  private setCollisionDebugInfo(text: string): void {
+    if (!this.collisionDebugInfoPanel) {
+      return;
+    }
+    this.collisionDebugInfoPanel.textContent = text;
+  }
+
   private drawCollisionDebugOverlay(): void {
     if (!this.collisionDebugGraphics) {
       return;
@@ -429,6 +602,7 @@ export default class GameScene extends Phaser.Scene {
     graphics.clear();
 
     if (!this.collisionDebugEnabled) {
+      this.setCollisionDebugInfo('');
       return;
     }
 
@@ -443,7 +617,8 @@ export default class GameScene extends Phaser.Scene {
         const worldY = this.map.tileToWorldY(y);
         const edgeColor = tile.penGate ? 0x00ffff : 0xff3355;
 
-        if (tile.collides) {
+        const isFullBlock = tile.up && tile.right && tile.down && tile.left;
+        if (isFullBlock) {
           graphics.fillStyle(0xff3355, 0.06);
           graphics.fillRect(worldX, worldY, this.tileSize, this.tileSize);
         }
@@ -480,6 +655,13 @@ export default class GameScene extends Phaser.Scene {
     this.ghosts.forEach((ghost) => {
       this.drawDebugMarker(ghost.tile, 0x00ff66);
     });
+
+    if (this.hoveredDebugTile) {
+      this.drawDebugMarker(this.hoveredDebugTile, 0x33ccff);
+      this.setCollisionDebugInfo(this.getTileDebugInfo(this.hoveredDebugTile));
+    } else {
+      this.setCollisionDebugInfo('Collision Debug\nmove mouse over a block to inspect');
+    }
   }
 
   create(): void {
@@ -536,7 +718,7 @@ export default class GameScene extends Phaser.Scene {
       x: Math.floor(this.map.width / 2),
       y: Math.floor(this.map.height / 2),
     };
-    const fallbackSpawn = this.findNearestPassableTile(centerTile);
+    const fallbackSpawn = centerTile;
     const pacmanTile = this.resolveSpawnTile(pacmanSpawn, fallbackSpawn);
 
     const ghostStartXRaw = this.getObjectNumberProperty(ghostHome, 'startX') ?? pacmanTile.x;
@@ -544,8 +726,13 @@ export default class GameScene extends Phaser.Scene {
     const ghostMinX = Phaser.Math.Clamp(Math.round(Math.min(ghostStartXRaw, ghostEndXRaw)), 0, this.map.width - 1);
     const ghostMaxX = Phaser.Math.Clamp(Math.round(Math.max(ghostStartXRaw, ghostEndXRaw)), 0, this.map.width - 1);
 
+    const ghostGridY = this.getObjectNumberProperty(ghostHome, 'gridY');
     const ghostYRaw =
-      ghostHome && typeof ghostHome.y === 'number' ? Math.round(ghostHome.y / this.map.tileHeight) : pacmanTile.y;
+      typeof ghostGridY === 'number'
+        ? ghostGridY
+        : ghostHome && typeof ghostHome.y === 'number'
+          ? Math.round(ghostHome.y / this.map.tileHeight)
+          : pacmanTile.y;
     const ghostY = Phaser.Math.Clamp(ghostYRaw, 0, this.map.height - 1);
 
     const ghostCountRaw = this.getObjectNumberProperty(ghostHome, 'ghostCount') ?? 4;
@@ -602,9 +789,7 @@ export default class GameScene extends Phaser.Scene {
       const range = ghostMaxX - ghostMinX + 1;
       const randomSpawnX = ghostMinX + Math.floor(Math.random() * Math.max(range, 1));
       const spawnCandidate: TilePosition = { x: randomSpawnX, y: ghostY };
-      const spawnTile = this.isTilePassable(spawnCandidate)
-        ? spawnCandidate
-        : this.findNearestPassableTile(spawnCandidate);
+      const spawnTile = this.clampTilePosition(spawnCandidate);
 
       const ghostKey = GHOST_KEYS[i % GHOST_KEYS.length];
       const spawnWorld = this.toWorldPosition(spawnTile, { x: 0, y: 0 });
@@ -636,16 +821,43 @@ export default class GameScene extends Phaser.Scene {
 
     this.collisionDebugGraphics = this.add.graphics().setDepth(10);
     this.collisionDebugGraphics.visible = this.collisionDebugEnabled;
+    const panelId = 'collision-debug-panel';
+    document.getElementById(panelId)?.remove();
+    this.collisionDebugInfoPanel = document.createElement('pre');
+    this.collisionDebugInfoPanel.id = panelId;
+    this.collisionDebugInfoPanel.style.position = 'fixed';
+    this.collisionDebugInfoPanel.style.left = '8px';
+    this.collisionDebugInfoPanel.style.top = '52px';
+    this.collisionDebugInfoPanel.style.margin = '0';
+    this.collisionDebugInfoPanel.style.padding = '6px 8px';
+    this.collisionDebugInfoPanel.style.color = '#ffffff';
+    this.collisionDebugInfoPanel.style.background = 'rgba(0, 0, 0, 0.78)';
+    this.collisionDebugInfoPanel.style.font = '12px/1.35 monospace';
+    this.collisionDebugInfoPanel.style.whiteSpace = 'pre';
+    this.collisionDebugInfoPanel.style.pointerEvents = 'none';
+    this.collisionDebugInfoPanel.style.zIndex = '9999';
+    this.collisionDebugInfoPanel.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+    this.collisionDebugInfoPanel.style.borderRadius = '4px';
+    this.collisionDebugInfoPanel.style.display = this.collisionDebugEnabled ? 'block' : 'none';
+    document.body.appendChild(this.collisionDebugInfoPanel);
 
-    const toggleMovement = () => {
+    const onPointerMove = (pointer: Phaser.Input.Pointer) => {
+      this.updateHoveredDebugTile(pointer);
+    };
+    const toggleMovement = (pointer: Phaser.Input.Pointer) => {
+      this.updateHoveredDebugTile(pointer);
       this.isMoving = !this.isMoving;
     };
+    this.input.on('pointermove', onPointerMove);
     this.input.on('pointerdown', toggleMovement);
     const shutdownEvent = 'shutdown';
     this.events.once(shutdownEvent, () => {
+      this.input.off('pointermove', onPointerMove);
       this.input.off('pointerdown', toggleMovement);
       this.collisionDebugGraphics?.destroy();
       this.collisionDebugGraphics = undefined;
+      this.collisionDebugInfoPanel?.remove();
+      this.collisionDebugInfoPanel = undefined;
     });
   }
 

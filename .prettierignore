@@ -3,3 +3,4 @@ dist
 .idea
 .vscode
 public/assets
+public/assets/mazes/default/maze.json
