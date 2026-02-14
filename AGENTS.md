@@ -4,6 +4,10 @@ Instructions for **Codex** when editing this repository.
 
 This repo is a small Vite + TypeScript game project (Phaser). Keep changes tight, readable, and type-safe.
 
+## Architecture reference
+
+- Read `docs/ARCHITECTURE.md` before making structural/runtime changes. It documents the layered design (`app`, `domain`, `systems`, `infrastructure`, `shared`), dependency rules, system order, and quality gates.
+
 ## Commands
 
 Use pnpm scripts (prefer `npm run <script>`):
