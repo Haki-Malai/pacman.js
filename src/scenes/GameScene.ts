@@ -1,6 +1,15 @@
 import Phaser from 'phaser';
 import { applyBufferedDirection, canMove as canMoveHelper, getAvailableDirections as getAvailableDirectionsHelper } from '../movement';
-import { CAMERA, INITIAL_LIVES, SPEED, SPRITE_SIZE, TILE_SIZE } from '../config/constants';
+import {
+  CAMERA,
+  GHOST_JAIL_MOVE_SPEED,
+  GHOST_JAIL_RELEASE_DELAY_MS,
+  GHOST_JAIL_RELEASE_TWEEN_MS,
+  INITIAL_LIVES,
+  SPEED,
+  SPRITE_SIZE,
+  TILE_SIZE,
+} from '../config/constants';
 import {
   CollisionTile,
   CollisionTiles,
@@ -81,6 +90,11 @@ export default class GameScene extends Phaser.Scene {
   private collisionDebugGraphics?: Phaser.GameObjects.Graphics;
   private collisionDebugInfoPanel?: HTMLPreElement;
   private hoveredDebugTile: TilePosition | null = null;
+  private ghostReleaseTimers: Phaser.Time.TimerEvent[] = [];
+  private ghostsExitingJail = new Set<GhostSprite>();
+  private ghostJailMinX = 0;
+  private ghostJailMaxX = 0;
+  private ghostJailY = 0;
 
   private toggleGhostFear = (): void => {
     this.ghosts.forEach((ghost) => {
@@ -88,8 +102,24 @@ export default class GameScene extends Phaser.Scene {
     });
   };
 
+  private setPaused(paused: boolean): void {
+    this.isMoving = !paused;
+    this.ghostReleaseTimers.forEach((timer) => {
+      timer.paused = paused;
+    });
+    if (paused) {
+      this.physics.world.pause();
+      this.anims.pauseAll();
+      this.tweens.pauseAll();
+      return;
+    }
+    this.physics.world.resume();
+    this.anims.resumeAll();
+    this.tweens.resumeAll();
+  }
+
   private togglePause = (): void => {
-    this.isMoving = !this.isMoving;
+    this.setPaused(this.isMoving);
   };
 
   private handleCollisionDebugHotkey = (event: KeyboardEvent): void => {
@@ -424,6 +454,11 @@ export default class GameScene extends Phaser.Scene {
 
   private getCollisionTilesFor(entity: MovableEntity): CollisionTiles {
     const { x: tileX, y: tileY } = entity.tile;
+    return this.getCollisionTilesAt({ x: tileX, y: tileY });
+  }
+
+  private getCollisionTilesAt(tile: TilePosition): CollisionTiles {
+    const { x: tileX, y: tileY } = tile;
     return {
       current: this.getCollisionTileAt(tileX, tileY),
       up: this.getCollisionTileAt(tileX, tileY - 1),
@@ -431,6 +466,76 @@ export default class GameScene extends Phaser.Scene {
       left: this.getCollisionTileAt(tileX - 1, tileY),
       right: this.getCollisionTileAt(tileX + 1, tileY),
     };
+  }
+
+  private canGhostMoveFromTile(tile: TilePosition): boolean {
+    const collisionTiles = this.getCollisionTilesAt(tile);
+    const directions: Direction[] = ['up', 'down', 'left', 'right'];
+    return directions.some((direction) => this.canMove(direction, 0, 0, collisionTiles, this.tileSize, 'ghost'));
+  }
+
+  private findGhostReleaseTile(currentTile: TilePosition, avoidTile: TilePosition): TilePosition {
+    const releaseY = Phaser.Math.Clamp(this.ghostJailY - 1, 0, this.map.height - 1);
+    const candidates: TilePosition[] = [];
+    for (let x = this.ghostJailMinX; x <= this.ghostJailMaxX; x++) {
+      const tile = { x, y: releaseY };
+      if (tile.x === avoidTile.x && tile.y === avoidTile.y) {
+        continue;
+      }
+      if (this.canGhostMoveFromTile(tile)) {
+        candidates.push(tile);
+      }
+    }
+
+    const fallback = this.clampTilePosition({ x: currentTile.x, y: releaseY });
+    if (!candidates.length) {
+      return fallback;
+    }
+
+    const pickRandom = (options: TilePosition[]): TilePosition => {
+      if (!options.length) {
+        return fallback;
+      }
+      const index = Math.floor(Math.random() * options.length);
+      return options[index] ?? fallback;
+    };
+
+    const currentX = Phaser.Math.Clamp(currentTile.x, this.ghostJailMinX, this.ghostJailMaxX);
+    const nearby = candidates.filter((candidate) => Math.abs(candidate.x - currentX) <= 1);
+    if (nearby.length) {
+      return pickRandom(nearby);
+    }
+
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    candidates.forEach((candidate) => {
+      nearestDistance = Math.min(nearestDistance, Math.abs(candidate.x - currentX));
+    });
+    const nearestCandidates = candidates.filter((candidate) => Math.abs(candidate.x - currentX) === nearestDistance);
+    return pickRandom(nearestCandidates);
+  }
+
+  private moveGhostInJail(ghost: GhostSprite): void {
+    if (ghost.tile.y !== this.ghostJailY || ghost.moved.y !== 0) {
+      this.setEntityTile(ghost, { x: ghost.tile.x, y: this.ghostJailY });
+    }
+
+    if (ghost.moved.x === 0) {
+      if (ghost.direction !== 'left' && ghost.direction !== 'right') {
+        ghost.direction = Math.random() < 0.5 ? 'right' : 'left';
+      }
+      if (ghost.tile.x <= this.ghostJailMinX && ghost.direction === 'left') {
+        ghost.direction = 'right';
+      } else if (ghost.tile.x >= this.ghostJailMaxX && ghost.direction === 'right') {
+        ghost.direction = 'left';
+      }
+    }
+
+    this.advanceEntity(ghost, ghost.direction, GHOST_JAIL_MOVE_SPEED);
+    if (ghost.tile.x < this.ghostJailMinX || ghost.tile.x > this.ghostJailMaxX) {
+      const clampedX = Phaser.Math.Clamp(ghost.tile.x, this.ghostJailMinX, this.ghostJailMaxX);
+      this.setEntityTile(ghost, { x: clampedX, y: this.ghostJailY });
+      ghost.direction = ghost.direction === 'left' ? 'right' : 'left';
+    }
   }
 
   private canMove(
@@ -685,6 +790,8 @@ export default class GameScene extends Phaser.Scene {
     this.scaredKeyListenerAttached = false;
     this.collisionDebugEnabled = false;
     this.isMoving = true;
+    this.ghostReleaseTimers = [];
+    this.ghostsExitingJail.clear();
     resetGameState(0, INITIAL_LIVES);
 
     this.map = this.make.tilemap({ key: 'maze' });
@@ -750,6 +857,9 @@ export default class GameScene extends Phaser.Scene {
 
     const ghostCountRaw = this.getObjectNumberProperty(ghostHome, 'ghostCount') ?? 4;
     const ghostCount = Math.max(0, Math.round(ghostCountRaw));
+    this.ghostJailMinX = ghostMinX;
+    this.ghostJailMaxX = ghostMaxX;
+    this.ghostJailY = ghostY;
 
     const pacmanSpawnPosition = this.toWorldPosition(pacmanTile, { x: 0, y: 0 });
     this.pacman = this.physics.add.sprite(pacmanSpawnPosition.x, pacmanSpawnPosition.y, 'pacman').setDepth(2) as PacmanSprite;
@@ -812,8 +922,8 @@ export default class GameScene extends Phaser.Scene {
       this.setEntityTile(ghost, spawnTile);
       ghost.key = ghostKey;
       ghost.state = {
-        free: true,
-        soonFree: false,
+        free: false,
+        soonFree: true,
         scared: false,
         dead: false,
         animation: 'default',
@@ -822,6 +932,35 @@ export default class GameScene extends Phaser.Scene {
       ghost.play(`${ghostKey}Idle`);
       ghost.direction = Math.random() < 0.5 ? 'right' : 'left';
       this.ghosts.push(ghost);
+
+      const releaseTimer = this.time.delayedCall(GHOST_JAIL_RELEASE_DELAY_MS, () => {
+        if (!ghost.active) {
+          return;
+        }
+        const jailTile = this.clampTilePosition({ x: ghost.tile.x, y: this.ghostJailY });
+        const currentPacmanTile = this.clampTilePosition(this.pacman.tile);
+        const releaseTile = this.findGhostReleaseTile(jailTile, currentPacmanTile);
+        this.ghostsExitingJail.add(ghost);
+        const releaseWorld = this.toWorldPosition(releaseTile, { x: 0, y: 0 });
+        this.tweens.add({
+          targets: ghost,
+          x: releaseWorld.x,
+          y: releaseWorld.y,
+          duration: GHOST_JAIL_RELEASE_TWEEN_MS,
+          ease: 'Sine.easeInOut',
+          onComplete: () => {
+            if (!ghost.active) {
+              this.ghostsExitingJail.delete(ghost);
+              return;
+            }
+            this.ghostsExitingJail.delete(ghost);
+            this.setEntityTile(ghost, releaseTile);
+            ghost.state.free = true;
+            ghost.state.soonFree = false;
+          },
+        });
+      });
+      this.ghostReleaseTimers.push(releaseTimer);
     }
 
     const camera = this.cameras.main;
@@ -866,7 +1005,7 @@ export default class GameScene extends Phaser.Scene {
     };
     const toggleMovement = (pointer: Phaser.Input.Pointer) => {
       this.updateHoveredDebugTile(pointer);
-      this.isMoving = !this.isMoving;
+      this.togglePause();
     };
     this.input.on('pointermove', onPointerMove);
     this.input.on('pointerdown', toggleMovement);
@@ -878,19 +1017,18 @@ export default class GameScene extends Phaser.Scene {
       this.collisionDebugGraphics = undefined;
       this.collisionDebugInfoPanel?.remove();
       this.collisionDebugInfoPanel = undefined;
+      this.ghostReleaseTimers = [];
+      this.ghostsExitingJail.clear();
     });
   }
 
   update(): void {
-    this.ghosts.forEach((ghost) => {
-      if (this.isMoving && !ghost.state.free && !ghost.state.soonFree) {
-        ghost.state.soonFree = true;
-        setTimeout(() => {
-          ghost.state.free = true;
-          ghost.state.soonFree = false;
-        }, 5000);
-      }
+    if (!this.isMoving) {
+      this.drawCollisionDebugOverlay();
+      return;
+    }
 
+    this.ghosts.forEach((ghost) => {
       if (ghost.state.scared && ghost.state.animation !== 'scared') {
         ghost.play('scaredIdle');
         ghost.state.animation = 'scared';
@@ -901,39 +1039,37 @@ export default class GameScene extends Phaser.Scene {
         ghost.speed = 1;
       }
 
+      if (!ghost.state.free) {
+        if (!this.ghostsExitingJail.has(ghost)) {
+          this.moveGhostInJail(ghost);
+        }
+        return;
+      }
+
       const collisionTiles = this.getCollisionTilesFor(ghost);
       const canMoveCurrent = this.canMove(ghost.direction, ghost.moved.y, ghost.moved.x, collisionTiles, this.tileSize, 'ghost');
-      if (ghost.state.free) {
-        if (canMoveCurrent) {
-          if (ghost.moved.y === 0 && ghost.moved.x === 0) {
-            const options = this.getAvailableDirections(collisionTiles, ghost.direction, 'ghost');
-            if (options.length) {
-              ghost.direction = options[Math.floor(Math.random() * options.length)];
-            }
-          }
-          this.advanceEntity(ghost, ghost.direction, ghost.speed);
-        } else if (ghost.moved.y === 0 && ghost.moved.x === 0) {
-          const perpendicular: Direction[] =
-            ghost.direction === 'right' || ghost.direction === 'left' ? ['up', 'down'] : ['right', 'left'];
-          const options = perpendicular.filter((direction) =>
-            this.canMove(direction, ghost.moved.y, ghost.moved.x, collisionTiles, this.tileSize, 'ghost'),
-          );
+      if (canMoveCurrent) {
+        if (ghost.moved.y === 0 && ghost.moved.x === 0) {
+          const options = this.getAvailableDirections(collisionTiles, ghost.direction, 'ghost');
           if (options.length) {
             ghost.direction = options[Math.floor(Math.random() * options.length)];
-          } else {
-            const opposites: Record<Direction, Direction> = { up: 'down', down: 'up', left: 'right', right: 'left' };
-            const fallback = opposites[ghost.direction];
-            if (fallback && this.canMove(fallback, ghost.moved.y, ghost.moved.x, collisionTiles, this.tileSize, 'ghost')) {
-              ghost.direction = fallback;
-            }
           }
         }
-      } else {
-        if (!canMoveCurrent && ghost.moved.y === 0 && ghost.moved.x === 0) {
-          ghost.direction = ghost.direction === 'right' ? 'left' : 'right';
-        }
-        if (this.canMove(ghost.direction, ghost.moved.y, ghost.moved.x, collisionTiles, this.tileSize, 'ghost')) {
-          this.advanceEntity(ghost, ghost.direction, ghost.speed);
+        this.advanceEntity(ghost, ghost.direction, ghost.speed);
+      } else if (ghost.moved.y === 0 && ghost.moved.x === 0) {
+        const perpendicular: Direction[] =
+          ghost.direction === 'right' || ghost.direction === 'left' ? ['up', 'down'] : ['right', 'left'];
+        const options = perpendicular.filter((direction) =>
+          this.canMove(direction, ghost.moved.y, ghost.moved.x, collisionTiles, this.tileSize, 'ghost'),
+        );
+        if (options.length) {
+          ghost.direction = options[Math.floor(Math.random() * options.length)];
+        } else {
+          const opposites: Record<Direction, Direction> = { up: 'down', down: 'up', left: 'right', right: 'left' };
+          const fallback = opposites[ghost.direction];
+          if (fallback && this.canMove(fallback, ghost.moved.y, ghost.moved.x, collisionTiles, this.tileSize, 'ghost')) {
+            ghost.direction = fallback;
+          }
         }
       }
     });

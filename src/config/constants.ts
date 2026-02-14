@@ -16,6 +16,9 @@ export const CAMERA = {
 } as const;
 
 export const INITIAL_LIVES = 3;
+export const GHOST_JAIL_RELEASE_DELAY_MS = 5000;
+export const GHOST_JAIL_MOVE_SPEED = 0.5;
+export const GHOST_JAIL_RELEASE_TWEEN_MS = 650;
 
 export const COLLECTIBLE_CONFIG: Record<
   number,
