@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import { TypedEventEmitter } from '../engine/events';
 import { INITIAL_LIVES } from '../config/constants';
 
 export type GameState = {
@@ -11,12 +11,29 @@ export const GameEvent = {
   LivesChanged: 'lives-changed',
 } as const;
 
+type GameEventMap = {
+  [GameEvent.ScoreChanged]: number;
+  [GameEvent.LivesChanged]: number;
+};
+
 const state: GameState = {
   score: 0,
   lives: INITIAL_LIVES,
 };
 
-export const gameEvents = new Phaser.Events.EventEmitter();
+const eventBus = new TypedEventEmitter<GameEventMap>();
+
+export const gameEvents = {
+  on<K extends keyof GameEventMap>(event: K, listener: (_payload: GameEventMap[K]) => void): void {
+    eventBus.on(event, listener);
+  },
+  off<K extends keyof GameEventMap>(event: K, listener: (_payload: GameEventMap[K]) => void): void {
+    eventBus.off(event, listener);
+  },
+  emit<K extends keyof GameEventMap>(event: K, payload: GameEventMap[K]): void {
+    eventBus.emit(event, payload);
+  },
+};
 
 export function resetGameState(initialScore = 0, initialLives = INITIAL_LIVES): void {
   state.score = initialScore;

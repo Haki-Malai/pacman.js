@@ -1,5 +1,3 @@
-import Phaser from 'phaser';
-
 export type Direction = 'up' | 'down' | 'left' | 'right';
 export type MovementActor = 'pacman' | 'ghost';
 
@@ -39,6 +37,18 @@ export interface GridEntity {
   tile: TilePosition;
 }
 
+export interface RenderableEntity {
+  x: number;
+  y: number;
+  displayWidth: number;
+  displayHeight: number;
+  angle: number;
+  flipX: boolean;
+  flipY: boolean;
+  depth: number;
+  active: boolean;
+}
+
 export type GhostAnimationState = 'default' | 'scared';
 
 export type GhostKey = 'inky' | 'clyde' | 'pinky' | 'blinky';
@@ -51,20 +61,20 @@ export interface GhostState {
   animation: GhostAnimationState;
 }
 
-export interface PacmanSprite extends Phaser.Physics.Arcade.Sprite {
+export interface PacmanSprite extends RenderableEntity {
   moved: MovementProgress;
   direction: DirectionState;
   tile: TilePosition;
 }
 
-export type GhostSprite = Omit<Phaser.Physics.Arcade.Sprite, 'state'> & {
+export interface GhostSprite extends RenderableEntity {
   moved: MovementProgress;
   key: GhostKey;
   state: GhostState;
   direction: Direction;
   speed: number;
   tile: TilePosition;
-};
+}
 
 export interface MovableEntity {
   x: number;
