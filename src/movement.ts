@@ -1,5 +1,5 @@
 import { TILE_SIZE } from './config/constants';
-import { BufferedEntity, CollisionTiles, Direction } from './types';
+import { BufferedEntity, CollisionTile, CollisionTiles, Direction, MovementActor } from './types';
 
 export const DEFAULT_TILE_SIZE = TILE_SIZE;
 
@@ -9,6 +9,7 @@ export type CanMoveFn = (
   _movedX: number,
   _collisionTiles: CollisionTiles,
   _tileSize?: number,
+  _actor?: MovementActor,
 ) => boolean;
 
 const OPPOSITES: Record<Direction, Direction> = {
@@ -26,31 +27,45 @@ export function canMove(
   movedX: number,
   collisionTiles: CollisionTiles,
   tileSize: number = DEFAULT_TILE_SIZE,
+  actor: MovementActor = 'pacman',
 ): boolean {
   const current = collisionTiles.current;
+  const up = collisionTiles.up;
   const down = collisionTiles.down;
+  const left = collisionTiles.left;
   const right = collisionTiles.right;
+  const bypassPenGate = actor === 'ghost';
+
+  const blocksEdge = (tile: CollisionTile, blocked: boolean): boolean => {
+    if (!blocked) {
+      return false;
+    }
+    if (bypassPenGate && tile.penGate) {
+      return false;
+    }
+    return true;
+  };
 
   if (direction === 'up') {
-    if (current.up) {
+    if (blocksEdge(current, current.up) || blocksEdge(up, up.down)) {
       return movedY < 0 && movedY >= -tileSize;
     }
     return true;
   }
   if (direction === 'down') {
-    if (down.up) {
+    if (blocksEdge(current, current.down) || blocksEdge(down, down.up)) {
       return movedY > 0 && movedY <= tileSize;
     }
     return true;
   }
   if (direction === 'right') {
-    if (right.left) {
+    if (blocksEdge(current, current.right) || blocksEdge(right, right.left)) {
       return movedX > 0 && movedX <= tileSize;
     }
     return true;
   }
   if (direction === 'left') {
-    if (current.left) {
+    if (blocksEdge(current, current.left) || blocksEdge(left, left.right)) {
       return movedX < 0 && movedX >= -tileSize;
     }
     return true;
@@ -62,16 +77,17 @@ export function getAvailableDirections(
   collisionTiles: CollisionTiles,
   currentDirection: Direction,
   tileSize: number = DEFAULT_TILE_SIZE,
+  actor: MovementActor = 'pacman',
 ): Direction[] {
   const directions = DIRECTIONS.filter((direction) => {
     if (direction === OPPOSITES[currentDirection]) {
       return false;
     }
-    return canMove(direction, 0, 0, collisionTiles, tileSize);
+    return canMove(direction, 0, 0, collisionTiles, tileSize, actor);
   });
   if (!directions.length) {
     const fallback = OPPOSITES[currentDirection];
-    if (canMove(fallback, 0, 0, collisionTiles, tileSize)) {
+    if (canMove(fallback, 0, 0, collisionTiles, tileSize, actor)) {
       directions.push(fallback);
     }
   }
@@ -94,7 +110,7 @@ export function applyBufferedDirection(
     return current;
   }
 
-  if (canMoveFn(next, moved.y, moved.x, collisionTiles, tileSize)) {
+  if (canMoveFn(next, moved.y, moved.x, collisionTiles, tileSize, 'pacman')) {
     pacman.direction.current = next;
     if (next === 'left' || next === 'right') {
       pacman.moved.x = 0;

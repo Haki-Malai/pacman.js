@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { applyBufferedDirection, canMove as canMoveHelper, getAvailableDirections as getAvailableDirectionsHelper } from '../movement';
-import { CAMERA, COLLECTIBLE_CONFIG, INITIAL_LIVES, SPEED, SPRITE_SIZE, TILE_SIZE } from '../config/constants';
+import { CAMERA, INITIAL_LIVES, SPEED, SPRITE_SIZE, TILE_SIZE } from '../config/constants';
 import {
   CollisionTile,
   CollisionTiles,
@@ -8,25 +8,16 @@ import {
   GhostKey,
   GhostSprite,
   MovableEntity,
-  PacmanSprite,
+  MovementActor,
   MovementProgress,
+  PacmanSprite,
   TilePosition,
 } from '../types';
-import { addScore, resetGameState } from '../state/gameState';
-
-type Collectible = {
-  tile: TilePosition;
-  pointType: number;
-  sprite: Phaser.GameObjects.Sprite;
-};
-
-type CollectibleConfig = {
-  texture: string;
-  size: number;
-  score: number;
-};
+import { resetGameState } from '../state/gameState';
 
 type OrientedTile = Phaser.Tilemaps.Tile & { propertiesOriented?: CollisionTile };
+
+const GHOST_KEYS: GhostKey[] = ['inky', 'clyde', 'pinky', 'blinky'];
 
 const createEmptyCollisionTile = (): CollisionTile => ({
   collides: false,
@@ -45,25 +36,39 @@ const DIRECTION_VECTORS: Record<Direction, { dx: number; dy: number }> = {
   right: { dx: 1, dy: 0 },
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
 export default class GameScene extends Phaser.Scene {
   private map!: Phaser.Tilemaps.Tilemap;
-  private tiles!: Phaser.Tilemaps.Tileset;
-  private floorLayer!: Phaser.Tilemaps.TilemapLayer;
   private wallsLayer!: Phaser.Tilemaps.TilemapLayer;
   private pacman!: PacmanSprite;
   private ghostGroup!: Phaser.Physics.Arcade.Group;
   private ghosts: GhostSprite[] = [];
-  private collectibles: Map<string, Collectible> = new Map();
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private tileSize: number = TILE_SIZE;
   private collisionGrid: CollisionTile[][] = [];
+  private collisionPropertiesByGid: Map<number, CollisionTile> = new Map();
   private scaredKeyListenerAttached = false;
   private isMoving = true;
+  private collisionDebugEnabled = false;
+  private collisionDebugGraphics?: Phaser.GameObjects.Graphics;
 
   private toggleGhostFear = (): void => {
     this.ghosts.forEach((ghost) => {
       ghost.state.scared = !ghost.state.scared;
     });
+  };
+
+  private toggleCollisionDebug = (): void => {
+    this.collisionDebugEnabled = !this.collisionDebugEnabled;
+    if (!this.collisionDebugGraphics) {
+      return;
+    }
+    this.collisionDebugGraphics.visible = this.collisionDebugEnabled;
+    if (!this.collisionDebugEnabled) {
+      this.collisionDebugGraphics.clear();
+    }
   };
 
   constructor() {
@@ -74,15 +79,10 @@ export default class GameScene extends Phaser.Scene {
     return this.tileSize / 2;
   }
 
-  private getScoreIncrement(pointType: number): number {
-    const config = this.getCollectibleConfig(pointType);
-    return config?.score ?? 0;
-  }
-
-  private getTileProperties(tile?: OrientedTile | null): CollisionTile {
-    const props = (tile?.propertiesOriented ?? tile?.properties ?? {}) as Record<string, unknown>;
+  private readCollisionTileFromProps(props: Record<string, unknown>): CollisionTile {
     const read = (key: string) => props[key];
     const toBool = (value: unknown) => Boolean(value);
+
     return {
       collides: toBool(read('collides')),
       penGate: toBool(read('penGate')),
@@ -94,18 +94,95 @@ export default class GameScene extends Phaser.Scene {
     };
   }
 
+  private buildCollisionPropertiesLookup(): void {
+    this.collisionPropertiesByGid.clear();
+
+    const cacheEntry = this.cache.tilemap.get('maze') as { data?: unknown } | undefined;
+    const mapData = cacheEntry?.data;
+    if (!isRecord(mapData)) {
+      return;
+    }
+
+    const rawTilesets = mapData.tilesets;
+    if (!Array.isArray(rawTilesets)) {
+      return;
+    }
+
+    rawTilesets.forEach((rawTileset) => {
+      if (!isRecord(rawTileset)) {
+        return;
+      }
+
+      const firstgid = rawTileset.firstgid;
+      const tiles = rawTileset.tiles;
+      if (typeof firstgid !== 'number' || !Array.isArray(tiles)) {
+        return;
+      }
+
+      tiles.forEach((rawTile) => {
+        if (!isRecord(rawTile)) {
+          return;
+        }
+
+        const tileId = rawTile.id;
+        if (typeof tileId !== 'number') {
+          return;
+        }
+
+        const propertyRecord: Record<string, unknown> = {};
+        const properties = rawTile.properties;
+        if (Array.isArray(properties)) {
+          properties.forEach((rawProperty) => {
+            if (!isRecord(rawProperty)) {
+              return;
+            }
+
+            const name = rawProperty.name;
+            if (typeof name !== 'string') {
+              return;
+            }
+
+            propertyRecord[name] = rawProperty.value;
+          });
+        }
+
+        const gid = firstgid + tileId;
+        this.collisionPropertiesByGid.set(gid, this.readCollisionTileFromProps(propertyRecord));
+      });
+    });
+  }
+
+  private getTileProperties(tile?: OrientedTile | null): CollisionTile {
+    if (!tile || tile.index < 0) {
+      return createEmptyCollisionTile();
+    }
+
+    if (tile.propertiesOriented) {
+      return { ...tile.propertiesOriented };
+    }
+
+    const fromLookup = this.collisionPropertiesByGid.get(tile.index);
+    if (fromLookup) {
+      return { ...fromLookup };
+    }
+
+    const rawProps = isRecord(tile.properties) ? tile.properties : {};
+    return this.readCollisionTileFromProps(rawProps);
+  }
+
   private prepareCollisionLayer(): void {
     const normalize = (tile?: Phaser.Tilemaps.Tile): CollisionTile => {
-      const props = (tile?.properties ?? {}) as Record<string, unknown>;
-      return {
-        collides: Boolean(props.collides),
-        penGate: Boolean(props.penGate),
-        portal: Boolean(props.portal),
-        up: Boolean(props.blocksUp ?? props.up),
-        down: Boolean(props.blocksDown ?? props.down),
-        left: Boolean(props.blocksLeft ?? props.left),
-        right: Boolean(props.blocksRight ?? props.right),
-      };
+      if (!tile || tile.index < 0) {
+        return createEmptyCollisionTile();
+      }
+
+      const fromLookup = this.collisionPropertiesByGid.get(tile.index);
+      if (fromLookup) {
+        return { ...fromLookup };
+      }
+
+      const rawProps = isRecord(tile.properties) ? tile.properties : {};
+      return this.readCollisionTileFromProps(rawProps);
     };
 
     const orient = (base: CollisionTile, tile: Phaser.Tilemaps.Tile): CollisionTile => {
@@ -175,33 +252,15 @@ export default class GameScene extends Phaser.Scene {
     };
   }
 
-  private getCollectibleConfig(pointType: number): CollectibleConfig | null {
-    const config = COLLECTIBLE_CONFIG[pointType];
-    if (!config) {
-      return null;
-    }
-    return { ...config };
-  }
-
-  private consumeCollectibleAt(tile: TilePosition): Collectible | undefined {
-    const tileKey = this.getTileKey(tile);
-    const collectible = this.collectibles.get(tileKey);
-    if (!collectible) {
-      return undefined;
-    }
-    this.collectibles.delete(tileKey);
-    collectible.sprite.destroy();
-    return collectible;
-  }
-
   private canMove(
     direction: Direction,
     movedY: number,
     movedX: number,
     collisionTiles: CollisionTiles,
     tileSize: number = this.tileSize,
+    actor: MovementActor = 'pacman',
   ): boolean {
-    return canMoveHelper(direction, movedY, movedX, collisionTiles, tileSize);
+    return canMoveHelper(direction, movedY, movedX, collisionTiles, tileSize, actor);
   }
 
   private advanceEntity(entity: PacmanSprite | GhostSprite, direction: Direction, speed = 1): void {
@@ -229,8 +288,12 @@ export default class GameScene extends Phaser.Scene {
     this.syncEntityPosition(entity);
   }
 
-  private getAvailableDirections(collisionTiles: CollisionTiles, currentDirection: Direction): Direction[] {
-    return getAvailableDirectionsHelper(collisionTiles, currentDirection, this.tileSize);
+  private getAvailableDirections(
+    collisionTiles: CollisionTiles,
+    currentDirection: Direction,
+    actor: MovementActor,
+  ): Direction[] {
+    return getAvailableDirectionsHelper(collisionTiles, currentDirection, this.tileSize, actor);
   }
 
   private syncEntityPosition(entity: PacmanSprite | GhostSprite): void {
@@ -274,14 +337,60 @@ export default class GameScene extends Phaser.Scene {
     return fallback;
   }
 
+  private clampTilePosition(tile: TilePosition): TilePosition {
+    return {
+      x: Phaser.Math.Clamp(tile.x, 0, this.map.width - 1),
+      y: Phaser.Math.Clamp(tile.y, 0, this.map.height - 1),
+    };
+  }
+
+  private isTilePassable(tile: TilePosition): boolean {
+    const clamped = this.clampTilePosition(tile);
+    return !this.getCollisionTileAt(clamped.x, clamped.y).collides;
+  }
+
+  private findNearestPassableTile(preferred: TilePosition): TilePosition {
+    const center = this.clampTilePosition(preferred);
+    if (this.isTilePassable(center)) {
+      return center;
+    }
+
+    const maxRadius = Math.max(this.map.width, this.map.height);
+    for (let radius = 1; radius <= maxRadius; radius++) {
+      for (let y = center.y - radius; y <= center.y + radius; y++) {
+        if (y < 0 || y >= this.map.height) {
+          continue;
+        }
+        for (let x = center.x - radius; x <= center.x + radius; x++) {
+          if (x < 0 || x >= this.map.width) {
+            continue;
+          }
+          const tile = { x, y };
+          if (this.isTilePassable(tile)) {
+            return tile;
+          }
+        }
+      }
+    }
+
+    return center;
+  }
+
+  private resolveSpawnTile(
+    objectTile: Phaser.Types.Tilemaps.TiledObject | undefined,
+    fallback: TilePosition,
+  ): TilePosition {
+    const preferred = this.clampTilePosition(this.getObjectTilePosition(objectTile, fallback));
+    if (this.isTilePassable(preferred)) {
+      return preferred;
+    }
+    return this.findNearestPassableTile(preferred);
+  }
+
   private toWorldPosition(tile: TilePosition, moved: MovementProgress): { x: number; y: number } {
     const x = this.map.tileToWorldX(tile.x) + this.tileCenterOffset + moved.x;
     const y = this.map.tileToWorldY(tile.y) + this.tileCenterOffset + moved.y;
     return { x, y };
-  }
-
-  private getTileKey(tile: TilePosition): string {
-    return `${tile.x},${tile.y}`;
   }
 
   private registerKeyboardShortcuts(): void {
@@ -290,51 +399,157 @@ export default class GameScene extends Phaser.Scene {
     }
     this.scaredKeyListenerAttached = true;
     this.input.keyboard.on('keydown-H', this.toggleGhostFear, this);
+    this.input.keyboard.on('keydown-C', this.toggleCollisionDebug, this);
+
     const shutdownEvent = 'shutdown';
     this.events.once(shutdownEvent, () => {
       this.input.keyboard.off('keydown-H', this.toggleGhostFear, this);
+      this.input.keyboard.off('keydown-C', this.toggleCollisionDebug, this);
       this.scaredKeyListenerAttached = false;
     });
   }
 
-  private awardCollectibleAt(tile: TilePosition): void {
-    const collectible = this.consumeCollectibleAt(tile);
-    if (!collectible) {
+  private drawDebugMarker(tile: TilePosition, color: number): void {
+    if (!this.collisionDebugGraphics || !this.collisionDebugEnabled) {
       return;
     }
-    addScore(this.getScoreIncrement(collectible.pointType));
-    this.pacman.play('eat');
+
+    const x = this.map.tileToWorldX(tile.x);
+    const y = this.map.tileToWorldY(tile.y);
+    this.collisionDebugGraphics.lineStyle(1, color, 1);
+    this.collisionDebugGraphics.strokeRect(x + 1, y + 1, this.tileSize - 2, this.tileSize - 2);
+  }
+
+  private drawCollisionDebugOverlay(): void {
+    if (!this.collisionDebugGraphics) {
+      return;
+    }
+
+    const graphics = this.collisionDebugGraphics;
+    graphics.clear();
+
+    if (!this.collisionDebugEnabled) {
+      return;
+    }
+
+    for (let y = 0; y < this.map.height; y++) {
+      for (let x = 0; x < this.map.width; x++) {
+        const tile = this.getCollisionTileAt(x, y);
+        if (!tile.collides && !tile.up && !tile.down && !tile.left && !tile.right && !tile.penGate) {
+          continue;
+        }
+
+        const worldX = this.map.tileToWorldX(x);
+        const worldY = this.map.tileToWorldY(y);
+        const edgeColor = tile.penGate ? 0x00ffff : 0xff3355;
+
+        if (tile.collides) {
+          graphics.fillStyle(0xff3355, 0.06);
+          graphics.fillRect(worldX, worldY, this.tileSize, this.tileSize);
+        }
+
+        graphics.lineStyle(1, edgeColor, 0.95);
+        if (tile.up) {
+          graphics.beginPath();
+          graphics.moveTo(worldX, worldY);
+          graphics.lineTo(worldX + this.tileSize, worldY);
+          graphics.strokePath();
+        }
+        if (tile.down) {
+          graphics.beginPath();
+          graphics.moveTo(worldX, worldY + this.tileSize);
+          graphics.lineTo(worldX + this.tileSize, worldY + this.tileSize);
+          graphics.strokePath();
+        }
+        if (tile.left) {
+          graphics.beginPath();
+          graphics.moveTo(worldX, worldY);
+          graphics.lineTo(worldX, worldY + this.tileSize);
+          graphics.strokePath();
+        }
+        if (tile.right) {
+          graphics.beginPath();
+          graphics.moveTo(worldX + this.tileSize, worldY);
+          graphics.lineTo(worldX + this.tileSize, worldY + this.tileSize);
+          graphics.strokePath();
+        }
+      }
+    }
+
+    this.drawDebugMarker(this.pacman.tile, 0xffdd00);
+    this.ghosts.forEach((ghost) => {
+      this.drawDebugMarker(ghost.tile, 0x00ff66);
+    });
   }
 
   create(): void {
     const pacmanSize = SPRITE_SIZE.pacman;
     const ghostSize = SPRITE_SIZE.ghost;
 
-    this.collectibles.clear();
     this.ghosts = [];
     this.scaredKeyListenerAttached = false;
+    this.collisionDebugEnabled = false;
+    this.isMoving = true;
     resetGameState(0, INITIAL_LIVES);
 
     this.map = this.make.tilemap({ key: 'maze' });
     this.tileSize = this.map.tileWidth || TILE_SIZE;
-    this.tiles = this.map.addTilesetImage('tileset', 'tiles', this.tileSize, this.tileSize);
-    this.floorLayer = this.map.createLayer('Floor', this.tiles, 0, 0).setDepth(0);
-    this.wallsLayer = this.map.createLayer('Walls', this.tiles, 0, 0).setDepth(1);
+    this.buildCollisionPropertiesLookup();
+
+    const layerName = this.map.getLayer('Maze')?.name ?? this.map.layers[0]?.name;
+    if (!layerName) {
+      throw new Error('Maze layer is required in maze.json');
+    }
+
+    const tilesets = this.map.tilesets
+      .map((tileset) =>
+        this.map.addTilesetImage(
+          tileset.name,
+          tileset.name,
+          tileset.tileWidth,
+          tileset.tileHeight,
+          tileset.tileMargin,
+          tileset.tileSpacing,
+          tileset.firstgid,
+        ),
+      )
+      .filter((tileset): tileset is Phaser.Tilemaps.Tileset => Boolean(tileset));
+
+    if (!tilesets.length) {
+      throw new Error('No tilesets could be bound for maze.json');
+    }
+
+    const layer = this.map.createLayer(layerName, tilesets, 0, 0);
+    if (!layer) {
+      throw new Error(`Failed to create map layer: ${layerName}`);
+    }
+
+    this.wallsLayer = layer.setDepth(1);
     this.prepareCollisionLayer();
 
     const spawnLayer = this.map.getObjectLayer('Spawns');
-    const dotLayer = this.map.getObjectLayer('Dots');
     const spawnObjects = spawnLayer?.objects ?? [];
     const pacmanSpawn = spawnObjects.find((obj) => obj.type === 'pacman');
     const ghostHome = spawnObjects.find((obj) => obj.type === 'ghost-home');
-    const pacmanTile = this.getObjectTilePosition(pacmanSpawn, { x: 25, y: 26 });
-    const ghostStartX = this.getObjectNumberProperty(ghostHome, 'startX') ?? 0;
-    const ghostEndX = this.getObjectNumberProperty(ghostHome, 'endX') ?? 0;
-    const ghostY =
-      ghostHome && typeof ghostHome.y === 'number'
-        ? Math.round(ghostHome.y / this.map.tileHeight)
-        : 0;
-    const ghostCount = this.getObjectNumberProperty(ghostHome, 'ghostCount') ?? 8;
+
+    const centerTile: TilePosition = {
+      x: Math.floor(this.map.width / 2),
+      y: Math.floor(this.map.height / 2),
+    };
+    const fallbackSpawn = this.findNearestPassableTile(centerTile);
+    const pacmanTile = this.resolveSpawnTile(pacmanSpawn, fallbackSpawn);
+
+    const ghostStartXRaw = this.getObjectNumberProperty(ghostHome, 'startX') ?? pacmanTile.x;
+    const ghostEndXRaw = this.getObjectNumberProperty(ghostHome, 'endX') ?? pacmanTile.x;
+    const ghostMinX = Phaser.Math.Clamp(Math.round(Math.min(ghostStartXRaw, ghostEndXRaw)), 0, this.map.width - 1);
+    const ghostMaxX = Phaser.Math.Clamp(Math.round(Math.max(ghostStartXRaw, ghostEndXRaw)), 0, this.map.width - 1);
+
+    const ghostYRaw =
+      ghostHome && typeof ghostHome.y === 'number' ? Math.round(ghostHome.y / this.map.tileHeight) : pacmanTile.y;
+    const ghostY = Phaser.Math.Clamp(ghostYRaw, 0, this.map.height - 1);
+
+    const ghostCountRaw = this.getObjectNumberProperty(ghostHome, 'ghostCount') ?? 4;
+    const ghostCount = Math.max(0, Math.round(ghostCountRaw));
 
     const pacmanSpawnPosition = this.toWorldPosition(pacmanTile, { x: 0, y: 0 });
     this.pacman = this.physics.add.sprite(pacmanSpawnPosition.x, pacmanSpawnPosition.y, 'pacman').setDepth(2) as PacmanSprite;
@@ -345,13 +560,6 @@ export default class GameScene extends Phaser.Scene {
       current: 'right',
     };
     this.setEntityTile(this.pacman, pacmanTile);
-
-    this.anims.create({
-      key: 'eat',
-      frames: this.anims.generateFrameNames('pacman', { start: 0, end: 3 }),
-      yoyo: true,
-      frameRate: 16,
-    });
 
     this.anims.create({
       key: 'scaredIdle',
@@ -390,20 +598,15 @@ export default class GameScene extends Phaser.Scene {
     });
 
     this.ghostGroup = this.physics.add.group();
-    const divideBy4 = ghostCount / 4;
     for (let i = 0; i < ghostCount; i++) {
-      const randomIntegerTemp = Math.floor(Math.random() * (ghostEndX - ghostStartX)) + ghostStartX;
-      let ghostKey: GhostKey;
-      if (i < divideBy4) {
-        ghostKey = 'inky';
-      } else if (i < divideBy4 * 2) {
-        ghostKey = 'clyde';
-      } else if (i < divideBy4 * 3) {
-        ghostKey = 'pinky';
-      } else {
-        ghostKey = 'blinky';
-      }
-      const spawnTile: TilePosition = { x: randomIntegerTemp, y: ghostY };
+      const range = ghostMaxX - ghostMinX + 1;
+      const randomSpawnX = ghostMinX + Math.floor(Math.random() * Math.max(range, 1));
+      const spawnCandidate: TilePosition = { x: randomSpawnX, y: ghostY };
+      const spawnTile = this.isTilePassable(spawnCandidate)
+        ? spawnCandidate
+        : this.findNearestPassableTile(spawnCandidate);
+
+      const ghostKey = GHOST_KEYS[i % GHOST_KEYS.length];
       const spawnWorld = this.toWorldPosition(spawnTile, { x: 0, y: 0 });
       const ghost = this.ghostGroup.create(spawnWorld.x, spawnWorld.y, ghostKey) as GhostSprite;
       ghost.displayWidth = ghostSize;
@@ -423,23 +626,6 @@ export default class GameScene extends Phaser.Scene {
       this.ghosts.push(ghost);
     }
 
-    const dotObjects = dotLayer?.objects ?? [];
-    dotObjects.forEach((dot) => {
-      const pointType = this.getObjectNumberProperty(dot, 'pointType') ?? 0;
-      const tile = this.getObjectTilePosition(dot, { x: 0, y: 0 });
-      const config = this.getCollectibleConfig(pointType);
-      if (!config) {
-        return;
-      }
-      const worldPosition = this.toWorldPosition(tile, { x: 0, y: 0 });
-      const point = this.add.sprite(worldPosition.x, worldPosition.y, config.texture);
-      point.displayHeight = config.size;
-      point.displayWidth = config.size;
-      point.setOrigin(0.5);
-      const key = this.getTileKey(tile);
-      this.collectibles.set(key, { pointType, tile, sprite: point });
-    });
-
     const camera = this.cameras.main;
     camera.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
     camera.zoomTo(CAMERA.zoom);
@@ -447,6 +633,10 @@ export default class GameScene extends Phaser.Scene {
 
     this.cursors = this.input.keyboard.createCursorKeys();
     this.registerKeyboardShortcuts();
+
+    this.collisionDebugGraphics = this.add.graphics().setDepth(10);
+    this.collisionDebugGraphics.visible = this.collisionDebugEnabled;
+
     const toggleMovement = () => {
       this.isMoving = !this.isMoving;
     };
@@ -454,6 +644,8 @@ export default class GameScene extends Phaser.Scene {
     const shutdownEvent = 'shutdown';
     this.events.once(shutdownEvent, () => {
       this.input.off('pointerdown', toggleMovement);
+      this.collisionDebugGraphics?.destroy();
+      this.collisionDebugGraphics = undefined;
     });
   }
 
@@ -478,11 +670,11 @@ export default class GameScene extends Phaser.Scene {
       }
 
       const collisionTiles = this.getCollisionTilesFor(ghost);
-      const canMoveCurrent = this.canMove(ghost.direction, ghost.moved.y, ghost.moved.x, collisionTiles);
+      const canMoveCurrent = this.canMove(ghost.direction, ghost.moved.y, ghost.moved.x, collisionTiles, this.tileSize, 'ghost');
       if (ghost.state.free) {
         if (canMoveCurrent) {
           if (ghost.moved.y === 0 && ghost.moved.x === 0) {
-            const options = this.getAvailableDirections(collisionTiles, ghost.direction);
+            const options = this.getAvailableDirections(collisionTiles, ghost.direction, 'ghost');
             if (options.length) {
               ghost.direction = options[Math.floor(Math.random() * options.length)];
             }
@@ -492,14 +684,14 @@ export default class GameScene extends Phaser.Scene {
           const perpendicular: Direction[] =
             ghost.direction === 'right' || ghost.direction === 'left' ? ['up', 'down'] : ['right', 'left'];
           const options = perpendicular.filter((direction) =>
-            this.canMove(direction, ghost.moved.y, ghost.moved.x, collisionTiles),
+            this.canMove(direction, ghost.moved.y, ghost.moved.x, collisionTiles, this.tileSize, 'ghost'),
           );
           if (options.length) {
             ghost.direction = options[Math.floor(Math.random() * options.length)];
           } else {
             const opposites: Record<Direction, Direction> = { up: 'down', down: 'up', left: 'right', right: 'left' };
             const fallback = opposites[ghost.direction];
-            if (fallback && this.canMove(fallback, ghost.moved.y, ghost.moved.x, collisionTiles)) {
+            if (fallback && this.canMove(fallback, ghost.moved.y, ghost.moved.x, collisionTiles, this.tileSize, 'ghost')) {
               ghost.direction = fallback;
             }
           }
@@ -508,7 +700,7 @@ export default class GameScene extends Phaser.Scene {
         if (!canMoveCurrent && ghost.moved.y === 0 && ghost.moved.x === 0) {
           ghost.direction = ghost.direction === 'right' ? 'left' : 'right';
         }
-        if (this.canMove(ghost.direction, ghost.moved.y, ghost.moved.x, collisionTiles)) {
+        if (this.canMove(ghost.direction, ghost.moved.y, ghost.moved.x, collisionTiles, this.tileSize, 'ghost')) {
           this.advanceEntity(ghost, ghost.direction, ghost.speed);
         }
       }
@@ -539,22 +731,14 @@ export default class GameScene extends Phaser.Scene {
 
     const collisionTiles = this.getCollisionTilesFor(this.pacman);
 
-    applyBufferedDirection(
-      this.pacman,
-      collisionTiles,
-      this.tileSize,
-      (direction, movedY, movedX, tiles) => this.canMove(direction, movedY, movedX, tiles),
+    applyBufferedDirection(this.pacman, collisionTiles, this.tileSize, (direction, movedY, movedX, tiles, tileSize, actor) =>
+      this.canMove(direction, movedY, movedX, tiles, tileSize, actor),
     );
 
-    this.awardCollectibleAt(this.pacman.tile);
-
-    if (!this.isMoving) {
-      return;
-    }
-
-    if (this.canMove(this.pacman.direction.current, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
+    if (this.isMoving && this.canMove(this.pacman.direction.current, this.pacman.moved.y, this.pacman.moved.x, collisionTiles)) {
       this.advanceEntity(this.pacman, this.pacman.direction.current, SPEED.pacman);
-      this.awardCollectibleAt(this.pacman.tile);
     }
+
+    this.drawCollisionDebugOverlay();
   }
 }

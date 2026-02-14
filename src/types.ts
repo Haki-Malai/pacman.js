@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
+export type MovementActor = 'pacman' | 'ghost';
 
 export interface MovementProgress {
   x: number;

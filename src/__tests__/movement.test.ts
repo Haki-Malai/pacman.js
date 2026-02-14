@@ -64,6 +64,45 @@ describe('canMove', () => {
     expect(canMove('right', 0, tileSize + 1, blockedRight, tileSize)).toBe(false);
     expect(canMove('left', 0, 0, clearTiles, tileSize)).toBe(true);
   });
+
+  it('blocks movement when the current tile blocks the crossed edge', () => {
+    const collisionTiles: CollisionTiles = {
+      current: tile({ right: true }),
+      down: tile(),
+      right: tile(),
+      left: tile(),
+      up: tile(),
+    };
+
+    expect(canMove('right', 0, 0, collisionTiles, tileSize)).toBe(false);
+    expect(canMove('right', 0, 4, collisionTiles, tileSize)).toBe(true);
+  });
+
+  it('blocks movement when the neighboring tile blocks the opposite edge', () => {
+    const collisionTiles: CollisionTiles = {
+      current: tile(),
+      down: tile(),
+      right: tile(),
+      left: tile({ right: true }),
+      up: tile(),
+    };
+
+    expect(canMove('left', 0, 0, collisionTiles, tileSize)).toBe(false);
+    expect(canMove('left', 0, -4, collisionTiles, tileSize)).toBe(true);
+  });
+
+  it('allows ghosts through pen-gate edges but blocks pacman', () => {
+    const collisionTiles: CollisionTiles = {
+      current: tile({ down: true, penGate: true }),
+      down: tile(),
+      right: tile(),
+      left: tile(),
+      up: tile(),
+    };
+
+    expect(canMove('down', 0, 0, collisionTiles, tileSize, 'pacman')).toBe(false);
+    expect(canMove('down', 0, 0, collisionTiles, tileSize, 'ghost')).toBe(true);
+  });
 });
 
 describe('applyBufferedDirection', () => {
@@ -83,7 +122,7 @@ describe('applyBufferedDirection', () => {
 
     expect(result).toBe('up');
     expect(pacman.direction.current).toBe('up');
-    expect(canMoveSpy).toHaveBeenCalledWith('up', 0, 0, collisionTiles, tileSize);
+    expect(canMoveSpy).toHaveBeenCalledWith('up', 0, 0, collisionTiles, tileSize, 'pacman');
   });
 
   it('ignores buffered input until pacman is centered on a tile', () => {
