@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "id": "MEC-PAC-001",
+      "status": "implemented",
+      "layer": "domain",
+      "mechanic": "pacman-buffered-turn",
+      "seed": 1001,
+      "ticks": 8,
+      "fixture": "default-map",
+      "actions": ["set buffered turn before center", "step until center"],
+      "expectations": ["turn applies only when centered"]
+    },
+    {
+      "id": "MEC-PAC-002",
+      "status": "implemented",
+      "layer": "domain",
+      "mechanic": "pacman-buffered-blocked-turn",
+      "seed": 1002,
+      "ticks": 8,
+      "fixture": "default-map",
+      "actions": ["request blocked turn", "step through blocked tile"],
+      "expectations": ["current direction is retained while blocked"]
+    },
+    {
+      "id": "MEC-PAC-003",
+      "status": "implemented",
+      "layer": "domain",
+      "mechanic": "pacman-edge-blocking",
+      "seed": 1003,
+      "ticks": 1,
+      "fixture": "pen-gate-grid",
+      "actions": ["attempt blocked edge crossing"],
+      "expectations": ["edge cannot be crossed from center", "partial in-tile motion can complete"]
+    },
+    {
+      "id": "MEC-GHO-001",
+      "status": "implemented",
+      "layer": "domain",
+      "mechanic": "ghost-center-choice",
+      "seed": 1101,
+      "ticks": 1,
+      "fixture": "default-map",
+      "actions": ["choose direction at center"],
+      "expectations": ["reverse direction excluded when alternatives exist"]
+    },
+    {
+      "id": "MEC-GHO-002",
+      "status": "implemented",
+      "layer": "domain",
+      "mechanic": "ghost-blocked-choice",
+      "seed": 1102,
+      "ticks": 1,
+      "fixture": "default-map",
+      "actions": ["choose when blocked"],
+      "expectations": ["perpendicular or reverse fallback is used"]
+    },
+    {
+      "id": "MEC-GHO-003",
+      "status": "implemented",
+      "layer": "domain",
+      "mechanic": "ghost-seeded-determinism",
+      "seed": 1103,
+      "ticks": 120,
+      "fixture": "simulation-grid",
+      "actions": ["simulate twice with same seed", "simulate once with different seed"],
+      "expectations": ["same seed trajectories match", "different seed diverges"]
+    },
+    {
+      "id": "MEC-JAIL-001",
+      "status": "implemented",
+      "layer": "domain",
+      "mechanic": "ghost-jail-oscillation",
+      "seed": 1201,
+      "ticks": 180,
+      "fixture": "default-map",
+      "actions": ["move jailed ghost repeatedly"],
+      "expectations": ["ghost x position remains within jail bounds"]
+    },
+    {
+      "id": "MEC-JAIL-002",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "ghost-release-timer-and-tween",
+      "seed": 1202,
+      "ticks": 500,
+      "fixture": "default-map",
+      "actions": ["run release delay", "run release tween"],
+      "expectations": ["ghost exits jail and becomes free"]
+    },
+    {
+      "id": "MEC-PORT-001",
+      "status": "implemented",
+      "layer": "domain",
+      "mechanic": "portal-center-only",
+      "seed": 1301,
+      "ticks": 1,
+      "fixture": "portal-pair-grid",
+      "actions": ["attempt teleport while offset", "attempt teleport while centered"],
+      "expectations": ["offset entity does not teleport", "centered entity teleports"]
+    },
+    {
+      "id": "MEC-PORT-002",
+      "status": "implemented",
+      "layer": "domain",
+      "mechanic": "portal-same-tick-bounce-guard",
+      "seed": 1302,
+      "ticks": 1,
+      "fixture": "portal-pair-grid",
+      "actions": ["teleport twice on same tick"],
+      "expectations": ["second teleport is blocked"]
+    },
+    {
+      "id": "MEC-PORT-003",
+      "status": "implemented",
+      "layer": "domain",
+      "mechanic": "portal-blocked-destination",
+      "seed": 1303,
+      "ticks": 1,
+      "fixture": "portal-blocked-grid",
+      "actions": ["attempt teleport to blocked portal"],
+      "expectations": ["teleport is rejected"]
+    },
+    {
+      "id": "MEC-TIME-001",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "pause-freeze",
+      "seed": 1401,
+      "ticks": 300,
+      "fixture": "default-map",
+      "actions": ["pause simulation", "advance ticks"],
+      "expectations": ["timers, tweens, and movement remain frozen"]
+    },
+    {
+      "id": "MEC-TIME-002",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "resume-after-pause",
+      "seed": 1402,
+      "ticks": 300,
+      "fixture": "default-map",
+      "actions": ["pause simulation", "resume simulation"],
+      "expectations": ["timers and tweens continue from frozen elapsed state"]
+    },
+    {
+      "id": "MEC-ANI-001",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "ghost-scared-animation-and-speed",
+      "seed": 1501,
+      "ticks": 20,
+      "fixture": "default-map",
+      "actions": ["toggle scared on", "toggle scared off"],
+      "expectations": ["animation key and speed switch and restore"]
+    },
+    {
+      "id": "MEC-RUN-001",
+      "status": "implemented",
+      "layer": "runtime",
+      "mechanic": "runtime-update-order",
+      "seed": 1601,
+      "ticks": 2,
+      "fixture": "runtime-stub",
+      "actions": ["run two RAF frames"],
+      "expectations": ["update order matches architecture contract"]
+    }
+  ],
+  "invariants": [
+    {
+      "id": "INV-BOUNDS-001",
+      "description": "Entities remain within map bounds after each tick",
+      "appliesTo": ["domain", "systems"],
+      "check": "bounds-safety"
+    },
+    {
+      "id": "INV-COLLIDE-001",
+      "description": "Blocked edges cannot be crossed from tile center",
+      "appliesTo": ["domain"],
+      "check": "blocked-edge-non-penetration"
+    },
+    {
+      "id": "INV-JAIL-001",
+      "description": "Jailed ghosts stay inside jail bounds before release",
+      "appliesTo": ["systems"],
+      "check": "jail-bounds"
+    },
+    {
+      "id": "INV-NAN-001",
+      "description": "Entity positions and movement progress never produce NaN or Infinity",
+      "appliesTo": ["domain", "systems"],
+      "check": "finite-numbers"
+    },
+    {
+      "id": "INV-PORT-001",
+      "description": "Portals cannot bounce an entity twice in the same tick",
+      "appliesTo": ["domain"],
+      "check": "same-tick-portal-guard"
+    },
+    {
+      "id": "INV-PAUSE-001",
+      "description": "Pause freezes movement and scheduler progression",
+      "appliesTo": ["runtime", "systems"],
+      "check": "pause-semantics"
+    },
+    {
+      "id": "INV-RNG-001",
+      "description": "Seeded runs are deterministic",
+      "appliesTo": ["domain"],
+      "check": "seed-determinism"
+    }
+  ]
+}

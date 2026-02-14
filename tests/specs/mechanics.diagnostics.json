@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "MEC-PAC-001",
+      "suspectModules": [
+        "src/game/domain/services/MovementRules.ts",
+        "src/game/systems/PacmanMovementSystem.ts"
+      ],
+      "fixPlan": [
+        "verify centered-turn gate in applyBufferedDirection",
+        "verify pacman next/current direction transitions"
+      ]
+    },
+    {
+      "id": "MEC-GHO-001",
+      "suspectModules": [
+        "src/game/domain/services/GhostDecisionService.ts",
+        "src/game/domain/services/MovementRules.ts"
+      ],
+      "fixPlan": [
+        "inspect non-reverse option filtering",
+        "validate canMove edge checks for ghost actor"
+      ]
+    },
+    {
+      "id": "MEC-JAIL-002",
+      "suspectModules": [
+        "src/game/systems/GhostReleaseSystem.ts",
+        "src/game/domain/services/GhostJailService.ts",
+        "src/engine/timer.ts",
+        "src/engine/tween.ts"
+      ],
+      "fixPlan": [
+        "confirm release delay timer scheduling",
+        "confirm tween completion sets free/soonFree flags",
+        "validate pause interaction with scheduler"
+      ]
+    },
+    {
+      "id": "MEC-PORT-002",
+      "suspectModules": [
+        "src/game/domain/services/PortalService.ts"
+      ],
+      "fixPlan": [
+        "validate lastTeleportTick guard",
+        "verify entity identity used in WeakMap"
+      ]
+    },
+    {
+      "id": "MEC-TIME-001",
+      "suspectModules": [
+        "src/game/app/GameRuntime.ts",
+        "src/game/infrastructure/adapters/TimerSchedulerAdapter.ts"
+      ],
+      "fixPlan": [
+        "verify pause toggles world.isMoving and scheduler pause",
+        "confirm paused updates do not advance mechanics"
+      ]
+    },
+    {
+      "id": "MEC-ANI-001",
+      "suspectModules": [
+        "src/game/systems/AnimationSystem.ts"
+      ],
+      "fixPlan": [
+        "verify scared/default transition conditions",
+        "validate speed restoration when leaving scared mode"
+      ]
+    },
+    {
+      "id": "MEC-RUN-001",
+      "suspectModules": [
+        "src/game/app/GameRuntime.ts",
+        "src/game/app/GameCompositionRoot.ts"
+      ],
+      "fixPlan": [
+        "compare update system order with architecture spec",
+        "inspect loop/pause pathways and composed system arrays"
+      ]
+    },
+    {
+      "id": "INV-BOUNDS-001",
+      "suspectModules": [
+        "src/game/domain/services/MovementRules.ts",
+        "src/game/domain/services/GhostJailService.ts"
+      ],
+      "fixPlan": [
+        "check tile wrapping and clamping logic",
+        "ensure release and jail movement respect map bounds"
+      ]
+    },
+    {
+      "id": "INV-NAN-001",
+      "suspectModules": [
+        "src/game/domain/services/MovementRules.ts",
+        "src/engine/tween.ts",
+        "src/engine/timer.ts"
+      ],
+      "fixPlan": [
+        "trace movement and tween arithmetic inputs",
+        "guard against invalid delta or undefined target values"
+      ]
+    }
+  ]
+}

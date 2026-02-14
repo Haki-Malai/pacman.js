@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "scenarios": [
+    {
+      "id": "RD-GHOST-001",
+      "status": "roadmap",
+      "layer": "systems",
+      "mechanic": "ghost-death-respawn",
+      "title": "ghost death to jail and respawn flow",
+      "seed": 2101,
+      "ticks": 600,
+      "fixture": "default-map",
+      "actions": ["collide pacman with vulnerable ghost"],
+      "expectations": ["ghost returns to jail and re-enters release lifecycle"]
+    },
+    {
+      "id": "RD-SCORE-001",
+      "status": "roadmap",
+      "layer": "systems",
+      "mechanic": "score-and-events",
+      "title": "collectibles increment score and emit events",
+      "seed": 2102,
+      "ticks": 200,
+      "fixture": "default-map",
+      "actions": ["collect points and fruit"],
+      "expectations": ["score increases by collectible rules", "score event emits each change"]
+    },
+    {
+      "id": "RD-LIFE-001",
+      "status": "roadmap",
+      "layer": "systems",
+      "mechanic": "life-loss-and-reset",
+      "title": "pacman collision decrements lives and triggers reset",
+      "seed": 2103,
+      "ticks": 300,
+      "fixture": "default-map",
+      "actions": ["collide pacman with non-scared ghost"],
+      "expectations": ["lives decrement", "positions reset deterministically"]
+    },
+    {
+      "id": "RD-LEVEL-001",
+      "status": "roadmap",
+      "layer": "runtime",
+      "mechanic": "level-complete-transition",
+      "title": "consuming all collectibles transitions level",
+      "seed": 2104,
+      "ticks": 2000,
+      "fixture": "default-map",
+      "actions": ["consume all collectibles"],
+      "expectations": ["level-complete transition triggers once"]
+    },
+    {
+      "id": "RD-MAP-001",
+      "status": "roadmap",
+      "layer": "infrastructure",
+      "mechanic": "portal-pen-gate-map-contract",
+      "title": "production maze contains portal and pen-gate contract",
+      "seed": 2105,
+      "ticks": 1,
+      "fixture": "default-map",
+      "actions": ["parse production maze"],
+      "expectations": ["portal and pen-gate tiles are present and valid"]
+    }
+  ]
+}

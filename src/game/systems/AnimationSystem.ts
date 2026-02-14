@@ -17,7 +17,11 @@ const ANIMATIONS: Record<AnimationKey, AnimationDefinition> = {
 };
 
 export class AnimationSystem {
-  constructor(private readonly world: WorldState, private readonly defaultGhostSpeed: number) {}
+  constructor(
+    private readonly world: WorldState,
+    private readonly defaultGhostSpeed: number,
+    private readonly animations: Record<AnimationKey, AnimationDefinition> = ANIMATIONS,
+  ) {}
 
   start(): void {
     this.world.ghosts.forEach((ghost) => {
@@ -47,7 +51,7 @@ export class AnimationSystem {
       return;
     }
 
-    const definition = ANIMATIONS[playback.key];
+    const definition = this.animations[playback.key];
     const frameDuration = 1000 / definition.frameRate;
     playback.elapsedMs += deltaMs;
 
@@ -76,7 +80,7 @@ export class AnimationSystem {
   }
 
   private createAnimationPlayback(key: AnimationKey): AnimationPlayback {
-    const definition = ANIMATIONS[key];
+    const definition = this.animations[key];
     return {
       key,
       frame: definition.start,

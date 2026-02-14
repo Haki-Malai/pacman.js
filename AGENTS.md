@@ -20,6 +20,17 @@ Use pnpm scripts (prefer `npm run <script>`):
 - Lint autofix: `pnpm run lint:fix`
 - Format: `pnpm run format` (Prettier)
 
+## Mechanics test quick guide
+
+For day-to-day mechanics validation (no UI assertions):
+- quick mechanics suite: `pnpm run test:mechanics`
+- heavy mechanics fuzzing: `pnpm run test:mechanics:fuzz`
+- mechanics coverage + thresholds: `pnpm run test:mechanics:coverage` then `pnpm run check:mechanics:coverage`
+- full blocking mechanics gate (same as CI): `pnpm run test:mechanics:ci`
+- investigate a failure bundle: `pnpm run triage:mechanics` (or pass a bundle path)
+
+Full usage/reference doc: `docs/TESTING.md`
+
 ## Engineering priorities
 
 1. Correct behavior (tests pass)

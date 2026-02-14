@@ -21,5 +21,7 @@ jobs:
         run: npm run typecheck
       - name: Test
         run: npm run test
+      - name: Mechanics CI Gate
+        run: npm run test:mechanics:ci
       - name: Build
         run: npm run build
