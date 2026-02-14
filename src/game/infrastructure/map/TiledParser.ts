@@ -1,4 +1,5 @@
-import { CollisionTile } from '../../types';
+import { CollisionTile, createEmptyCollisionTile } from '../../domain/world/CollisionGrid';
+import { WorldMapData, WorldObject, WorldProperty, WorldTile } from '../../domain/world/WorldState';
 
 export const FLIPPED_HORIZONTAL = 0x80000000;
 export const FLIPPED_VERTICAL = 0x40000000;
@@ -68,44 +69,6 @@ export interface ParsedGid {
   flipped: boolean;
 }
 
-export interface ParsedMazeTile {
-  x: number;
-  y: number;
-  rawGid: number;
-  gid: number | null;
-  localId: number | null;
-  imagePath: string;
-  rotation: number;
-  flipX: boolean;
-  flipY: boolean;
-  collision: CollisionTile;
-}
-
-export interface ParsedTiledMap {
-  width: number;
-  height: number;
-  tileWidth: number;
-  tileHeight: number;
-  widthInPixels: number;
-  heightInPixels: number;
-  tiles: ParsedMazeTile[][];
-  collisionByGid: Map<number, CollisionTile>;
-  imageByGid: Map<number, string>;
-  spawnObjects: TiledObject[];
-  pacmanSpawn?: TiledObject;
-  ghostHome?: TiledObject;
-}
-
-export const createEmptyCollisionTile = (): CollisionTile => ({
-  collides: false,
-  penGate: false,
-  portal: false,
-  up: false,
-  down: false,
-  left: false,
-  right: false,
-});
-
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
@@ -139,9 +102,6 @@ export function parseGid(rawGid: number): ParsedGid {
   } else if (!flippedHorizontal && !flippedVertical && flippedAntiDiagonal) {
     rotation = (3 * Math.PI) / 2;
     flipped = true;
-  } else {
-    rotation = 0;
-    flipped = false;
   }
 
   return {
@@ -231,7 +191,23 @@ const toPropertyRecord = (properties?: TiledProperty[]): Record<string, unknown>
   return record;
 };
 
-export function parseTiledMap(map: TiledMap): ParsedTiledMap {
+const toWorldObject = (object: TiledObject): WorldObject => ({
+  id: object.id,
+  name: object.name,
+  type: object.type,
+  visible: object.visible,
+  x: object.x,
+  y: object.y,
+  width: object.width,
+  height: object.height,
+  properties: object.properties?.map((property): WorldProperty => ({
+    name: property.name,
+    type: property.type,
+    value: property.value,
+  })),
+});
+
+export function parseTiledMap(map: TiledMap): WorldMapData {
   const mazeLayer = map.layers.find((layer) => isRecord(layer) && layer.type === 'tilelayer' && layer.name === 'Maze') as
     | TiledTileLayer
     | undefined;
@@ -271,9 +247,9 @@ export function parseTiledMap(map: TiledMap): ParsedTiledMap {
     });
   });
 
-  const tiles: ParsedMazeTile[][] = [];
+  const tiles: WorldTile[][] = [];
   for (let y = 0; y < height; y += 1) {
-    const row: ParsedMazeTile[] = [];
+    const row: WorldTile[] = [];
 
     for (let x = 0; x < width; x += 1) {
       const index = y * width + x;
@@ -323,7 +299,8 @@ export function parseTiledMap(map: TiledMap): ParsedTiledMap {
   const spawnLayer = map.layers.find((layer) => isRecord(layer) && layer.type === 'objectgroup' && layer.name === 'Spawns') as
     | TiledObjectLayer
     | undefined;
-  const spawnObjects = spawnLayer?.objects ?? [];
+
+  const spawnObjects = (spawnLayer?.objects ?? []).map((object) => toWorldObject(object));
 
   return {
     width,
@@ -339,9 +316,4 @@ export function parseTiledMap(map: TiledMap): ParsedTiledMap {
     pacmanSpawn: spawnObjects.find((object) => object.type === 'pacman'),
     ghostHome: spawnObjects.find((object) => object.type === 'ghost-home'),
   };
-}
-
-export function getObjectNumberProperty(obj: TiledObject | undefined, name: string): number | undefined {
-  const property = obj?.properties?.find((entry) => entry.name === name);
-  return typeof property?.value === 'number' ? property.value : undefined;
 }

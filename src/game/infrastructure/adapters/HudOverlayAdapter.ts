@@ -1,6 +1,6 @@
-import { GameEvent, gameEvents, getGameState } from '../../state/gameState';
+import { GameEvent, gameEvents, getGameState } from '../../../state/gameState';
 
-export class HudOverlay {
+export class HudOverlayAdapter {
   private readonly container: HTMLDivElement;
   private readonly scoreText: HTMLDivElement;
   private readonly livesText: HTMLDivElement;

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { applyBufferedDirection, canMove, DEFAULT_TILE_SIZE } from '../movement';
-import { BufferedEntity, CollisionTile, CollisionTiles } from '../types';
+import { applyBufferedDirection, canMove, DEFAULT_TILE_SIZE, BufferedEntity } from '../game/domain/services/MovementRules';
+import { CollisionTile, CollisionTiles } from '../game/domain/world/CollisionGrid';
 
 const tileSize = DEFAULT_TILE_SIZE;
 const tile = (overrides: Partial<CollisionTile> = {}): CollisionTile => ({

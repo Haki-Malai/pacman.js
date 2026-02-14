@@ -5,8 +5,8 @@ import {
   FLIPPED_VERTICAL,
   orientCollisionTile,
   parseGid,
-} from '../game/map/tiled';
-import { CollisionTile } from '../types';
+} from '../game/infrastructure/map/TiledParser';
+import { CollisionTile } from '../game/domain/world/CollisionGrid';
 
 const tile = (overrides: Partial<CollisionTile> = {}): CollisionTile => ({
   collides: true,

@@ -1,4 +1,4 @@
-import { TypedEventEmitter } from '../engine/events';
+import { EventBus } from '../game/shared/events/EventBus';
 import { INITIAL_LIVES } from '../config/constants';
 
 export type GameState = {
@@ -21,7 +21,7 @@ const state: GameState = {
   lives: INITIAL_LIVES,
 };
 
-const eventBus = new TypedEventEmitter<GameEventMap>();
+const eventBus = new EventBus<GameEventMap>();
 
 export const gameEvents = {
   on<K extends keyof GameEventMap>(event: K, listener: (_payload: GameEventMap[K]) => void): void {

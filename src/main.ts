@@ -1,6 +1,8 @@
 import './style.css';
-import { startGameApp } from './game/startGameApp';
+import { createPacmanGame } from './game/app/createPacmanGame';
 
-void startGameApp({
+const game = createPacmanGame({
   mountId: 'game-root',
 });
+
+void game.start();

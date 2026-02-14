@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createSeededRng } from '../game/startGameApp';
-import { simulateGhostMovement } from '../game/runtime/ghostSimulation';
-import { CollisionTile } from '../types';
+import { simulateGhostMovement } from '../game/domain/services/GhostDecisionService';
+import { CollisionTile } from '../game/domain/world/CollisionGrid';
+import { SeededRandom } from '../game/shared/random/SeededRandom';
 
 const passableTile = (): CollisionTile => ({
   collides: false,
@@ -43,7 +43,7 @@ describe('simulateGhostMovement', () => {
     const runA = simulateGhostMovement({
       collisionGrid: grid,
       steps: 120,
-      rng: createSeededRng(12345),
+      rng: new SeededRandom(12345),
       tileSize: 16,
       startTile: { x: 4, y: 4 },
       startDirection: 'left',
@@ -52,7 +52,7 @@ describe('simulateGhostMovement', () => {
     const runB = simulateGhostMovement({
       collisionGrid: grid,
       steps: 120,
-      rng: createSeededRng(12345),
+      rng: new SeededRandom(12345),
       tileSize: 16,
       startTile: { x: 4, y: 4 },
       startDirection: 'left',
@@ -61,7 +61,7 @@ describe('simulateGhostMovement', () => {
     const runC = simulateGhostMovement({
       collisionGrid: grid,
       steps: 120,
-      rng: createSeededRng(99999),
+      rng: new SeededRandom(99999),
       tileSize: 16,
       startTile: { x: 4, y: 4 },
       startDirection: 'left',
