@@ -120,6 +120,11 @@
               "name": "endX",
               "type": "int",
               "value": 28
+            },
+            {
+              "name": "gridY",
+              "type": "int",
+              "value": 26
             }
           ]
         }
@@ -592,27 +597,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "down",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -635,27 +640,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "down",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -678,27 +683,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "down",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -721,27 +726,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "down",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -764,27 +769,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "down",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",

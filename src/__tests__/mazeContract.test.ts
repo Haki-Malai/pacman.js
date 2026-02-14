@@ -45,11 +45,11 @@ const COLLISION_RULES: Record<number, { collides: boolean; up: boolean; down: bo
   14: { collides: false, up: false, down: false, left: false, right: false },
   15: { collides: false, up: false, down: false, left: false, right: false },
   16: { collides: true, up: true, down: true, left: true, right: true },
-  17: { collides: false, up: false, down: false, left: false, right: false },
-  18: { collides: false, up: false, down: false, left: false, right: false },
-  19: { collides: false, up: false, down: false, left: false, right: false },
-  20: { collides: false, up: false, down: false, left: false, right: false },
-  21: { collides: false, up: false, down: false, left: false, right: false },
+  17: { collides: true, up: true, down: true, left: true, right: true },
+  18: { collides: true, up: true, down: true, left: true, right: true },
+  19: { collides: true, up: true, down: true, left: true, right: true },
+  20: { collides: true, up: true, down: true, left: true, right: true },
+  21: { collides: true, up: true, down: true, left: true, right: true },
   23: { collides: false, up: false, down: false, left: false, right: false },
 };
 
@@ -88,6 +88,7 @@ describe('maze.json contract', () => {
     expect(typeof getPropertyValue(pacmanSpawn?.properties, 'gridY')).toBe('number');
     expect(typeof getPropertyValue(ghostHome?.properties, 'startX')).toBe('number');
     expect(typeof getPropertyValue(ghostHome?.properties, 'endX')).toBe('number');
+    expect(typeof getPropertyValue(ghostHome?.properties, 'gridY')).toBe('number');
     expect(getPropertyValue(ghostHome?.properties, 'ghostCount')).toBe(4);
   });
 

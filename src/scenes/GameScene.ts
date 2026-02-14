@@ -16,6 +16,12 @@ import {
 import { resetGameState } from '../state/gameState';
 
 type OrientedTile = Phaser.Tilemaps.Tile & { propertiesOriented?: CollisionTile };
+type MovementKeys = {
+  up: Phaser.Input.Keyboard.Key;
+  down: Phaser.Input.Keyboard.Key;
+  left: Phaser.Input.Keyboard.Key;
+  right: Phaser.Input.Keyboard.Key;
+};
 
 const GHOST_KEYS: GhostKey[] = ['inky', 'clyde', 'pinky', 'blinky'];
 
@@ -64,6 +70,7 @@ export default class GameScene extends Phaser.Scene {
   private ghostGroup!: Phaser.Physics.Arcade.Group;
   private ghosts: GhostSprite[] = [];
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private wasdKeys?: MovementKeys;
   private tileSize: number = TILE_SIZE;
   private collisionGrid: CollisionTile[][] = [];
   private collisionPropertiesByGid: Map<number, CollisionTile> = new Map();
@@ -79,6 +86,10 @@ export default class GameScene extends Phaser.Scene {
     this.ghosts.forEach((ghost) => {
       ghost.state.scared = !ghost.state.scared;
     });
+  };
+
+  private togglePause = (): void => {
+    this.isMoving = !this.isMoving;
   };
 
   private handleCollisionDebugHotkey = (event: KeyboardEvent): void => {
@@ -566,11 +577,13 @@ export default class GameScene extends Phaser.Scene {
     this.scaredKeyListenerAttached = true;
     this.input.keyboard.on('keydown-H', this.toggleGhostFear, this);
     this.input.keyboard.on('keydown-C', this.handleCollisionDebugHotkey, this);
+    this.input.keyboard.on('keydown-SPACE', this.togglePause, this);
 
     const shutdownEvent = 'shutdown';
     this.events.once(shutdownEvent, () => {
       this.input.keyboard.off('keydown-H', this.toggleGhostFear, this);
       this.input.keyboard.off('keydown-C', this.handleCollisionDebugHotkey, this);
+      this.input.keyboard.off('keydown-SPACE', this.togglePause, this);
       this.scaredKeyListenerAttached = false;
     });
   }
@@ -817,6 +830,13 @@ export default class GameScene extends Phaser.Scene {
     camera.startFollow(this.pacman, true, CAMERA.followLerp.x, CAMERA.followLerp.y);
 
     this.cursors = this.input.keyboard.createCursorKeys();
+    const wasd = this.input.keyboard.addKeys({
+      up: Phaser.Input.Keyboard.KeyCodes.W,
+      down: Phaser.Input.Keyboard.KeyCodes.S,
+      left: Phaser.Input.Keyboard.KeyCodes.A,
+      right: Phaser.Input.Keyboard.KeyCodes.D,
+    }) as MovementKeys;
+    this.wasdKeys = wasd;
     this.registerKeyboardShortcuts();
 
     this.collisionDebugGraphics = this.add.graphics().setDepth(10);
@@ -931,13 +951,18 @@ export default class GameScene extends Phaser.Scene {
       this.pacman.angle = 90;
     }
 
-    if (this.cursors.left?.isDown) {
+    const leftPressed = Boolean(this.cursors.left?.isDown || this.wasdKeys?.left.isDown);
+    const rightPressed = Boolean(this.cursors.right?.isDown || this.wasdKeys?.right.isDown);
+    const upPressed = Boolean(this.cursors.up?.isDown || this.wasdKeys?.up.isDown);
+    const downPressed = Boolean(this.cursors.down?.isDown || this.wasdKeys?.down.isDown);
+
+    if (leftPressed) {
       this.pacman.direction.next = 'left';
-    } else if (this.cursors.right?.isDown) {
+    } else if (rightPressed) {
       this.pacman.direction.next = 'right';
-    } else if (this.cursors.up?.isDown) {
+    } else if (upPressed) {
       this.pacman.direction.next = 'up';
-    } else if (this.cursors.down?.isDown) {
+    } else if (downPressed) {
       this.pacman.direction.next = 'down';
     }
 
