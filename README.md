@@ -7,7 +7,8 @@ This is a pacman game i am currently working on for fun. I have developed it aga
 - `pnpm build` to produce the deployable bundle in `dist/`.
 - `pnpm preview` to serve the built bundle locally.
 - `pnpm typecheck` to run the strict TypeScript compiler with `--noEmit`.
-- `pnpm lint` to run ESLint against the TypeScript sources.
+- `pnpm lint` to run ESLint against the TypeScript sources (including Tailwind utility class validation).
+- `pnpm format` / `pnpm format:check` to run Prettier (Tailwind utility classes are auto-sorted).
 - `pnpm test` to execute the Vitest suite.
 
 ## Project layout

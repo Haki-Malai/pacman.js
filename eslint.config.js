@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import tailwindcss from 'eslint-plugin-tailwindcss';
 import tseslint from 'typescript-eslint';
 import vitest from 'eslint-plugin-vitest';
 
@@ -25,6 +26,7 @@ export default tseslint.config(
       },
     },
     plugins: {
+      tailwindcss,
       vitest,
     },
     rules: {
@@ -35,6 +37,9 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-var': 'off',
       'prefer-const': 'off',
+      'tailwindcss/classnames-order': 'error',
+      'tailwindcss/no-contradicting-classname': 'error',
+      'tailwindcss/no-custom-classname': 'off',
     },
   },
   {
