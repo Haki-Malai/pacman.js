@@ -13,6 +13,7 @@ const OUT_VIDEO = path.join(OUT_DIR, 'pacman-demo.mp4');
 const FPS = 12;
 const DURATION_SEC = 10;
 const TOTAL_FRAMES = FPS * DURATION_SEC;
+const PLAYBACK_SPEED = 0.5; // 0.5 = half speed
 const BASE_URL = process.env.DEMO_URL ?? 'http://127.0.0.1:4173';
 const CHROME_PATH = process.env.CHROME_PATH ?? '/usr/bin/chromium';
 
@@ -61,6 +62,7 @@ async function main() {
     try {
       const page = await browser.newPage();
       await page.goto(BASE_URL, { waitUntil: 'networkidle2' });
+      await page.reload({ waitUntil: 'networkidle2' });
 
       // trigger intro/menu sequence then start game
       await page.mouse.click(640, 360);
@@ -88,6 +90,7 @@ async function main() {
       '-y',
       '-framerate', String(FPS),
       '-i', path.join(FRAMES_DIR, 'frame-%04d.png'),
+      '-vf', `setpts=${1 / PLAYBACK_SPEED}*PTS`,
       '-c:v', 'libx264',
       '-pix_fmt', 'yuv420p',
       '-movflags', '+faststart',
