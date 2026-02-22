@@ -4,6 +4,7 @@ import { PacmanExperience, PacmanRuntime, PacmanRuntimeFactory } from './contrac
 interface PacmanExperienceOptions {
     mountId?: string;
     createGame: PacmanRuntimeFactory;
+    autoStart?: boolean;
 }
 
 interface WebkitFullscreenDocument extends Document {
@@ -74,10 +75,14 @@ export class PacmanExperienceRuntime implements PacmanExperience {
             this.fullscreenButton
         );
 
-        this.menu = new LegacyMenuController({
-            mount: this.overlayHost,
-            onStartRequested: () => this.startGameRuntime(),
-        });
+        const autoStart = this.options.autoStart ?? false;
+
+        if (!autoStart) {
+            this.menu = new LegacyMenuController({
+                mount: this.overlayHost,
+                onStartRequested: () => this.startGameRuntime(),
+            });
+        }
 
         document.addEventListener('fullscreenchange', this.handleFullscreenChange);
         document.addEventListener('fullscreenerror', this.handleFullscreenError);
@@ -85,6 +90,11 @@ export class PacmanExperienceRuntime implements PacmanExperience {
         this.rewriteOverlayAssetUrls();
 
         this.started = true;
+
+        if (autoStart) {
+            return this.startGameRuntime();
+        }
+
         return Promise.resolve();
     }
 
