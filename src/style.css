@@ -159,7 +159,8 @@
         @apply opacity-20;
     }
 
-    .pacman-fullscreen-toggle {
+     .pacman-fullscreen-toggle {
+        display: none !important;
         @apply pointer-events-auto fixed right-3 top-3 z-[55] rounded-full border border-fuchsia-500/60 bg-black/70 px-4 py-2 text-[0.72rem] uppercase tracking-[0.14em] text-amber-100 shadow-[0_0_18px_rgba(139,0,139,0.3)] backdrop-blur-md transition duration-200 ease-out;
     }
 
@@ -335,7 +336,8 @@
         height: 1.3rem;
     }
 
-    .pacman-fullscreen-toggle {
+     .pacman-fullscreen-toggle {
+        display: none !important;
         top: max(env(safe-area-inset-top), 0.5rem);
         right: max(env(safe-area-inset-right), 0.5rem);
         padding: 0.4rem 0.72rem;
@@ -344,21 +346,6 @@
     }
 }
 
-@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
-    .pacman-shell-root .pacman-runtime-host,
-    .pacman-shell-root .legacy-menu-root {
-        display: none;
-    }
-
-    .pacman-shell-root .mobile-orientation-guard {
-        display: flex;
-        pointer-events: auto;
-    }
-
-    .pacman-shell-root .pacman-fullscreen-toggle {
-        display: none;
-    }
-}
 
 @keyframes legacy-click-bob {
     25% {
