@@ -2,12 +2,22 @@ import { Direction } from '../domain/valueObjects/Direction';
 import { WorldState } from '../domain/world/WorldState';
 import { BrowserInputAdapter, PointerState } from '../infrastructure/adapters/BrowserInputAdapter';
 
+const TOUCH_TAP_MAX_TRAVEL_PX = 12;
+
 interface PauseController {
   togglePause(): void;
 }
 
+interface TapCandidate {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  movedBeyondTapSlop: boolean;
+}
+
 export class InputSystem {
   private disposers: Array<() => void> = [];
+  private touchTapCandidate: TapCandidate | null = null;
 
   constructor(
     private readonly input: BrowserInputAdapter,
@@ -33,12 +43,18 @@ export class InputSystem {
         this.handlePointerDown(pointer);
       }),
     );
+
+    this.disposers.push(
+      this.input.onPointerUp((pointer) => {
+        this.handlePointerUp(pointer);
+      }),
+    );
   }
 
   update(): void {
     const keyboardDirection = this.getKeyboardDirection();
-    const thumbstickDirection = this.input.getThumbstickDirection();
-    const nextDirection = keyboardDirection ?? thumbstickDirection;
+    const swipeDirection = this.input.getSwipeDirection();
+    const nextDirection = keyboardDirection ?? swipeDirection;
 
     if (nextDirection) {
       this.world.pacman.direction.next = nextDirection;
@@ -50,6 +66,7 @@ export class InputSystem {
       dispose();
     });
     this.disposers = [];
+    this.touchTapCandidate = null;
   }
 
   private getKeyboardDirection(): Direction | null {
@@ -111,11 +128,54 @@ export class InputSystem {
 
   private handlePointerMove(pointer: PointerState): void {
     this.world.pointerScreen = { x: pointer.x, y: pointer.y };
+
+    if (!this.touchTapCandidate || pointer.pointerId !== this.touchTapCandidate.pointerId) {
+      return;
+    }
+
+    const deltaX = pointer.x - this.touchTapCandidate.startX;
+    const deltaY = pointer.y - this.touchTapCandidate.startY;
+    if (Math.hypot(deltaX, deltaY) >= TOUCH_TAP_MAX_TRAVEL_PX) {
+      this.touchTapCandidate.movedBeyondTapSlop = true;
+    }
   }
 
   private handlePointerDown(pointer: PointerState): void {
     this.world.pointerScreen = { x: pointer.x, y: pointer.y };
+
+    if (this.isSwipeTouchPointer(pointer)) {
+      if (!this.touchTapCandidate) {
+        this.touchTapCandidate = {
+          pointerId: pointer.pointerId,
+          startX: pointer.x,
+          startY: pointer.y,
+          movedBeyondTapSlop: false,
+        };
+      }
+      return;
+    }
+
+    this.touchTapCandidate = null;
     this.pauseController.togglePause();
+  }
+
+  private handlePointerUp(pointer: PointerState): void {
+    this.world.pointerScreen = { x: pointer.x, y: pointer.y };
+
+    if (!this.touchTapCandidate || pointer.pointerId !== this.touchTapCandidate.pointerId) {
+      return;
+    }
+
+    const shouldTogglePause = !pointer.cancelled && !this.touchTapCandidate.movedBeyondTapSlop;
+    this.touchTapCandidate = null;
+
+    if (shouldTogglePause) {
+      this.pauseController.togglePause();
+    }
+  }
+
+  private isSwipeTouchPointer(pointer: PointerState): boolean {
+    return this.input.isSwipeInputEnabled() && pointer.pointerType === 'touch';
   }
 
   private async copyDebugPanelText(): Promise<void> {

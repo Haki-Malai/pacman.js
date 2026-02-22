@@ -65,9 +65,9 @@ Roadmap items are design intent only and must not be treated as current game beh
 
 - Launch shell intro: pointer click/tap or `Enter`/`Space`.
 - Menu start: `START` button or `Enter`/`Space` while menu is active.
-- Movement: `Arrow` keys or `WASD`.
+- Movement: `Arrow` keys or `WASD` (desktop), swipe/drag steering on touch devices.
 - Pause toggle: `Space`.
-- Pointer/click on game canvas: toggles pause.
+- Pointer/click on game canvas: mouse click toggles pause; touch tap toggles pause (swipes do not).
 - Collision debug toggle: `C`.
 - Copy debug panel text: `Shift + C`.
 - Toggle scared state for all ghosts: `H`.
@@ -98,6 +98,7 @@ Roadmap items are design intent only and must not be treated as current game beh
 - World is rendered on canvas (map + entities).
 - A DOM shell provides legacy-inspired intro/menu UX before runtime start.
 - HUD is rendered via DOM overlay and includes score/life indicators.
+- Mobile uses swipe-to-steer touch controls for movement.
 - Debug overlay can draw collision lines/markers and contextual tile details.
 
 ## Level and Content Rules

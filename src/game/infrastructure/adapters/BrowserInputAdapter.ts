@@ -1,25 +1,29 @@
 import { InputManager } from '../../../engine/input';
 import type { PointerState } from '../../../engine/input';
 import type { Direction } from '../../domain/valueObjects/Direction';
-import { MobileThumbstickController } from './MobileThumbstickController';
+import { MobileSwipeController } from './MobileSwipeController';
 
 export type { PointerState };
 
 export class BrowserInputAdapter {
   private readonly input: InputManager;
-  private readonly thumbstick: MobileThumbstickController | null;
+  private readonly swipe: MobileSwipeController;
 
   constructor(element: HTMLElement) {
     this.input = new InputManager(element);
-    this.thumbstick = element.parentElement ? new MobileThumbstickController(element.parentElement) : null;
+    this.swipe = new MobileSwipeController(element);
   }
 
   isKeyDown(code: string): boolean {
     return this.input.isKeyDown(code);
   }
 
-  getThumbstickDirection(): Direction | null {
-    return this.thumbstick?.getDirection() ?? null;
+  isSwipeInputEnabled(): boolean {
+    return this.swipe.isEnabled();
+  }
+
+  getSwipeDirection(): Direction | null {
+    return this.swipe.getDirection();
   }
 
   onKeyDown(listener: (_event: KeyboardEvent) => void): () => void {
@@ -34,8 +38,12 @@ export class BrowserInputAdapter {
     return this.input.onPointerDown(listener);
   }
 
+  onPointerUp(listener: (_pointer: PointerState) => void): () => void {
+    return this.input.onPointerUp(listener);
+  }
+
   destroy(): void {
-    this.thumbstick?.destroy();
+    this.swipe.destroy();
     this.input.destroy();
   }
 }
