@@ -29,7 +29,6 @@ export class PacmanExperienceRuntime implements PacmanExperience {
     private overlayHost: HTMLDivElement | null = null;
     private menu: LegacyMenuController | null = null;
     private game: PacmanRuntime | null = null;
-    private orientationGuard: HTMLDivElement | null = null;
     private fullscreenButton: HTMLButtonElement | null = null;
     private fullscreenErrorTimeout: number | null = null;
     private started = false;
@@ -113,9 +112,6 @@ export class PacmanExperienceRuntime implements PacmanExperience {
 
         this.overlayHost?.remove();
         this.overlayHost = null;
-
-        this.orientationGuard?.remove();
-        this.orientationGuard = null;
 
         document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
         document.removeEventListener('fullscreenerror', this.handleFullscreenError);
