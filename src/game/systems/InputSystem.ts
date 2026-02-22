@@ -1,3 +1,4 @@
+import { Direction } from '../domain/valueObjects/Direction';
 import { WorldState } from '../domain/world/WorldState';
 import { BrowserInputAdapter, PointerState } from '../infrastructure/adapters/BrowserInputAdapter';
 
@@ -35,19 +36,12 @@ export class InputSystem {
   }
 
   update(): void {
-    const leftPressed = this.input.isKeyDown('ArrowLeft') || this.input.isKeyDown('KeyA');
-    const rightPressed = this.input.isKeyDown('ArrowRight') || this.input.isKeyDown('KeyD');
-    const upPressed = this.input.isKeyDown('ArrowUp') || this.input.isKeyDown('KeyW');
-    const downPressed = this.input.isKeyDown('ArrowDown') || this.input.isKeyDown('KeyS');
+    const keyboardDirection = this.getKeyboardDirection();
+    const thumbstickDirection = this.input.getThumbstickDirection();
+    const nextDirection = keyboardDirection ?? thumbstickDirection;
 
-    if (leftPressed) {
-      this.world.pacman.direction.next = 'left';
-    } else if (rightPressed) {
-      this.world.pacman.direction.next = 'right';
-    } else if (upPressed) {
-      this.world.pacman.direction.next = 'up';
-    } else if (downPressed) {
-      this.world.pacman.direction.next = 'down';
+    if (nextDirection) {
+      this.world.pacman.direction.next = nextDirection;
     }
   }
 
@@ -56,6 +50,30 @@ export class InputSystem {
       dispose();
     });
     this.disposers = [];
+  }
+
+  private getKeyboardDirection(): Direction | null {
+    const leftPressed = this.input.isKeyDown('ArrowLeft') || this.input.isKeyDown('KeyA');
+    if (leftPressed) {
+      return 'left';
+    }
+
+    const rightPressed = this.input.isKeyDown('ArrowRight') || this.input.isKeyDown('KeyD');
+    if (rightPressed) {
+      return 'right';
+    }
+
+    const upPressed = this.input.isKeyDown('ArrowUp') || this.input.isKeyDown('KeyW');
+    if (upPressed) {
+      return 'up';
+    }
+
+    const downPressed = this.input.isKeyDown('ArrowDown') || this.input.isKeyDown('KeyS');
+    if (downPressed) {
+      return 'down';
+    }
+
+    return null;
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
