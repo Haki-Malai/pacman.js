@@ -6,7 +6,22 @@ interface PacmanExperienceOptions {
     createGame: PacmanRuntimeFactory;
 }
 
+interface WebkitFullscreenDocument extends Document {
+    webkitFullscreenEnabled?: boolean;
+    webkitFullscreenElement?: Element | null;
+    webkitExitFullscreen?: () => Promise<void> | void;
+}
+
+interface WebkitFullscreenElement extends HTMLElement {
+    webkitRequestFullscreen?: () => Promise<void> | void;
+}
+
 const DEFAULT_MOUNT_ID = 'game-root';
+const FULLSCREEN_ENTER_LABEL = 'Full Screen';
+const FULLSCREEN_EXIT_LABEL = 'Exit Full Screen';
+const FULLSCREEN_UNAVAILABLE_LABEL = 'Full Screen N/A';
+const FULLSCREEN_ERROR_LABEL = 'Fullscreen Blocked';
+const FULLSCREEN_ERROR_DURATION_MS = 2_000;
 
 export class PacmanExperienceRuntime implements PacmanExperience {
     private mount: HTMLElement | null = null;
@@ -15,6 +30,8 @@ export class PacmanExperienceRuntime implements PacmanExperience {
     private menu: LegacyMenuController | null = null;
     private game: PacmanRuntime | null = null;
     private orientationGuard: HTMLDivElement | null = null;
+    private fullscreenButton: HTMLButtonElement | null = null;
+    private fullscreenErrorTimeout: number | null = null;
     private started = false;
     private destroyed = false;
     private launchingGame = false;
@@ -46,14 +63,25 @@ export class PacmanExperienceRuntime implements PacmanExperience {
 
         this.orientationGuard = document.createElement('div');
         this.orientationGuard.className = 'mobile-orientation-guard';
-        this.orientationGuard.innerHTML = '<div class="mobile-orientation-card"><p>Rotate your phone</p><span>Pac-Man is available in landscape mode only.</span></div>';
+        this.orientationGuard.innerHTML =
+            '<div class="mobile-orientation-card"><p>Rotate your phone</p><span>Pac-Man is available in landscape mode only.</span></div>';
 
-        this.mount.append(this.runtimeHost, this.overlayHost, this.orientationGuard);
+        this.fullscreenButton = this.createFullscreenButton();
+
+        this.mount.append(
+            this.runtimeHost,
+            this.overlayHost,
+            this.orientationGuard,
+            this.fullscreenButton
+        );
 
         this.menu = new LegacyMenuController({
             mount: this.overlayHost,
             onStartRequested: () => this.startGameRuntime(),
         });
+
+        document.addEventListener('fullscreenchange', this.handleFullscreenChange);
+        document.addEventListener('fullscreenerror', this.handleFullscreenError);
 
         this.rewriteOverlayAssetUrls();
 
@@ -89,6 +117,24 @@ export class PacmanExperienceRuntime implements PacmanExperience {
         this.orientationGuard?.remove();
         this.orientationGuard = null;
 
+        document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
+        document.removeEventListener('fullscreenerror', this.handleFullscreenError);
+
+        if (this.fullscreenErrorTimeout !== null) {
+            window.clearTimeout(this.fullscreenErrorTimeout);
+            this.fullscreenErrorTimeout = null;
+        }
+
+        this.fullscreenButton?.removeEventListener('click', this.handleFullscreenClicked);
+        this.fullscreenButton?.remove();
+        this.fullscreenButton = null;
+
+        if (this.isFullscreenActive()) {
+            void this.exitFullscreen().catch(() => {
+                // Ignore cleanup failures from browser-level fullscreen APIs.
+            });
+        }
+
         if (this.mount) {
             this.mount.replaceChildren();
             this.mount.classList.remove('pacman-shell-root');
@@ -96,6 +142,149 @@ export class PacmanExperienceRuntime implements PacmanExperience {
 
         this.runtimeHost = null;
         this.mount = null;
+    }
+
+    private createFullscreenButton(): HTMLButtonElement {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'pacman-fullscreen-toggle';
+        button.setAttribute('aria-label', 'Toggle full screen');
+        button.addEventListener('click', this.handleFullscreenClicked);
+
+        this.syncFullscreenButtonState(button);
+        return button;
+    }
+
+    private readonly handleFullscreenClicked = (): void => {
+        void this.toggleFullscreen();
+    };
+
+    private readonly handleFullscreenChange = (): void => {
+        this.syncFullscreenButtonState();
+    };
+
+    private readonly handleFullscreenError = (): void => {
+        this.showFullscreenErrorState();
+    };
+
+    private syncFullscreenButtonState(overrideButton?: HTMLButtonElement): void {
+        const button = overrideButton ?? this.fullscreenButton;
+        if (!button) {
+            return;
+        }
+
+        if (!this.isFullscreenSupported()) {
+            button.disabled = true;
+            button.dataset.state = 'unsupported';
+            button.textContent = FULLSCREEN_UNAVAILABLE_LABEL;
+            button.title = 'Your browser does not support fullscreen mode.';
+            button.setAttribute('aria-pressed', 'false');
+            return;
+        }
+
+        if (button.dataset.state === 'error') {
+            return;
+        }
+
+        const isActive = this.isFullscreenActive();
+        button.disabled = false;
+        button.dataset.state = isActive ? 'active' : 'inactive';
+        button.textContent = isActive ? FULLSCREEN_EXIT_LABEL : FULLSCREEN_ENTER_LABEL;
+        button.title = isActive ? 'Leave fullscreen mode.' : 'Enter fullscreen mode.';
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    }
+
+    private showFullscreenErrorState(): void {
+        const button = this.fullscreenButton;
+        if (!button) {
+            return;
+        }
+
+        if (this.fullscreenErrorTimeout !== null) {
+            window.clearTimeout(this.fullscreenErrorTimeout);
+        }
+
+        button.disabled = false;
+        button.dataset.state = 'error';
+        button.textContent = FULLSCREEN_ERROR_LABEL;
+        button.title = 'The browser blocked this fullscreen request.';
+
+        this.fullscreenErrorTimeout = window.setTimeout(() => {
+            this.fullscreenErrorTimeout = null;
+            this.syncFullscreenButtonState();
+        }, FULLSCREEN_ERROR_DURATION_MS);
+    }
+
+    private getFullscreenDocument(): WebkitFullscreenDocument {
+        return document as WebkitFullscreenDocument;
+    }
+
+    private isFullscreenSupported(): boolean {
+        const fullscreenDocument = this.getFullscreenDocument();
+        const webkitRoot = document.documentElement as WebkitFullscreenElement;
+
+        return Boolean(
+            document.fullscreenEnabled ||
+                fullscreenDocument.webkitFullscreenEnabled ||
+                typeof document.documentElement.requestFullscreen === 'function' ||
+                typeof webkitRoot.webkitRequestFullscreen === 'function'
+        );
+    }
+
+    private isFullscreenActive(): boolean {
+        const fullscreenDocument = this.getFullscreenDocument();
+        return Boolean(document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement);
+    }
+
+    private async toggleFullscreen(): Promise<void> {
+        if (!this.isFullscreenSupported()) {
+            this.syncFullscreenButtonState();
+            return;
+        }
+
+        try {
+            if (this.isFullscreenActive()) {
+                await this.exitFullscreen();
+            } else {
+                await this.requestFullscreen(document.documentElement);
+            }
+        } catch (error) {
+            console.warn('Failed to toggle fullscreen mode.', error);
+            this.showFullscreenErrorState();
+            return;
+        }
+
+        this.syncFullscreenButtonState();
+    }
+
+    private async requestFullscreen(target: HTMLElement): Promise<void> {
+        if (typeof target.requestFullscreen === 'function') {
+            await target.requestFullscreen();
+            return;
+        }
+
+        const webkitTarget = target as WebkitFullscreenElement;
+        if (typeof webkitTarget.webkitRequestFullscreen === 'function') {
+            await Promise.resolve(webkitTarget.webkitRequestFullscreen());
+            return;
+        }
+
+        throw new Error('Fullscreen API is unavailable.');
+    }
+
+    private async exitFullscreen(): Promise<void> {
+        if (typeof document.exitFullscreen === 'function') {
+            await document.exitFullscreen();
+            return;
+        }
+
+        const fullscreenDocument = this.getFullscreenDocument();
+        if (typeof fullscreenDocument.webkitExitFullscreen === 'function') {
+            await Promise.resolve(fullscreenDocument.webkitExitFullscreen());
+            return;
+        }
+
+        throw new Error('Fullscreen exit API is unavailable.');
     }
 
     private rewriteOverlayAssetUrls(): void {

@@ -26,9 +26,18 @@
     }
 }
 
+@supports (height: 100dvh) {
+    body,
+    #game-root {
+        height: 100dvh;
+    }
+}
+
 @layer components {
     .pacman-shell-root {
         @apply relative isolate flex h-full w-full items-center justify-center overflow-hidden bg-black;
+        min-height: 100vh;
+        min-height: 100dvh;
     }
 
     .pacman-runtime-host {
@@ -150,6 +159,30 @@
         @apply opacity-20;
     }
 
+    .pacman-fullscreen-toggle {
+        @apply pointer-events-auto fixed right-3 top-3 z-[55] rounded-full border border-fuchsia-500/60 bg-black/70 px-4 py-2 text-[0.72rem] uppercase tracking-[0.14em] text-amber-100 shadow-[0_0_18px_rgba(139,0,139,0.3)] backdrop-blur-md transition duration-200 ease-out;
+    }
+
+    .pacman-fullscreen-toggle:hover:not(:disabled) {
+        @apply border-fuchsia-400/85 bg-fuchsia-900/55 text-amber-50 shadow-[0_0_24px_rgba(139,0,139,0.6)];
+    }
+
+    .pacman-fullscreen-toggle:focus-visible {
+        @apply outline-none ring-2 ring-fuchsia-300;
+    }
+
+    .pacman-fullscreen-toggle[data-state='active'] {
+        @apply border-amber-300/70 text-amber-200;
+    }
+
+    .pacman-fullscreen-toggle[data-state='error'] {
+        @apply border-red-400/75 text-red-200;
+    }
+
+    .pacman-fullscreen-toggle:disabled {
+        @apply cursor-not-allowed border-zinc-600/70 text-zinc-400 opacity-75;
+    }
+
     .legacy-menu-root[data-stage='idle'] .legacy-click-hint {
         @apply opacity-100;
         animation: legacy-click-bob 0.65s infinite;
@@ -257,6 +290,60 @@
     }
 }
 
+@media (hover: none) and (pointer: coarse) {
+    .legacy-menu-frame {
+        width: 100vw;
+        width: 100dvw;
+        height: 100vh;
+        height: 100dvh;
+        border: none;
+        box-shadow: none;
+    }
+
+    .legacy-menu-actions {
+        @apply max-w-[min(94vw,28rem)] gap-3 px-3;
+    }
+
+    .legacy-menu-button {
+        border-width: 2px;
+        border-style: solid;
+        border-radius: 0.9rem;
+        padding: 0.75rem 1.25rem;
+        letter-spacing: 0.16em;
+        font-size: clamp(1.15rem, 4vw, 1.75rem);
+    }
+
+    .legacy-menu-status {
+        bottom: max(calc(env(safe-area-inset-bottom) + 0.6rem), 0.6rem);
+        width: min(94%, 35rem);
+    }
+
+    .pacman-hud-root {
+        padding-left: max(env(safe-area-inset-left), 0.75rem);
+        padding-right: max(env(safe-area-inset-right), 0.75rem);
+        padding-top: 0.45rem;
+        padding-bottom: max(env(safe-area-inset-bottom), 0.45rem);
+    }
+
+    .pacman-hud-label {
+        font-size: 0.78rem;
+        letter-spacing: 0.15em;
+    }
+
+    .pacman-hud-heart {
+        width: 1.3rem;
+        height: 1.3rem;
+    }
+
+    .pacman-fullscreen-toggle {
+        top: max(env(safe-area-inset-top), 0.5rem);
+        right: max(env(safe-area-inset-right), 0.5rem);
+        padding: 0.4rem 0.72rem;
+        font-size: 0.62rem;
+        letter-spacing: 0.12em;
+    }
+}
+
 @media (hover: none) and (pointer: coarse) and (orientation: portrait) {
     .pacman-shell-root .pacman-runtime-host,
     .pacman-shell-root .legacy-menu-root {
@@ -266,6 +353,10 @@
     .pacman-shell-root .mobile-orientation-guard {
         display: flex;
         pointer-events: auto;
+    }
+
+    .pacman-shell-root .pacman-fullscreen-toggle {
+        display: none;
     }
 }
 
