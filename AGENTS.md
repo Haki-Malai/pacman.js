@@ -38,6 +38,34 @@ Full usage/reference doc: `docs/TESTING.md`
 3. Clarity (future readers should follow intent quickly)
 4. Performance only when needed (no speculative tuning)
 
+## Stability Guardrails (mandatory)
+
+To prevent over-changing and regressions:
+
+1. **One user request = one scoped patch**
+   - Do not bundle unrelated improvements.
+   - If additional improvements are possible, list them separately and wait for approval.
+
+2. **Blast-radius cap**
+   - Default cap: max **3 files** for normal feature tweaks.
+   - If more files are required, present a short impact note first and ask approval.
+
+3. **No behavior drift**
+   - Do not alter camera/input/startup flow unless explicitly requested.
+   - Preserve current UX unless the task explicitly changes UX.
+
+4. **Patch plan before edits**
+   - State: target files, intended behavior delta, and non-goals.
+   - If user asks for “minimal changes”, enforce strict non-goals.
+
+5. **Golden-state rollback rule**
+   - Before editing, identify the last known good commit.
+   - If result deviates from request, rollback quickly to that commit and reapply minimal patch.
+
+6. **No parallel conflicting engines on same surface**
+   - Do not run multiple subagents that edit the same feature area simultaneously.
+   - Sequence them to avoid churn.
+
 ## “Write less, keep behavior” rules
 
 - Prefer deleting or simplifying over adding layers.
