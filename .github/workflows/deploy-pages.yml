@@ -3,6 +3,8 @@ name: Deploy to GitHub Pages
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -15,6 +17,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
@@ -44,6 +47,7 @@ jobs:
           path: dist
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     environment:
