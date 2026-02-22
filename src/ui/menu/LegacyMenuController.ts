@@ -1,15 +1,41 @@
 type MenuStage = 'idle' | 'intro' | 'menu' | 'starting';
+type IntroPhase = 'go' | 'bye' | 'hidden';
 
 interface LegacyMenuControllerOptions {
     mount: HTMLElement;
     onStartRequested: () => Promise<void>;
 }
 
+const INTRO_BYE_MS = 2_000;
+const INTRO_HIDE_MS = 3_500;
 const INTRO_DURATION_MS = 4_000;
 const START_ANIMATION_DURATION_MS = 950;
 const MESSAGE_DURATION_MS = 2_600;
 
 const LEGACY_AUTHOR_NAME = 'HAKI MALAI';
+const LEGACY_AUTHOR_LETTER_IN_DURATIONS = [
+    '1.2s',
+    '1.1s',
+    '0.9s',
+    '1.5s',
+    '1.4s',
+    '1.3s',
+    '1.6s',
+    '0.8s',
+    '1.7s',
+] as const;
+const LEGACY_AUTHOR_LETTER_OUT_DURATIONS = [
+    '1.8s',
+    '1.9s',
+    '1.7s',
+    '2.3s',
+    '2.1s',
+    '1.8s',
+    '1.8s',
+    '1.7s',
+    '1.6s',
+] as const;
+const LEGACY_AUTHOR_LETTER_OUT_DELAY = '0.5s';
 
 export class LegacyMenuController {
     private readonly root: HTMLElement;
@@ -89,6 +115,7 @@ export class LegacyMenuController {
         const root = document.createElement('section');
         root.className = 'legacy-menu-root';
         root.dataset.stage = this.stage;
+        root.dataset.introPhase = 'go';
         root.tabIndex = 0;
         root.setAttribute('aria-label', 'Pac-Man start menu');
         return root;
@@ -118,11 +145,31 @@ export class LegacyMenuController {
         const author = document.createElement('div');
         author.className = 'legacy-credit-name';
 
-        [...LEGACY_AUTHOR_NAME].forEach((char, index) => {
+        let letterIndex = 0;
+
+        [...LEGACY_AUTHOR_NAME].forEach((char) => {
             const letter = document.createElement('span');
             if (char.trim().length > 0) {
-                const lane = index % 2 === 0 ? 'legacy-credit-letter--up' : 'legacy-credit-letter--down';
+                const lane =
+                    letterIndex % 2 === 0
+                        ? 'legacy-credit-letter--up'
+                        : 'legacy-credit-letter--down';
+                const inDuration =
+                    LEGACY_AUTHOR_LETTER_IN_DURATIONS[letterIndex] ??
+                    LEGACY_AUTHOR_LETTER_IN_DURATIONS[0];
+                const outDuration =
+                    LEGACY_AUTHOR_LETTER_OUT_DURATIONS[letterIndex] ??
+                    LEGACY_AUTHOR_LETTER_OUT_DURATIONS[0];
+
                 letter.className = `legacy-credit-letter ${lane}`;
+                letter.style.setProperty('--legacy-letter-intro-in-duration', inDuration);
+                letter.style.setProperty('--legacy-letter-intro-out-duration', outDuration);
+                letter.style.setProperty(
+                    '--legacy-letter-intro-out-delay',
+                    LEGACY_AUTHOR_LETTER_OUT_DELAY
+                );
+
+                letterIndex += 1;
             } else {
                 letter.className = 'legacy-credit-space';
             }
@@ -224,9 +271,23 @@ export class LegacyMenuController {
     private startIntro(): void {
         this.showMessage('Initializing intro sequence…', true);
         this.setStage('intro');
+        this.setIntroPhase('go');
+
+        this.enqueue(() => {
+            if (this.stage === 'intro') {
+                this.setIntroPhase('bye');
+            }
+        }, INTRO_BYE_MS);
+
+        this.enqueue(() => {
+            if (this.stage === 'intro') {
+                this.setIntroPhase('hidden');
+            }
+        }, INTRO_HIDE_MS);
 
         this.enqueue(() => {
             this.setStage('menu');
+            this.setIntroPhase('go');
             this.showMessage('Choose START to begin your run.');
             this.startButton.focus({ preventScroll: true });
         }, INTRO_DURATION_MS);
@@ -277,6 +338,10 @@ export class LegacyMenuController {
     private setStage(stage: MenuStage): void {
         this.stage = stage;
         this.root.dataset.stage = stage;
+    }
+
+    private setIntroPhase(phase: IntroPhase): void {
+        this.root.dataset.introPhase = phase;
     }
 
     private disableButtons(): void {

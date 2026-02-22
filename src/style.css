@@ -56,23 +56,20 @@
     }
 
     .legacy-credit-name {
-        @apply flex text-[clamp(1.2rem,2.2vw,1.8rem)] font-semibold tracking-[0.3em] text-zinc-100;
+        @apply flex w-full items-center justify-center text-[clamp(1.2rem,2.2vw,1.8rem)] font-semibold tracking-[0.22em] text-zinc-100;
     }
 
     .legacy-credit-letter {
-        @apply inline-flex min-w-[0.9em] justify-center;
+        @apply inline-flex min-w-[0.78em] justify-center;
     }
 
-    .legacy-credit-letter--up {
-        animation: legacy-letter-up-in 1.2s ease-out forwards;
-    }
-
+    .legacy-credit-letter--up,
     .legacy-credit-letter--down {
-        animation: legacy-letter-down-in 1.1s ease-out forwards;
+        transform: translateY(0);
     }
 
     .legacy-credit-space {
-        @apply inline-block w-4;
+        @apply inline-block w-3;
     }
 
     .legacy-logo {
@@ -170,11 +167,36 @@
 
     .legacy-menu-root[data-stage='intro'] .legacy-credit {
         @apply opacity-100;
-        animation: legacy-credit-flow 3.6s ease-in-out forwards;
     }
 
-    .legacy-menu-root[data-stage='intro'] .legacy-credit-made-by {
-        animation: legacy-made-by-in 1s ease-out forwards, legacy-made-by-out 1.6s 2.1s ease-in forwards;
+    .legacy-menu-root[data-stage='intro'][data-intro-phase='hidden'] .legacy-credit {
+        @apply opacity-0;
+    }
+
+    .legacy-menu-root[data-stage='intro'][data-intro-phase='go'] .legacy-credit-made-by {
+        animation: legacy-made-by-in 1s ease forwards;
+    }
+
+    .legacy-menu-root[data-stage='intro'][data-intro-phase='bye'] .legacy-credit-made-by {
+        animation: legacy-made-by-out 1.6s 0.5s ease forwards;
+    }
+
+    .legacy-menu-root[data-stage='intro'][data-intro-phase='go'] .legacy-credit-letter--up {
+        animation: legacy-letter-up-in var(--legacy-letter-intro-in-duration, 1.2s) ease forwards;
+    }
+
+    .legacy-menu-root[data-stage='intro'][data-intro-phase='go'] .legacy-credit-letter--down {
+        animation: legacy-letter-down-in var(--legacy-letter-intro-in-duration, 1.1s) ease forwards;
+    }
+
+    .legacy-menu-root[data-stage='intro'][data-intro-phase='bye'] .legacy-credit-letter--up {
+        animation: legacy-letter-up-out var(--legacy-letter-intro-out-duration, 1.8s)
+            var(--legacy-letter-intro-out-delay, 0.5s) ease forwards;
+    }
+
+    .legacy-menu-root[data-stage='intro'][data-intro-phase='bye'] .legacy-credit-letter--down {
+        animation: legacy-letter-down-out var(--legacy-letter-intro-out-duration, 1.8s)
+            var(--legacy-letter-intro-out-delay, 0.5s) ease forwards;
     }
 
     .legacy-menu-root[data-stage='intro'] .legacy-logo,
@@ -237,23 +259,6 @@
     }
 }
 
-@keyframes legacy-credit-flow {
-    0% {
-        transform: translate(-50%, 0);
-        opacity: 1;
-    }
-
-    62% {
-        transform: translate(-50%, 0);
-        opacity: 1;
-    }
-
-    100% {
-        transform: translate(-50%, -10px);
-        opacity: 0;
-    }
-}
-
 @keyframes legacy-made-by-in {
     0% {
         transform: translateX(-1000px) translateY(50px);
@@ -289,13 +294,39 @@
 }
 
 @keyframes legacy-letter-up-in {
-    0% { transform: translateY(1500px); }
-    100% { transform: translateY(0); }
+    0% {
+        transform: translateY(1500px);
+    }
+    100% {
+        transform: translateY(0);
+    }
 }
 
 @keyframes legacy-letter-down-in {
-    0% { transform: translateY(-1500px); }
-    100% { transform: translateY(0); }
+    0% {
+        transform: translateY(-1500px);
+    }
+    100% {
+        transform: translateY(0);
+    }
+}
+
+@keyframes legacy-letter-up-out {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(-1500px);
+    }
+}
+
+@keyframes legacy-letter-down-out {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(1500px);
+    }
 }
 
 @keyframes legacy-logo-enter {
