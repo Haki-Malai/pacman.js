@@ -3,6 +3,7 @@ import type { Direction } from '../../domain/valueObjects/Direction';
 const THUMBSTICK_DIAMETER_PX = 132;
 const KNOB_DIAMETER_PX = 56;
 const THUMBSTICK_DEAD_ZONE_FACTOR = 0.35;
+const THUMBSTICK_HUD_CLEARANCE_REM = 4;
 const THUMBSTICK_MEDIA_QUERY = '(hover: none) and (pointer: coarse)';
 
 function clamp(value: number, min: number, max: number): number {
@@ -67,7 +68,7 @@ export class MobileThumbstickController {
     this.pad.style.height = `${THUMBSTICK_DIAMETER_PX}px`;
     this.pad.style.borderRadius = '9999px';
     this.pad.style.marginRight = 'max(env(safe-area-inset-right), 1rem)';
-    this.pad.style.marginBottom = 'max(calc(env(safe-area-inset-bottom) + 4.75rem), 4.75rem)';
+    this.pad.style.marginBottom = `max(calc(env(safe-area-inset-bottom) + ${THUMBSTICK_HUD_CLEARANCE_REM}rem), ${THUMBSTICK_HUD_CLEARANCE_REM}rem)`;
     this.pad.style.pointerEvents = 'auto';
     this.pad.style.touchAction = 'none';
     this.pad.style.background = 'radial-gradient(circle at 30% 30%, rgba(250, 204, 21, 0.2), rgba(0, 0, 0, 0.55))';
