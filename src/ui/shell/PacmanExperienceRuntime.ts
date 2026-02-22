@@ -14,6 +14,7 @@ export class PacmanExperienceRuntime implements PacmanExperience {
     private overlayHost: HTMLDivElement | null = null;
     private menu: LegacyMenuController | null = null;
     private game: PacmanRuntime | null = null;
+    private orientationGuard: HTMLDivElement | null = null;
     private started = false;
     private destroyed = false;
     private launchingGame = false;
@@ -43,7 +44,11 @@ export class PacmanExperienceRuntime implements PacmanExperience {
         this.overlayHost = document.createElement('div');
         this.overlayHost.className = 'absolute inset-0 z-40';
 
-        this.mount.append(this.runtimeHost, this.overlayHost);
+        this.orientationGuard = document.createElement('div');
+        this.orientationGuard.className = 'mobile-orientation-guard';
+        this.orientationGuard.innerHTML = '<div class="mobile-orientation-card"><p>Rotate your phone</p><span>Pac-Man is available in landscape mode only.</span></div>';
+
+        this.mount.append(this.runtimeHost, this.overlayHost, this.orientationGuard);
 
         this.menu = new LegacyMenuController({
             mount: this.overlayHost,
@@ -80,6 +85,9 @@ export class PacmanExperienceRuntime implements PacmanExperience {
 
         this.overlayHost?.remove();
         this.overlayHost = null;
+
+        this.orientationGuard?.remove();
+        this.orientationGuard = null;
 
         if (this.mount) {
             this.mount.replaceChildren();
