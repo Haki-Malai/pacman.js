@@ -1,12 +1,27 @@
+import { COARSE_POINTER_MEDIA_QUERY } from '../../../config/constants';
 import type { Direction } from '../../domain/valueObjects/Direction';
 
 const SWIPE_DEAD_ZONE_PX = 18;
 const SWIPE_SWITCH_DISTANCE_FACTOR = 1.2;
 const SWIPE_DIRECTION_LOCK_RATIO = 1.25;
-const SWIPE_MEDIA_QUERY = '(hover: none) and (pointer: coarse)';
 
 function isHorizontal(direction: Direction): boolean {
   return direction === 'left' || direction === 'right';
+}
+
+function subscribeToMediaQueryChange(mediaQuery: MediaQueryList, listener: () => void): () => void {
+  if (typeof mediaQuery.addEventListener === 'function') {
+    mediaQuery.addEventListener('change', listener);
+    return () => {
+      mediaQuery.removeEventListener('change', listener);
+    };
+  }
+
+  const legacyListener = listener as unknown as (_event: MediaQueryListEvent) => void;
+  mediaQuery.addListener(legacyListener);
+  return () => {
+    mediaQuery.removeListener(legacyListener);
+  };
 }
 
 export function resolveSwipeDirection(deltaX: number, deltaY: number, deadZonePx: number): Direction | null {
@@ -64,6 +79,7 @@ export function resolveSwipeDirectionWithLock(params: ResolveSwipeDirectionWithL
 
 export class MobileSwipeController {
   private readonly mediaQuery: MediaQueryList | null;
+  private readonly unsubscribeMediaQueryChange: (() => void) | null;
   private readonly deadZonePx: number;
   private readonly switchDistancePx: number;
   private readonly directionLockRatio: number;
@@ -77,14 +93,19 @@ export class MobileSwipeController {
     this.deadZonePx = SWIPE_DEAD_ZONE_PX;
     this.switchDistancePx = this.deadZonePx * SWIPE_SWITCH_DISTANCE_FACTOR;
     this.directionLockRatio = SWIPE_DIRECTION_LOCK_RATIO;
-    this.mediaQuery = typeof window.matchMedia === 'function' ? window.matchMedia(SWIPE_MEDIA_QUERY) : null;
+    this.mediaQuery =
+      typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+        ? window.matchMedia(COARSE_POINTER_MEDIA_QUERY)
+        : null;
+    this.unsubscribeMediaQueryChange = this.mediaQuery
+      ? subscribeToMediaQueryChange(this.mediaQuery, this.handleMediaQueryChange)
+      : null;
 
     this.element.addEventListener('pointerdown', this.handlePointerDown);
     this.element.addEventListener('pointermove', this.handlePointerMove);
     this.element.addEventListener('pointerup', this.handlePointerUp);
     this.element.addEventListener('pointercancel', this.handlePointerUp);
     this.element.addEventListener('lostpointercapture', this.handleLostPointerCapture);
-    this.mediaQuery?.addEventListener('change', this.handleMediaQueryChange);
   }
 
   isEnabled(): boolean {
@@ -105,7 +126,7 @@ export class MobileSwipeController {
     this.element.removeEventListener('pointerup', this.handlePointerUp);
     this.element.removeEventListener('pointercancel', this.handlePointerUp);
     this.element.removeEventListener('lostpointercapture', this.handleLostPointerCapture);
-    this.mediaQuery?.removeEventListener('change', this.handleMediaQueryChange);
+    this.unsubscribeMediaQueryChange?.();
 
     this.resetGesture();
   }
@@ -127,7 +148,7 @@ export class MobileSwipeController {
     this.direction = null;
     this.referenceX = event.clientX;
     this.referenceY = event.clientY;
-    this.element.setPointerCapture(event.pointerId);
+    this.trySetPointerCapture(event.pointerId);
   };
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
@@ -187,6 +208,14 @@ export class MobileSwipeController {
     }
 
     this.referenceY = clientY;
+  }
+
+  private trySetPointerCapture(pointerId: number): void {
+    try {
+      this.element.setPointerCapture(pointerId);
+    } catch {
+      // Ignore pointer capture failures and continue with best-effort swipe tracking.
+    }
   }
 
   private releasePointerCapture(pointerId: number): void {

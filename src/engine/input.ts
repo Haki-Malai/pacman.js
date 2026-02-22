@@ -4,7 +4,6 @@ export interface PointerState {
   buttons: number;
   pointerId: number;
   pointerType: string;
-  isPrimary: boolean;
   cancelled: boolean;
 }
 
@@ -124,7 +123,6 @@ export class InputManager {
       buttons: event.buttons,
       pointerId: event.pointerId,
       pointerType: event.pointerType,
-      isPrimary: event.isPrimary,
       cancelled,
     };
   }

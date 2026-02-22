@@ -60,4 +60,17 @@ describe('resolveSwipeDirectionWithLock', () => {
       }),
     ).toBe('down');
   });
+
+  it('allows reversing direction on the same axis without perpendicular lock checks', () => {
+    expect(
+      resolveSwipeDirectionWithLock({
+        currentDirection: 'right',
+        deltaX: -16,
+        deltaY: 3,
+        deadZonePx: 8,
+        switchDistancePx: 12,
+        directionLockRatio: 1.25,
+      }),
+    ).toBe('left');
+  });
 });

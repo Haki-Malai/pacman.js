@@ -1,4 +1,4 @@
-import { CAMERA } from '../../config/constants';
+import { CAMERA, COARSE_POINTER_MEDIA_QUERY } from '../../config/constants';
 import { WorldState } from '../domain/world/WorldState';
 import { CanvasRendererAdapter } from '../infrastructure/adapters/CanvasRendererAdapter';
 
@@ -11,7 +11,7 @@ interface CameraLike {
 }
 
 const MIN_CAMERA_ZOOM = 0.001;
-export const MOBILE_POINTER_MEDIA_QUERY = '(hover: none) and (pointer: coarse)';
+export const MOBILE_POINTER_MEDIA_QUERY = COARSE_POINTER_MEDIA_QUERY;
 
 export interface ResolveCameraZoomParams {
   viewportWidth: number;
@@ -34,7 +34,12 @@ export function computeContainZoom(viewportWidth: number, viewportHeight: number
 export function resolveCameraZoom(params: ResolveCameraZoomParams): number {
   const { viewportWidth, viewportHeight, worldWidth, worldHeight, defaultZoom, coarsePointer } = params;
 
-  return Math.max(MIN_CAMERA_ZOOM, defaultZoom);
+  if (!coarsePointer) {
+    return Math.max(MIN_CAMERA_ZOOM, defaultZoom);
+  }
+
+  const containZoom = computeContainZoom(viewportWidth, viewportHeight, worldWidth, worldHeight);
+  return Math.max(MIN_CAMERA_ZOOM, containZoom);
 }
 
 export class CameraSystem {

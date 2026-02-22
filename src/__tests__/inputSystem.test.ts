@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type { PointerState } from '../engine/input';
 import type { Direction } from '../game/domain/valueObjects/Direction';
 import type { WorldState } from '../game/domain/world/WorldState';
-import type { BrowserInputAdapter, PointerState } from '../game/infrastructure/adapters/BrowserInputAdapter';
 import { InputSystem } from '../game/systems/InputSystem';
+import type { InputSource } from '../game/systems/InputSystem';
 
 interface InputStubState {
   keyDown: Set<string>;
@@ -40,14 +41,13 @@ function createPointerState(overrides: Partial<PointerState> = {}): PointerState
     buttons: 0,
     pointerId: 1,
     pointerType: 'mouse',
-    isPrimary: true,
     cancelled: false,
     ...overrides,
   };
 }
 
 function createInputStub(initial?: Partial<InputStubState>): {
-  input: BrowserInputAdapter;
+  input: InputSource;
   state: InputStubState;
   listeners: InputStubListeners;
 } {
@@ -64,7 +64,7 @@ function createInputStub(initial?: Partial<InputStubState>): {
     onPointerUp: () => undefined,
   };
 
-  const input = {
+  const input: InputSource = {
     isKeyDown: (code: string) => state.keyDown.has(code),
     isSwipeInputEnabled: () => state.swipeEnabled,
     getSwipeDirection: () => state.swipeDirection,
@@ -92,7 +92,7 @@ function createInputStub(initial?: Partial<InputStubState>): {
         listeners.onPointerUp = () => undefined;
       };
     },
-  } as unknown as BrowserInputAdapter;
+  };
 
   return {
     input,
@@ -164,5 +164,38 @@ describe('InputSystem', () => {
     listeners.onPointerUp(createPointerState({ x: 48, y: 20, pointerId: 3, pointerType: 'touch' }));
 
     expect(pauseController.togglePause).not.toHaveBeenCalled();
+  });
+
+  it('does not toggle pause on cancelled touch pointers', () => {
+    const world = createWorld();
+    const pauseController = { togglePause: vi.fn() };
+    const { input, listeners } = createInputStub({ swipeEnabled: true });
+    const system = new InputSystem(input, world, pauseController);
+
+    system.start();
+    listeners.onPointerDown(createPointerState({ x: 5, y: 5, pointerId: 11, pointerType: 'touch' }));
+    listeners.onPointerUp(createPointerState({ x: 5, y: 5, pointerId: 11, pointerType: 'touch', cancelled: true }));
+
+    expect(pauseController.togglePause).not.toHaveBeenCalled();
+  });
+
+  it('unsubscribes input listeners on destroy', () => {
+    const world = createWorld();
+    const pauseController = { togglePause: vi.fn() };
+    const { input, listeners } = createInputStub();
+    const system = new InputSystem(input, world, pauseController);
+
+    system.start();
+    system.destroy();
+
+    listeners.onPointerDown(createPointerState({ x: 22, y: 33, pointerType: 'mouse' }));
+    listeners.onKeyDown({
+      code: 'Space',
+      repeat: false,
+      preventDefault: vi.fn(),
+    } as unknown as KeyboardEvent);
+
+    expect(pauseController.togglePause).not.toHaveBeenCalled();
+    expect(world.pointerScreen).toBeNull();
   });
 });

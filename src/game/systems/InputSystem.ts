@@ -1,11 +1,21 @@
-import { Direction } from '../domain/valueObjects/Direction';
+import type { PointerState } from '../../engine/input';
+import type { Direction } from '../domain/valueObjects/Direction';
 import { WorldState } from '../domain/world/WorldState';
-import { BrowserInputAdapter, PointerState } from '../infrastructure/adapters/BrowserInputAdapter';
 
 const TOUCH_TAP_MAX_TRAVEL_PX = 12;
 
 interface PauseController {
   togglePause(): void;
+}
+
+export interface InputSource {
+  isKeyDown(code: string): boolean;
+  isSwipeInputEnabled(): boolean;
+  getSwipeDirection(): Direction | null;
+  onKeyDown(listener: (_event: KeyboardEvent) => void): () => void;
+  onPointerMove(listener: (_pointer: PointerState) => void): () => void;
+  onPointerDown(listener: (_pointer: PointerState) => void): () => void;
+  onPointerUp(listener: (_pointer: PointerState) => void): () => void;
 }
 
 interface TapCandidate {
@@ -20,7 +30,7 @@ export class InputSystem {
   private touchTapCandidate: TapCandidate | null = null;
 
   constructor(
-    private readonly input: BrowserInputAdapter,
+    private readonly input: InputSource,
     private readonly world: WorldState,
     private readonly pauseController: PauseController,
   ) {}
