@@ -6,6 +6,8 @@ import { Camera2D } from '../../engine/camera';
 const BACKGROUND_COLOR = '#2d2d2d';
 const POINT_COLOR = '#f7f3c6';
 const POINT_RADIUS_FACTOR = 0.08;
+const POWER_POINT_RADIUS_FACTOR = 0.18;
+const POWER_POINT_DENSITY_MOD = 13;
 
 export class RenderSystem {
   constructor(
@@ -46,7 +48,8 @@ export class RenderSystem {
 
   private drawPoints(): void {
     const context = this.renderer.context;
-    const radius = this.world.tileSize * POINT_RADIUS_FACTOR;
+    const baseRadius = this.world.tileSize * POINT_RADIUS_FACTOR;
+    const powerRadius = this.world.tileSize * POWER_POINT_RADIUS_FACTOR;
 
     context.fillStyle = POINT_COLOR;
 
@@ -63,9 +66,18 @@ export class RenderSystem {
         const x = tile.x * this.world.tileSize + this.world.tileSize / 2;
         const y = tile.y * this.world.tileSize + this.world.tileSize / 2;
 
+        // Main point in every accessible tile.
         context.beginPath();
-        context.arc(x, y, radius, 0, Math.PI * 2);
+        context.arc(x, y, baseRadius, 0, Math.PI * 2);
         context.fill();
+
+        // Bigger points on deterministic pseudo-random tiles.
+        const hash = (tile.x * 73856093) ^ (tile.y * 19349663);
+        if (Math.abs(hash) % POWER_POINT_DENSITY_MOD === 0) {
+          context.beginPath();
+          context.arc(x, y, powerRadius, 0, Math.PI * 2);
+          context.fill();
+        }
       });
     });
   }
