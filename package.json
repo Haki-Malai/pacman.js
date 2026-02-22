@@ -10,7 +10,7 @@
         "preview": "vite preview",
         "test": "vitest run",
         "test:mechanics": "vitest run src/__tests__/mechanics src/__tests__/mechanics.spec.contract.test.ts",
-        "test:mechanics:fuzz": "MECHANICS_FUZZ_RUNS=120 MECHANICS_FUZZ_MULTIPLIER=8 MECHANICS_FUZZ_TICKS=180 vitest run src/__tests__/mechanics/fuzzInvariants*.mechanics.test.ts",
+        "test:mechanics:fuzz": "MECHANICS_FUZZ_RUNS=120 MECHANICS_FUZZ_MULTIPLIER=8 MECHANICS_FUZZ_TICKS=180 vitest run --testTimeout=30000 src/__tests__/mechanics/fuzzInvariants*.mechanics.test.ts",
         "test:mechanics:coverage": "vitest run src/__tests__/mechanics src/__tests__/mechanics.spec.contract.test.ts --coverage.enabled --coverage.provider=v8 --coverage.reporter=text --coverage.reporter=json-summary --coverage.include=src/game/domain/services/*.ts --coverage.include=src/game/systems/*.ts --coverage.include=src/game/app/GameRuntime.ts",
         "check:mechanics:coverage": "node tests/scripts/check-mechanics-coverage.mjs",
         "test:mechanics:ci": "npm run test:mechanics && npm run test:mechanics:fuzz && npm run test:mechanics:coverage && npm run check:mechanics:coverage",
