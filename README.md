@@ -1,42 +1,58 @@
 # Pacman
-This is a pacman game i am currently working on for fun. I have developed it again with similar animations and sprites but due to it being my first javascript project it didn't come out as good and scalable. The code was messy and the bugs were countless. The old repository is [here](https://github.com/Haki-Malai/Games/tree/main/Pac-Man%20JavaScript).
+
+A modern TypeScript + Vite rewrite of my original Pac-Man school project.
+
+This repo keeps the gameplay architecture clean/testable while preserving the old vibe (including the classic intro/menu feel from the original `Games/Pac-Man JavaScript` project).
+
+- Legacy repo reference: [Haki-Malai/Games → Pac-Man JavaScript](https://github.com/Haki-Malai/Games/tree/main/Pac-Man%20JavaScript)
 
 ## Getting started
+
 - `pnpm install`
-- `pnpm dev` to launch the Vite dev server (serves from `public/assets` and `src/`).
+- `pnpm dev` to launch the Vite dev server.
 - `pnpm build` to produce the deployable bundle in `dist/`.
 - `pnpm preview` to serve the built bundle locally.
-- `pnpm typecheck` to run the strict TypeScript compiler with `--noEmit`.
-- `pnpm lint` to run ESLint against the TypeScript sources.
+- `pnpm typecheck` to run TypeScript with `--noEmit`.
+- `pnpm lint` to run ESLint.
 - `pnpm test` to execute the Vitest suite.
 
+## Tech stack
+
+- TypeScript + Vite
+- Vitest (unit/mechanics/fuzz checks)
+- ESLint + Prettier
+- Tailwind CSS (for UI shell/menu/HUD styling)
+- Canvas2D runtime for gameplay rendering
+
 ## Project layout
-- `src/main.ts` boots the custom Canvas2D game runtime.
-- `src/engine/` contains the in-repo engine primitives (loop, camera, input, timers, tweens, renderer).
-- `src/game/` contains map parsing, runtime gameplay wiring, and UI overlay modules.
-- `src/style.css` contains global styles.
-- `public/assets/` holds sprites, tilemaps, and other static assets copied to `dist/`.
-- `index.html` is the Vite entry HTML.
+
+- `src/main.ts` boots the shell experience (menu + runtime lifecycle).
+- `src/ui/` contains the product shell and legacy-inspired menu controller.
+- `src/game/` contains runtime composition, systems, domain, and infrastructure adapters.
+- `src/engine/` contains loop/camera/input/timer/tween/renderer primitives.
+- `src/style.css` contains Tailwind layers + custom animation classes.
+- `public/assets/` holds sprites, tilemaps, and static assets copied to `dist/`.
 
 ## Product docs
-- `SPECIFICATIONS.md` defines the current product behavior contract.
-- `ROADMAP.md` defines the product-first path to complete `v1.0` desktop-web release.
 
-## About the game
-The code is written with scalability in mind. Levels are authored in Tiled using the included tileset and exported JSON map. Object layers supply Pacman and ghost spawns (including pen bounds) and place collectibles directly in the map data.
+- `SPECIFICATIONS.md` defines the player-facing behavior contract.
+- `ROADMAP.md` defines the product path to `v1.0`.
+- `docs/ARCHITECTURE.md` explains boundaries and runtime wiring.
+- `docs/LEGACY_MENU_MIGRATION.md` documents the old-to-new menu migration mapping.
 
-## To-Do List
-- [x] Draw Ghosts
-- [ ] Make static OOP functions in seperate file
-- [x] Add Ghosts etc
-- [x] Add Ghost prison variables
-- [ ] Add Ghost death
-- [ ] Menu
-- [ ] Sound
-- [ ] Display Score, Multipliers, Lifes etc
-- [ ] Highscores
-- [ ] Multiple levels
-- [ ] Add the portals
+## Current status (high level)
 
-## To-Do Specialized List
-- [ ] Make Clearer Animation
+Implemented:
+
+- Grid movement with buffered turns.
+- Ghost jail/release + baseline decision behavior.
+- Portal behavior.
+- Pause/resume timing semantics.
+- Legacy-style animated intro/menu integration.
+
+Planned next major items:
+
+- Ghost defeat/respawn loop.
+- Full scoring/lives/game-over flow.
+- Level progression.
+- Audio polish.

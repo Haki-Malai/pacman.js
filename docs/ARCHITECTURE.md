@@ -1,97 +1,90 @@
 # Architecture
 
 ## Purpose
-This document explains the post-migration architecture of the game runtime and the reasoning behind the current module boundaries.
 
-The project moved from a single large runtime file to a layered OOP structure focused on:
-- behavior parity and deterministic gameplay
-- strict dependency direction
-- easier feature extension (especially gameplay mechanics like portals)
-- testability of domain logic independent of browser rendering
+This document explains the runtime architecture after the modernization + legacy-menu migration.
 
-## High-Level Summary
-The runtime is now composed from small, explicit systems operating on a shared `WorldState`.
+The project now uses a **two-layer runtime model**:
 
-Entrypoint flow:
-1. `src/main.ts` creates a game instance through `createPacmanGame`.
-2. `createPacmanGame` builds a `GameRuntime` with `GameCompositionRoot`.
-3. `GameCompositionRoot` wires map/assets/adapters/domain services/systems.
-4. `GameRuntime` drives ordered updates and rendering via fixed-step loop.
+1. **UI shell layer** (`src/ui`) for launch/menu flow and product-facing chrome.
+2. **Gameplay runtime layer** (`src/game`) for deterministic fixed-step mechanics.
 
-## Directory Layout
+This separation keeps product UX changes (menu, shell, HUD styling) independent from gameplay systems.
+
+---
+
+## High-level flow
+
+1. `src/main.ts` creates a `PacmanExperience` shell.
+2. `PacmanExperienceRuntime` mounts a runtime host + overlay host.
+3. `LegacyMenuController` runs intro/menu animations and waits for START.
+4. On START, shell composes and starts the gameplay runtime through `createPacmanGame`.
+5. Overlay/menu is removed, gameplay continues in Canvas2D with DOM HUD.
+
+---
+
+## Directory layout
+
 ```text
-src/game/
-  app/
-    createPacmanGame.ts
-    GameRuntime.ts
-    GameCompositionRoot.ts
-    contracts.ts
-  domain/
-    entities/
-    valueObjects/
-    world/
-    services/
-  systems/
-  infrastructure/
-    map/
-    assets/
-    adapters/
-  shared/
-    random/
-    events/
+src/
+  ui/
+    menu/
+      LegacyMenuController.ts
+    shell/
+      PacmanExperienceRuntime.ts
+      createPacmanExperience.ts
+      contracts.ts
+
+  game/
+    app/
+    domain/
+    systems/
+    infrastructure/
+    shared/
+
+  engine/
+  style.css
 ```
 
-## Layer Responsibilities
+---
 
-### `app`
-Composition and lifecycle orchestration.
-- `createPacmanGame.ts`: public API factory (`start`, `pause`, `resume`, `destroy`).
-- `GameRuntime.ts`: fixed-step runtime loop and system execution.
-- `GameCompositionRoot.ts`: composition root; builds world + systems + adapters.
-- `contracts.ts`: runtime and system interfaces.
+## Layer responsibilities
 
-### `domain`
-Gameplay model and pure logic.
-- `entities`: `PacmanEntity`, `GhostEntity`.
-- `valueObjects`: `Direction`, `TilePosition`, `MovementProgress`.
-- `world`: `WorldState`, `CollisionGrid`, map/world data types.
-- `services`: movement rules, ghost decisions, ghost jail behavior, portal behavior.
+### `ui` (product shell)
 
-### `systems`
-Frame-by-frame behavior execution.
-- `InputSystem`
-- `PacmanMovementSystem`
-- `GhostReleaseSystem`
-- `GhostMovementSystem`
-- `AnimationSystem`
-- `CameraSystem`
-- `HudSystem`
-- `DebugOverlaySystem`
-- `RenderSystem`
+- Bootstraps launch UX (legacy intro/menu).
+- Controls when gameplay runtime is allowed to start.
+- Handles menu action affordances (start/options/exit placeholder behavior).
+- Owns Tailwind-driven menu styling hooks.
 
-### `infrastructure`
-Browser/engine integration and data loading.
-- map parser/repository (`TiledParser`, `TiledMapRepository`)
-- assets (`AssetCatalog`)
-- adapters for renderer/input/timer/hud
+### `game/app` (composition + lifecycle)
 
-### `shared`
-Cross-cutting utilities.
-- `RandomSource` and `SeededRandom` for deterministic behavior
-- generic event bus used by state/UI integration
+- Builds world/services/systems (`GameCompositionRoot`).
+- Owns fixed-step orchestration (`GameRuntime`).
+- Exposes runtime API (`start`, `pause`, `resume`, `destroy`).
 
-## Dependency Direction (Enforced)
-Allowed direction:
-1. `app` -> `systems`, `domain`, `infrastructure`, `shared`, `engine`
-2. `systems` -> `domain`, `shared`, and infrastructure adapters/assets
-3. `domain` -> `shared`
-4. `infrastructure` -> `domain`, `shared`, `engine`
-5. no circular imports
+### `game/domain`
 
-Automated in `scripts/arch-check.mjs`.
+- Pure gameplay entities/value objects/world model/services.
 
-## Runtime Update and Render Order
+### `game/systems`
+
+- Ordered frame update behavior (input, movement, animation, camera, hud, debug).
+
+### `game/infrastructure`
+
+- Browser/map/assets adapters and parser/repository components.
+
+### `engine`
+
+- Reusable low-level runtime primitives.
+
+---
+
+## Runtime ordering
+
 Update order (fixed):
+
 1. `InputSystem`
 2. `PacmanMovementSystem`
 3. `GhostReleaseSystem`
@@ -102,65 +95,34 @@ Update order (fixed):
 8. `DebugOverlaySystem`
 
 Render order:
-1. `RenderSystem` map
-2. `RenderSystem` entities
-3. `DebugOverlaySystem` overlay
-4. HUD is DOM-based (managed by `HudSystem`/adapter)
 
-## Core Runtime Contracts
-Public runtime contract:
-- `start(): Promise<void>`
-- `pause(): void`
-- `resume(): void`
-- `destroy(): void`
+1. `RenderSystem` world + entities
+2. `DebugOverlaySystem`
+3. `HudSystem` (DOM overlay adapter)
 
-The previous `startGameApp`/`stopGameApp` API was intentionally removed.
+---
 
-## State and Data Flow
-- `TiledMapRepository` loads and parses maze JSON into `WorldMapData`.
-- `CollisionGrid` exposes safe tile/collision reads.
-- `WorldState` stores runtime mutable state (entities, debug flags, tick, jail state, animation state).
-- Systems mutate `WorldState` in order; render systems consume the latest state.
+## Styling architecture
 
-## Determinism and Randomness
-All game randomness is routed through `RandomSource`.
-- production can use `Math.random`
-- tests use `SeededRandom` for deterministic simulations
+- Tailwind CSS is integrated via PostCSS (`tailwind.config.cjs`, `postcss.config.cjs`).
+- `src/style.css` contains:
+    - Tailwind base/components/utilities layers
+    - local `@font-face` setup (Orbitron)
+    - custom keyframes/classes for legacy-style menu transitions
+    - HUD visual classes
 
-## Portals
-Portal behavior is encapsulated in `PortalService`:
-- teleports only at tile center (`moved.x === 0 && moved.y === 0`)
-- prevents same-tick bounce via per-entity tick guard
-- blocks teleport if destination portal tile is fully blocking
+Gameplay rendering remains Canvas2D; Tailwind is used for DOM shell/HUD layers.
 
-Covered by `src/__tests__/portalService.test.ts`.
+---
 
-## Quality Gates
-Required checks:
-- `pnpm run typecheck`
-- `pnpm run lint`
-- `pnpm run test`
-- `pnpm run arch:check`
-- `pnpm run size:check`
+## Guardrails
 
-Additional constraints:
-- no cycles, no layer boundary violations (`arch-check`)
-- TypeScript file line caps (default 350; parser override 450) (`size-check`)
-
-## Migration Notes
-Legacy files removed:
-- `src/game/startGameApp.ts`
-- `src/types.ts`
-- `src/movement.ts`
-- `src/game/map/tiled.ts`
-- `src/game/runtime/ghostSimulation.ts`
-- `src/game/ui/HudOverlay.ts`
-
-Equivalent behavior now exists in domain services/systems/infrastructure adapters.
-
-## Troubleshooting
-If you see a blank page after changes:
-1. run `pnpm run typecheck`
-2. run `pnpm run build`
-3. check browser console for module import errors
-4. ensure type-only symbols are imported/exported with `import type` / `export type`
+- `scripts/arch-check.mjs` enforces `src/game` layer direction and no circular deps.
+- `scripts/size-check.mjs` enforces TypeScript file line caps.
+- Required checks:
+    - `pnpm typecheck`
+    - `pnpm lint`
+    - `pnpm test`
+    - `pnpm arch:check`
+    - `pnpm size:check`
+    - `pnpm build`
