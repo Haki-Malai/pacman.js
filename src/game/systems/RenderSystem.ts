@@ -1,4 +1,6 @@
+import { addScore } from '../../state/gameState';
 import { Camera2D } from '../../engine/camera';
+import { COLLECTIBLE_CONFIG } from '../../config/constants';
 import { buildPointLayout } from '../domain/services/PointLayoutService';
 import { TilePosition } from '../domain/valueObjects/TilePosition';
 import { WorldState } from '../domain/world/WorldState';
@@ -6,18 +8,35 @@ import { CanvasRendererAdapter } from '../infrastructure/adapters/CanvasRenderer
 import { AssetCatalog } from '../infrastructure/assets/AssetCatalog';
 
 const BACKGROUND_COLOR = '#2d2d2d';
-const POINT_COLOR = '#f7f3c6';
-const POINT_RADIUS_FACTOR = 0.08;
-const POWER_POINT_RADIUS_FACTOR = 0.18;
+const BASE_POINT_SIZE = COLLECTIBLE_CONFIG[0].size;
+const POWER_POINT_SIZE = COLLECTIBLE_CONFIG[1].size;
+const EAT_EFFECT_DURATION_MS = 180;
 
-type PointCenter = {
+type CollectibleKind = 'base' | 'power';
+
+type CollectiblePoint = {
+  tile: TilePosition;
   x: number;
   y: number;
+  kind: CollectibleKind;
 };
 
+type EatEffect = {
+  x: number;
+  y: number;
+  elapsedMs: number;
+  durationMs: number;
+  sizeStart: number;
+  sizeEnd: number;
+};
+
+function tileKey(tile: TilePosition): string {
+  return `${tile.x},${tile.y}`;
+}
+
 export class RenderSystem {
-  private readonly basePointCenters: PointCenter[];
-  private readonly powerPointCenters: PointCenter[];
+  private readonly pointsByTile = new Map<string, CollectiblePoint>();
+  private readonly eatEffects: EatEffect[] = [];
 
   constructor(
     private readonly world: WorldState,
@@ -32,8 +51,25 @@ export class RenderSystem {
       tileSize: this.world.tileSize,
     });
 
-    this.basePointCenters = pointLayout.basePoints.map((tile) => this.toPointCenter(tile));
-    this.powerPointCenters = pointLayout.powerPoints.map((tile) => this.toPointCenter(tile));
+    const powerTiles = new Set(pointLayout.powerPoints.map((tile) => tileKey(tile)));
+
+    pointLayout.basePoints.forEach((tile) => {
+      const key = tileKey(tile);
+      const center = this.toPointCenter(tile);
+      const kind: CollectibleKind = powerTiles.has(key) ? 'power' : 'base';
+
+      this.pointsByTile.set(key, {
+        tile,
+        x: center.x,
+        y: center.y,
+        kind,
+      });
+    });
+  }
+
+  update(deltaMs: number): void {
+    this.consumePointAtPacmanTile();
+    this.updateEatEffects(deltaMs);
   }
 
   render(): void {
@@ -41,8 +77,48 @@ export class RenderSystem {
     this.renderer.beginWorld(this.camera);
     this.drawMap();
     this.drawPoints();
+    this.drawEatEffects();
     this.drawEntities();
     this.renderer.endWorld();
+  }
+
+  private consumePointAtPacmanTile(): void {
+    // Consume only when Pac-Man is centered in current tile to keep behavior stable.
+    if (Math.abs(this.world.pacman.moved.x) > 0.05 || Math.abs(this.world.pacman.moved.y) > 0.05) {
+      return;
+    }
+
+    const currentTile = { x: this.world.pacman.tile.x, y: this.world.pacman.tile.y };
+    const key = tileKey(currentTile);
+    const point = this.pointsByTile.get(key);
+    if (!point) {
+      return;
+    }
+
+    this.pointsByTile.delete(key);
+
+    const scoreDelta = point.kind === 'power' ? COLLECTIBLE_CONFIG[1].score : COLLECTIBLE_CONFIG[0].score;
+    addScore(scoreDelta);
+
+    const baseSize = point.kind === 'power' ? POWER_POINT_SIZE : BASE_POINT_SIZE;
+    this.eatEffects.push({
+      x: point.x,
+      y: point.y,
+      elapsedMs: 0,
+      durationMs: EAT_EFFECT_DURATION_MS,
+      sizeStart: baseSize,
+      sizeEnd: baseSize * 1.9,
+    });
+  }
+
+  private updateEatEffects(deltaMs: number): void {
+    for (let i = this.eatEffects.length - 1; i >= 0; i -= 1) {
+      const effect = this.eatEffects[i];
+      effect.elapsedMs += deltaMs;
+      if (effect.elapsedMs >= effect.durationMs) {
+        this.eatEffects.splice(i, 1);
+      }
+    }
   }
 
   private drawMap(): void {
@@ -60,35 +136,52 @@ export class RenderSystem {
         const x = tile.x * this.world.tileSize + this.world.tileSize / 2;
         const y = tile.y * this.world.tileSize + this.world.tileSize / 2;
 
-        this.renderer.drawImageCentered(image, x, y, this.world.tileSize, this.world.tileSize, tile.rotation, tile.flipX, tile.flipY);
+        this.renderer.drawImageCentered(
+          image,
+          x,
+          y,
+          this.world.tileSize,
+          this.world.tileSize,
+          tile.rotation,
+          tile.flipX,
+          tile.flipY,
+        );
       });
     });
   }
 
   private drawPoints(): void {
-    const context = this.renderer.context;
-    const baseRadius = this.world.tileSize * POINT_RADIUS_FACTOR;
-    const powerRadius = this.world.tileSize * POWER_POINT_RADIUS_FACTOR;
-
-    context.fillStyle = POINT_COLOR;
-    this.drawPointBatch(context, this.basePointCenters, baseRadius);
-    this.drawPointBatch(context, this.powerPointCenters, powerRadius);
-  }
-
-  private drawPointBatch(context: CanvasRenderingContext2D, points: readonly PointCenter[], radius: number): void {
-    if (!points.length) {
+    const pointImage = this.assets.getCollectibleImage('point');
+    if (!pointImage) {
       return;
     }
 
-    context.beginPath();
-    points.forEach((point) => {
-      context.moveTo(point.x + radius, point.y);
-      context.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    this.pointsByTile.forEach((point) => {
+      const size = point.kind === 'power' ? POWER_POINT_SIZE : BASE_POINT_SIZE;
+      this.renderer.drawImageCentered(pointImage, point.x, point.y, size, size, 0, false, false);
     });
-    context.fill();
   }
 
-  private toPointCenter(tile: TilePosition): PointCenter {
+  private drawEatEffects(): void {
+    const pointImage = this.assets.getCollectibleImage('point');
+    if (!pointImage || !this.eatEffects.length) {
+      return;
+    }
+
+    const context = this.renderer.context;
+    this.eatEffects.forEach((effect) => {
+      const progress = Math.min(1, effect.elapsedMs / effect.durationMs);
+      const size = effect.sizeStart + (effect.sizeEnd - effect.sizeStart) * progress;
+      const alpha = 1 - progress;
+
+      context.save();
+      context.globalAlpha = alpha;
+      context.drawImage(pointImage, effect.x - size / 2, effect.y - size / 2, size, size);
+      context.restore();
+    });
+  }
+
+  private toPointCenter(tile: TilePosition): { x: number; y: number } {
     return {
       x: tile.x * this.world.tileSize + this.world.tileSize / 2,
       y: tile.y * this.world.tileSize + this.world.tileSize / 2,

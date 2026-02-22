@@ -147,6 +147,7 @@ export class GameCompositionRoot {
       ghostMovementSystem,
       animationSystem,
       cameraSystem,
+      renderSystem,
       hudSystem,
       debugSystem,
     ];

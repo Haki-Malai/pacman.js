@@ -19,6 +19,7 @@ export class AssetCatalog {
   private readonly assets = new AssetStore();
   private readonly tileImageCache = new Map<string, HTMLImageElement>();
   private readonly spritesheets = new Map<SpriteSheetKey, SpriteSheetAsset>();
+  private readonly collectibles = new Map<string, HTMLImageElement>();
 
   async loadForMap(map: WorldMapData, baseTilePath: string): Promise<void> {
     const uniqueTileImages = new Set<string>();
@@ -41,6 +42,8 @@ export class AssetCatalog {
       jobs.push(this.assets.loadSpriteSheet(key, src, SPRITE_SHEET_FRAME_WIDTH, SPRITE_SHEET_FRAME_HEIGHT));
     });
 
+    jobs.push(this.assets.loadImage('point', '/assets/sprites/Point.png'));
+
     await Promise.all(jobs);
 
     uniqueTileImages.forEach((imagePath) => {
@@ -51,6 +54,8 @@ export class AssetCatalog {
       const typedKey = key as SpriteSheetKey;
       this.spritesheets.set(typedKey, this.assets.getSpriteSheet(key));
     });
+
+    this.collectibles.set('point', this.assets.getImage('point'));
   }
 
   getTileImage(path: string): HTMLImageElement | undefined {
@@ -59,5 +64,9 @@ export class AssetCatalog {
 
   getSpriteSheet(key: SpriteSheetKey): SpriteSheetAsset | undefined {
     return this.spritesheets.get(key);
+  }
+
+  getCollectibleImage(key: string): HTMLImageElement | undefined {
+    return this.collectibles.get(key);
   }
 }
