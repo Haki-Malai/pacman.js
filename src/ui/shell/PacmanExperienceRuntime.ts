@@ -50,6 +50,8 @@ export class PacmanExperienceRuntime implements PacmanExperience {
             onStartRequested: () => this.startGameRuntime(),
         });
 
+        this.rewriteOverlayAssetUrls();
+
         this.started = true;
         return Promise.resolve();
     }
@@ -86,6 +88,36 @@ export class PacmanExperienceRuntime implements PacmanExperience {
 
         this.runtimeHost = null;
         this.mount = null;
+    }
+
+    private rewriteOverlayAssetUrls(): void {
+        if (!this.overlayHost) {
+            return;
+        }
+
+        const imageElements = this.overlayHost.querySelectorAll<HTMLImageElement>('img[src^="/"]');
+        imageElements.forEach((imageElement) => {
+            const source = imageElement.getAttribute('src');
+            if (!source) {
+                return;
+            }
+
+            imageElement.src = this.resolveAssetUrl(source);
+        });
+    }
+
+    private resolveAssetUrl(source: string): string {
+        if (!source.startsWith('/') || source.startsWith('//')) {
+            return source;
+        }
+
+        const baseUrl = import.meta.env.BASE_URL ?? '/';
+        if (baseUrl === '/') {
+            return source;
+        }
+
+        const normalizedBase = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+        return `${normalizedBase}${source.slice(1)}`;
     }
 
     private async startGameRuntime(): Promise<void> {
