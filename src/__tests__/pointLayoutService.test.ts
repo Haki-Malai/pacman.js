@@ -1,8 +1,12 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { getObjectNumberProperty } from '../game/domain/services/GhostJailService';
 import { DEFAULT_POWER_POINT_RATIO, buildPointLayout } from '../game/domain/services/PointLayoutService';
 import { TilePosition } from '../game/domain/valueObjects/TilePosition';
 import { CollisionGrid, CollisionTile, createEmptyCollisionTile } from '../game/domain/world/CollisionGrid';
 import { WorldMapData, WorldTile } from '../game/domain/world/WorldState';
+import { TiledMap, parseTiledMap } from '../game/infrastructure/map/TiledParser';
 
 function createCollisionTile(overrides: Partial<CollisionTile> = {}): CollisionTile {
   return {
@@ -159,5 +163,33 @@ describe('buildPointLayout', () => {
     });
 
     expect(changedLayout.powerPoints).not.toEqual(firstLayout.powerPoints);
+  });
+
+  it('covers the real maze navigation graph instead of only non-colliding tiles', () => {
+    const mazePath = path.resolve(process.cwd(), 'public/assets/mazes/default/maze.json');
+    const tiledMap = JSON.parse(fs.readFileSync(mazePath, 'utf8')) as TiledMap;
+    const map = parseTiledMap(tiledMap);
+    const collisionGrid = new CollisionGrid(map.tiles.map((row) => row.map((tile) => ({ ...tile.collision }))));
+
+    const spawnX = getObjectNumberProperty(map.pacmanSpawn, 'gridX');
+    const spawnY = getObjectNumberProperty(map.pacmanSpawn, 'gridY');
+    expect(typeof spawnX).toBe('number');
+    expect(typeof spawnY).toBe('number');
+
+    const startTile = { x: spawnX as number, y: spawnY as number };
+    const layout = buildPointLayout({
+      map,
+      collisionGrid,
+      startTile,
+      tileSize: map.tileWidth,
+    });
+
+    const nonCollidingCount = map.tiles
+      .flat()
+      .filter((tile) => tile.gid !== null && !tile.collision.collides && !tile.collision.penGate).length;
+
+    expect(layout.basePoints).toContainEqual(startTile);
+    expect(map.tiles[startTile.y]?.[startTile.x]?.collision.collides).toBe(true);
+    expect(layout.basePoints.length).toBeGreaterThan(nonCollidingCount);
   });
 });
