@@ -1,9 +1,342 @@
-html,
-body,
-#game-root {
-  background-color: black;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  overflow: hidden;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+    font-family: 'Orbitron';
+    src: url('/assets/fonts/Orbitron/Orbitron-VariableFont_wght.ttf') format('truetype');
+    font-style: normal;
+    font-weight: 100 900;
+    font-display: swap;
+}
+
+@layer base {
+    html,
+    body,
+    #game-root {
+        @apply m-0 h-full w-full overflow-hidden bg-black;
+    }
+
+    body {
+        @apply font-orbitron text-zinc-50 antialiased;
+    }
+
+    button {
+        font: inherit;
+    }
+}
+
+@layer components {
+    .pacman-shell-root {
+        @apply relative isolate flex h-full w-full items-center justify-center overflow-hidden bg-black;
+    }
+
+    .pacman-runtime-host {
+        @apply absolute inset-0;
+    }
+
+    .legacy-menu-root {
+        @apply absolute inset-0 z-40 flex items-center justify-center bg-black;
+    }
+
+    .legacy-menu-frame {
+        @apply relative flex h-[min(90vh,800px)] w-[min(90vw,800px)] flex-col items-center overflow-hidden border border-fuchsia-600/50 bg-[#031321] shadow-[0_0_80px_rgba(139,0,139,0.35),inset_0_0_120px_rgba(139,0,139,0.3)];
+    }
+
+    .legacy-click-hint {
+        @apply pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap text-[clamp(1rem,2vw,1.5rem)] tracking-[0.32em] text-zinc-100;
+    }
+
+    .legacy-credit {
+        @apply pointer-events-none absolute left-1/2 top-[47%] z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2 text-zinc-100 opacity-0;
+    }
+
+    .legacy-credit-made-by {
+        @apply text-sm uppercase tracking-[0.45em] text-zinc-300;
+    }
+
+    .legacy-credit-name {
+        @apply flex text-[clamp(1.2rem,2.2vw,1.8rem)] font-semibold tracking-[0.3em] text-zinc-100;
+    }
+
+    .legacy-credit-letter {
+        @apply inline-flex min-w-[0.9em] justify-center;
+    }
+
+    .legacy-credit-space {
+        @apply inline-block w-4;
+    }
+
+    .legacy-logo {
+        @apply pointer-events-none absolute left-1/2 top-[22%] z-10 flex -translate-x-1/2 items-end justify-center gap-3 opacity-0;
+    }
+
+    .legacy-logo-sprite {
+        @apply select-none object-contain;
+    }
+
+    .legacy-logo-pac,
+    .legacy-logo-man {
+        @apply h-20 w-[15rem] md:h-24 md:w-[18rem];
+    }
+
+    .legacy-logo-dash {
+        @apply mb-4 h-8 w-12 md:mb-5 md:h-9 md:w-14;
+    }
+
+    .legacy-menu-actions {
+        @apply absolute left-1/2 top-[44%] z-20 flex w-full max-w-[26rem] -translate-x-1/2 flex-col items-center gap-4 px-4 opacity-0;
+    }
+
+    .legacy-menu-button {
+        @apply relative block w-full rounded-full border-4 border-double border-fuchsia-700 bg-black px-8 py-3 text-center text-[clamp(1.6rem,3vw,2.5rem)] tracking-[0.3em] text-amber-300/75 transition duration-200 ease-out;
+    }
+
+    .legacy-menu-button:disabled {
+        @apply cursor-not-allowed opacity-40;
+    }
+
+    .legacy-menu-button:not(:disabled):hover {
+        @apply -translate-y-0.5 bg-fuchsia-900 text-amber-200 shadow-[0_0_30px_rgba(139,0,139,0.9),0_0_80px_rgba(139,0,139,0.65)];
+    }
+
+    .legacy-menu-button:not(:disabled):focus-visible {
+        @apply outline-none ring-4 ring-fuchsia-400/70;
+    }
+
+    .legacy-menu-accent {
+        @apply animate-[legacy-flicker_5s_linear_infinite] text-amber-100;
+    }
+
+    .legacy-menu-button--options .legacy-menu-accent {
+        @apply animate-[legacy-flicker_2.5s_linear_infinite];
+    }
+
+    .legacy-menu-button--exit .legacy-menu-accent {
+        @apply animate-[legacy-flicker_8s_linear_infinite];
+    }
+
+    .legacy-menu-status {
+        @apply pointer-events-none absolute bottom-8 left-1/2 z-20 w-[min(88%,34rem)] -translate-x-1/2 text-center text-sm tracking-[0.16em] text-zinc-300 opacity-0 transition-opacity duration-300;
+    }
+
+    .legacy-menu-status--visible {
+        @apply opacity-90;
+    }
+
+    .pacman-hud-root {
+        @apply pointer-events-none fixed inset-x-0 bottom-0 z-30 flex items-center justify-between bg-black/85 px-4 py-2 shadow-[0_-1px_16px_rgba(0,0,0,0.55)] md:px-6;
+    }
+
+    .pacman-hud-label {
+        @apply text-base uppercase tracking-[0.22em] text-amber-200 md:text-lg;
+    }
+
+    .pacman-hud-lives {
+        @apply flex items-center gap-2;
+    }
+
+    .pacman-hud-heart {
+        @apply h-7 w-7 bg-contain bg-center bg-no-repeat drop-shadow-[0_0_5px_rgba(255,215,0,0.7)];
+        background-image: url('/assets/sprites/Heart.png');
+    }
+
+    .pacman-hud-heart--empty {
+        @apply opacity-20;
+    }
+
+    .legacy-menu-root[data-stage='idle'] .legacy-click-hint {
+        @apply opacity-100;
+        animation: legacy-click-bob 0.65s infinite;
+    }
+
+    .legacy-menu-root[data-stage='idle'] .legacy-credit,
+    .legacy-menu-root[data-stage='idle'] .legacy-logo,
+    .legacy-menu-root[data-stage='idle'] .legacy-menu-actions {
+        @apply opacity-0;
+    }
+
+    .legacy-menu-root[data-stage='intro'] .legacy-click-hint {
+        @apply opacity-0;
+    }
+
+    .legacy-menu-root[data-stage='intro'] .legacy-credit {
+        @apply opacity-100;
+        animation: legacy-credit-flow 2.8s ease-in-out forwards;
+    }
+
+    .legacy-menu-root[data-stage='intro'] .legacy-logo,
+    .legacy-menu-root[data-stage='intro'] .legacy-menu-actions {
+        @apply opacity-0;
+    }
+
+    .legacy-menu-root[data-stage='menu'] .legacy-click-hint,
+    .legacy-menu-root[data-stage='menu'] .legacy-credit {
+        @apply opacity-0;
+    }
+
+    .legacy-menu-root[data-stage='menu'] .legacy-logo {
+        @apply opacity-100;
+        animation:
+            legacy-logo-enter 0.9s ease-out forwards,
+            legacy-float 2.6s ease-in-out 0.95s infinite;
+    }
+
+    .legacy-menu-root[data-stage='menu'] .legacy-menu-actions {
+        @apply opacity-100;
+        animation: legacy-menu-enter 0.75s ease-out forwards;
+    }
+
+    .legacy-menu-root[data-stage='starting'] .legacy-click-hint,
+    .legacy-menu-root[data-stage='starting'] .legacy-credit {
+        @apply opacity-0;
+    }
+
+    .legacy-menu-root[data-stage='starting'] .legacy-logo {
+        @apply opacity-100;
+        animation: legacy-logo-exit 0.9s ease-in forwards;
+    }
+
+    .legacy-menu-root[data-stage='starting'] .legacy-menu-button--start,
+    .legacy-menu-root[data-stage='starting'] .legacy-menu-button--exit {
+        animation: legacy-button-exit-left 0.85s ease-in forwards;
+    }
+
+    .legacy-menu-root[data-stage='starting'] .legacy-menu-button--options {
+        animation: legacy-button-exit-right 0.85s ease-in forwards;
+    }
+}
+
+@keyframes legacy-click-bob {
+    25% {
+        transform: translate(-50%, calc(-50% - 3px));
+    }
+
+    50% {
+        transform: translate(-50%, calc(-50% + 3px));
+    }
+
+    75% {
+        transform: translate(-50%, calc(-50% - 2px));
+    }
+
+    100% {
+        transform: translate(-50%, calc(-50% + 2px));
+    }
+}
+
+@keyframes legacy-credit-flow {
+    0% {
+        transform: translate(-50%, 10px);
+        opacity: 0;
+    }
+
+    18% {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+
+    64% {
+        transform: translate(-50%, -3px);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-50%, -14px);
+        opacity: 0;
+    }
+}
+
+@keyframes legacy-logo-enter {
+    0% {
+        transform: translate(-50%, -14px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+}
+
+@keyframes legacy-logo-exit {
+    0% {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translate(-120%, -12px);
+        opacity: 0;
+    }
+}
+
+@keyframes legacy-menu-enter {
+    0% {
+        transform: translate(-50%, 16px);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+}
+
+@keyframes legacy-button-exit-left {
+    0% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(-180%);
+        opacity: 0;
+    }
+}
+
+@keyframes legacy-button-exit-right {
+    0% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateX(180%);
+        opacity: 0;
+    }
+}
+
+@keyframes legacy-float {
+    0% {
+        transform: translate(-50%, -1px);
+    }
+
+    50% {
+        transform: translate(-50%, 1px);
+    }
+
+    100% {
+        transform: translate(-50%, -1px);
+    }
+}
+
+@keyframes legacy-flicker {
+    0%,
+    17%,
+    23%,
+    44%,
+    57%,
+    100% {
+        opacity: 1;
+        text-shadow:
+            0 0 6px rgba(251, 191, 36, 0.75),
+            0 0 12px rgba(251, 191, 36, 0.45);
+    }
+
+    20%,
+    52% {
+        opacity: 0.45;
+        text-shadow: none;
+    }
 }

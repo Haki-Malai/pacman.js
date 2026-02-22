@@ -1,0 +1,118 @@
+import { LegacyMenuController } from '../menu/LegacyMenuController';
+import { PacmanExperience, PacmanRuntime, PacmanRuntimeFactory } from './contracts';
+
+interface PacmanExperienceOptions {
+    mountId?: string;
+    createGame: PacmanRuntimeFactory;
+}
+
+const DEFAULT_MOUNT_ID = 'game-root';
+
+export class PacmanExperienceRuntime implements PacmanExperience {
+    private mount: HTMLElement | null = null;
+    private runtimeHost: HTMLDivElement | null = null;
+    private overlayHost: HTMLDivElement | null = null;
+    private menu: LegacyMenuController | null = null;
+    private game: PacmanRuntime | null = null;
+    private started = false;
+    private destroyed = false;
+    private launchingGame = false;
+
+    constructor(private readonly options: PacmanExperienceOptions) {}
+
+    start(): Promise<void> {
+        if (this.started || this.destroyed) {
+            return Promise.resolve();
+        }
+
+        const mountId = this.options.mountId ?? DEFAULT_MOUNT_ID;
+        const mount = document.getElementById(mountId);
+
+        if (!mount) {
+            throw new Error(`Game mount element not found: #${mountId}`);
+        }
+
+        this.mount = mount;
+        this.mount.replaceChildren();
+        this.mount.classList.add('pacman-shell-root');
+
+        this.runtimeHost = document.createElement('div');
+        this.runtimeHost.className = 'pacman-runtime-host';
+        this.runtimeHost.id = `${mountId}-runtime-host`;
+
+        this.overlayHost = document.createElement('div');
+        this.overlayHost.className = 'absolute inset-0 z-40';
+
+        this.mount.append(this.runtimeHost, this.overlayHost);
+
+        this.menu = new LegacyMenuController({
+            mount: this.overlayHost,
+            onStartRequested: () => this.startGameRuntime(),
+        });
+
+        this.started = true;
+        return Promise.resolve();
+    }
+
+    pause(): void {
+        this.game?.pause();
+    }
+
+    resume(): void {
+        this.game?.resume();
+    }
+
+    destroy(): void {
+        if (this.destroyed) {
+            return;
+        }
+
+        this.destroyed = true;
+        this.started = false;
+
+        this.menu?.destroy();
+        this.menu = null;
+
+        this.game?.destroy();
+        this.game = null;
+
+        this.overlayHost?.remove();
+        this.overlayHost = null;
+
+        if (this.mount) {
+            this.mount.replaceChildren();
+            this.mount.classList.remove('pacman-shell-root');
+        }
+
+        this.runtimeHost = null;
+        this.mount = null;
+    }
+
+    private async startGameRuntime(): Promise<void> {
+        if (this.destroyed || this.launchingGame || this.game || !this.runtimeHost) {
+            return;
+        }
+
+        this.launchingGame = true;
+        const game = this.options.createGame({ mountId: this.runtimeHost.id });
+
+        try {
+            await game.start();
+
+            if (this.destroyed) {
+                game.destroy();
+                return;
+            }
+
+            this.game = game;
+            this.overlayHost?.remove();
+            this.overlayHost = null;
+            this.menu = null;
+        } catch (error) {
+            game.destroy();
+            throw error;
+        } finally {
+            this.launchingGame = false;
+        }
+    }
+}

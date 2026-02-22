@@ -1,58 +1,83 @@
 import { GameEvent, gameEvents, getGameState } from '../../../state/gameState';
 
+const BASE_LIFE_SLOT_COUNT = 3;
+
 export class HudOverlayAdapter {
-  private readonly container: HTMLDivElement;
-  private readonly scoreText: HTMLDivElement;
-  private readonly livesText: HTMLDivElement;
-  private readonly onScoreChanged: (_score: number) => void;
-  private readonly onLivesChanged: (_lives: number) => void;
+    private readonly container: HTMLDivElement;
+    private readonly scoreText: HTMLDivElement;
+    private readonly livesText: HTMLDivElement;
+    private readonly livesIcons: HTMLDivElement;
+    private readonly onScoreChanged: (_score: number) => void;
+    private readonly onLivesChanged: (_lives: number) => void;
 
-  constructor() {
-    this.container = document.createElement('div');
-    this.container.style.position = 'fixed';
-    this.container.style.left = '8px';
-    this.container.style.top = '8px';
-    this.container.style.zIndex = '9998';
-    this.container.style.pointerEvents = 'none';
-    this.container.style.color = '#ffffff';
-    this.container.style.fontSize = '14px';
-    this.container.style.fontFamily = 'monospace';
+    constructor() {
+        this.container = document.createElement('div');
+        this.container.className = 'pacman-hud-root';
 
-    this.scoreText = document.createElement('div');
-    this.livesText = document.createElement('div');
+        this.scoreText = document.createElement('div');
+        this.scoreText.className = 'pacman-hud-label';
 
-    this.container.appendChild(this.scoreText);
-    this.container.appendChild(this.livesText);
+        const livesPanel = document.createElement('div');
+        livesPanel.className = 'flex items-center gap-3';
 
-    const state = getGameState();
-    this.setScore(state.score);
-    this.setLives(state.lives);
+        this.livesText = document.createElement('div');
+        this.livesText.className = 'pacman-hud-label';
 
-    this.onScoreChanged = (score: number) => {
-      this.setScore(score);
-    };
+        this.livesIcons = document.createElement('div');
+        this.livesIcons.className = 'pacman-hud-lives';
 
-    this.onLivesChanged = (lives: number) => {
-      this.setLives(lives);
-    };
+        livesPanel.append(this.livesText, this.livesIcons);
+        this.container.append(this.scoreText, livesPanel);
 
-    gameEvents.on(GameEvent.ScoreChanged, this.onScoreChanged);
-    gameEvents.on(GameEvent.LivesChanged, this.onLivesChanged);
+        const state = getGameState();
+        this.setScore(state.score);
+        this.setLives(state.lives);
 
-    document.body.appendChild(this.container);
-  }
+        this.onScoreChanged = (score: number) => {
+            this.setScore(score);
+        };
 
-  destroy(): void {
-    gameEvents.off(GameEvent.ScoreChanged, this.onScoreChanged);
-    gameEvents.off(GameEvent.LivesChanged, this.onLivesChanged);
-    this.container.remove();
-  }
+        this.onLivesChanged = (lives: number) => {
+            this.setLives(lives);
+        };
 
-  private setScore(score: number): void {
-    this.scoreText.textContent = `Score: ${score}`;
-  }
+        gameEvents.on(GameEvent.ScoreChanged, this.onScoreChanged);
+        gameEvents.on(GameEvent.LivesChanged, this.onLivesChanged);
 
-  private setLives(lives: number): void {
-    this.livesText.textContent = `Lives: ${lives}`;
-  }
+        document.body.appendChild(this.container);
+    }
+
+    destroy(): void {
+        gameEvents.off(GameEvent.ScoreChanged, this.onScoreChanged);
+        gameEvents.off(GameEvent.LivesChanged, this.onLivesChanged);
+        this.container.remove();
+    }
+
+    private setScore(score: number): void {
+        this.scoreText.textContent = `Score ${score}`;
+    }
+
+    private setLives(lives: number): void {
+        this.livesText.textContent = `Lives ${lives}`;
+        this.renderLives(lives);
+    }
+
+    private renderLives(lives: number): void {
+        const visibleLives = Math.max(0, lives);
+        const slots = Math.max(BASE_LIFE_SLOT_COUNT, visibleLives);
+
+        this.livesIcons.replaceChildren();
+
+        for (let index = 0; index < slots; index += 1) {
+            const icon = document.createElement('span');
+            icon.className = 'pacman-hud-heart';
+            icon.setAttribute('aria-hidden', 'true');
+
+            if (index >= visibleLives) {
+                icon.classList.add('pacman-hud-heart--empty');
+            }
+
+            this.livesIcons.append(icon);
+        }
+    }
 }

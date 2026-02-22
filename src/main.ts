@@ -1,8 +1,8 @@
 import './style.css';
-import { createPacmanGame } from './game/app/createPacmanGame';
+import { createPacmanExperience } from './ui/shell/createPacmanExperience';
 
-const game = createPacmanGame({
-  mountId: 'game-root',
+const experience = createPacmanExperience({
+    mountId: 'game-root',
 });
 
-void game.start();
+void experience.start();
