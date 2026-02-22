@@ -32,14 +32,7 @@ export function computeContainZoom(viewportWidth: number, viewportHeight: number
 }
 
 export function resolveCameraZoom(params: ResolveCameraZoomParams): number {
-  const { viewportWidth, viewportHeight, worldWidth, worldHeight, defaultZoom, coarsePointer } = params;
-
-  if (!coarsePointer) {
-    return Math.max(MIN_CAMERA_ZOOM, defaultZoom);
-  }
-
-  const containZoom = computeContainZoom(viewportWidth, viewportHeight, worldWidth, worldHeight);
-  return Math.max(MIN_CAMERA_ZOOM, containZoom);
+  return Math.max(MIN_CAMERA_ZOOM, params.defaultZoom);
 }
 
 export class CameraSystem {

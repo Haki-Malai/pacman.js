@@ -27,7 +27,7 @@ describe('resolveCameraZoom', () => {
     expect(zoom).toBe(5);
   });
 
-  it('fits the full world for coarse-pointer mobile input', () => {
+  it('keeps default zoom for coarse-pointer mobile input (no forced zoom-out)', () => {
     const zoom = resolveCameraZoom({
       viewportWidth: 390,
       viewportHeight: 844,
@@ -37,6 +37,6 @@ describe('resolveCameraZoom', () => {
       coarsePointer: true,
     });
 
-    expect(zoom).toBeCloseTo(390 / 816, 6);
+    expect(zoom).toBe(5);
   });
 });

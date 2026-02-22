@@ -79,8 +79,9 @@ To prevent over-changing and regressions:
 ### Before starting work
 
 1. Run `pnpm run typecheck` and confirm **0 errors**
-2. Run `pnpm run test` and confirm **all tests pass**
-3. Only proceed if both are green
+2. Run `pnpm run test -- src/__tests__/cameraSystem.test.ts` and confirm zoom regression tests pass
+3. Run `pnpm run test` and confirm **all tests pass**
+4. Only proceed if all are green
 
 ### While implementing
 
