@@ -239,6 +239,34 @@
     .legacy-menu-root[data-stage='starting'] .legacy-menu-button--options {
         animation: legacy-button-exit-right 0.85s ease-in forwards;
     }
+
+    .mobile-orientation-guard {
+        @apply pointer-events-none absolute inset-0 z-50 hidden items-center justify-center bg-black/95 px-6 text-center;
+    }
+
+    .mobile-orientation-card {
+        @apply rounded-2xl border border-fuchsia-500/50 bg-[#031321] px-6 py-5 text-zinc-100 shadow-[0_0_40px_rgba(139,0,139,0.35)];
+    }
+
+    .mobile-orientation-card p {
+        @apply m-0 text-lg tracking-[0.16em] text-amber-200;
+    }
+
+    .mobile-orientation-card span {
+        @apply mt-2 block text-sm tracking-[0.08em] text-zinc-300;
+    }
+}
+
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+    .pacman-shell-root .pacman-runtime-host,
+    .pacman-shell-root .legacy-menu-root {
+        display: none;
+    }
+
+    .pacman-shell-root .mobile-orientation-guard {
+        display: flex;
+        pointer-events: auto;
+    }
 }
 
 @keyframes legacy-click-bob {
