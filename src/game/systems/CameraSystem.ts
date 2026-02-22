@@ -1,4 +1,4 @@
-import { CAMERA, COARSE_POINTER_MEDIA_QUERY } from '../../config/constants';
+import { CAMERA } from '../../config/constants';
 import { WorldState } from '../domain/world/WorldState';
 import { CanvasRendererAdapter } from '../infrastructure/adapters/CanvasRendererAdapter';
 
@@ -8,31 +8,6 @@ interface CameraLike {
   setViewport(width: number, height: number): void;
   startFollow(target: { x: number; y: number }, lerpX: number, lerpY: number): void;
   update(): void;
-}
-
-const MIN_CAMERA_ZOOM = 0.001;
-export const MOBILE_POINTER_MEDIA_QUERY = COARSE_POINTER_MEDIA_QUERY;
-
-export interface ResolveCameraZoomParams {
-  viewportWidth: number;
-  viewportHeight: number;
-  worldWidth: number;
-  worldHeight: number;
-  defaultZoom: number;
-  coarsePointer: boolean;
-}
-
-export function computeContainZoom(viewportWidth: number, viewportHeight: number, worldWidth: number, worldHeight: number): number {
-  const safeViewportWidth = Math.max(1, viewportWidth);
-  const safeViewportHeight = Math.max(1, viewportHeight);
-  const safeWorldWidth = Math.max(1, worldWidth);
-  const safeWorldHeight = Math.max(1, worldHeight);
-
-  return Math.min(safeViewportWidth / safeWorldWidth, safeViewportHeight / safeWorldHeight);
-}
-
-export function resolveCameraZoom(params: ResolveCameraZoomParams): number {
-  return Math.max(MIN_CAMERA_ZOOM, params.defaultZoom);
 }
 
 export class CameraSystem {
@@ -76,16 +51,7 @@ export class CameraSystem {
     this.renderer.resize(viewport.width, viewport.height);
 
     this.camera.setViewport(this.canvas.width, this.canvas.height);
-    this.camera.setZoom(
-      resolveCameraZoom({
-        viewportWidth: this.canvas.width,
-        viewportHeight: this.canvas.height,
-        worldWidth: this.world.map.widthInPixels,
-        worldHeight: this.world.map.heightInPixels,
-        defaultZoom: CAMERA.zoom,
-        coarsePointer: this.isCoarsePointerInput(),
-      }),
-    );
+    this.camera.setZoom(CAMERA.zoom);
   }
 
   private resolveViewportSize(): { width: number; height: number } {
@@ -98,13 +64,5 @@ export class CameraSystem {
       width,
       height,
     };
-  }
-
-  private isCoarsePointerInput(): boolean {
-    if (typeof window.matchMedia !== 'function') {
-      return false;
-    }
-
-    return window.matchMedia(MOBILE_POINTER_MEDIA_QUERY).matches;
   }
 }

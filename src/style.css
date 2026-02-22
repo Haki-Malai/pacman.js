@@ -159,31 +159,6 @@
         @apply opacity-20;
     }
 
-     .pacman-fullscreen-toggle {
-        display: none !important;
-        @apply pointer-events-auto fixed right-3 top-3 z-[55] rounded-full border border-fuchsia-500/60 bg-black/70 px-4 py-2 text-[0.72rem] uppercase tracking-[0.14em] text-amber-100 shadow-[0_0_18px_rgba(139,0,139,0.3)] backdrop-blur-md transition duration-200 ease-out;
-    }
-
-    .pacman-fullscreen-toggle:hover:not(:disabled) {
-        @apply border-fuchsia-400/85 bg-fuchsia-900/55 text-amber-50 shadow-[0_0_24px_rgba(139,0,139,0.6)];
-    }
-
-    .pacman-fullscreen-toggle:focus-visible {
-        @apply outline-none ring-2 ring-fuchsia-300;
-    }
-
-    .pacman-fullscreen-toggle[data-state='active'] {
-        @apply border-amber-300/70 text-amber-200;
-    }
-
-    .pacman-fullscreen-toggle[data-state='error'] {
-        @apply border-red-400/75 text-red-200;
-    }
-
-    .pacman-fullscreen-toggle:disabled {
-        @apply cursor-not-allowed border-zinc-600/70 text-zinc-400 opacity-75;
-    }
-
     .legacy-menu-root[data-stage='idle'] .legacy-click-hint {
         @apply opacity-100;
         animation: legacy-click-bob 0.65s infinite;
@@ -273,22 +248,6 @@
     .legacy-menu-root[data-stage='starting'] .legacy-menu-button--options {
         animation: legacy-button-exit-right 0.85s ease-in forwards;
     }
-
-    .mobile-orientation-guard {
-        @apply pointer-events-none absolute inset-0 z-50 hidden items-center justify-center bg-black/95 px-6 text-center;
-    }
-
-    .mobile-orientation-card {
-        @apply rounded-2xl border border-fuchsia-500/50 bg-[#031321] px-6 py-5 text-zinc-100 shadow-[0_0_40px_rgba(139,0,139,0.35)];
-    }
-
-    .mobile-orientation-card p {
-        @apply m-0 text-lg tracking-[0.16em] text-amber-200;
-    }
-
-    .mobile-orientation-card span {
-        @apply mt-2 block text-sm tracking-[0.08em] text-zinc-300;
-    }
 }
 
 @media (hover: none) and (pointer: coarse) {
@@ -335,17 +294,7 @@
         width: 1.3rem;
         height: 1.3rem;
     }
-
-     .pacman-fullscreen-toggle {
-        display: none !important;
-        top: max(env(safe-area-inset-top), 0.5rem);
-        right: max(env(safe-area-inset-right), 0.5rem);
-        padding: 0.4rem 0.72rem;
-        font-size: 0.62rem;
-        letter-spacing: 0.12em;
-    }
 }
-
 
 @keyframes legacy-click-bob {
     25% {

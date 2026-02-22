@@ -145,4 +145,27 @@ describe('PacmanExperienceRuntime', () => {
     experience.destroy();
     consoleErrorSpy.mockRestore();
   });
+
+  it('autostarts the runtime without mounting dormant fullscreen/orientation shell controls', async () => {
+    const mount = document.createElement('div');
+    mount.id = 'auto-start-root';
+    document.body.append(mount);
+
+    const game = createRuntimeStub();
+
+    const experience = new PacmanExperienceRuntime({
+      mountId: 'auto-start-root',
+      createGame: () => game.runtime,
+      autoStart: true,
+    });
+
+    await experience.start();
+
+    expect(game.startSpy).toHaveBeenCalledTimes(1);
+    expect(mount.querySelector('.legacy-menu-root')).toBeNull();
+    expect(mount.querySelector('.pacman-fullscreen-toggle')).toBeNull();
+    expect(mount.querySelector('.mobile-orientation-guard')).toBeNull();
+
+    experience.destroy();
+  });
 });
