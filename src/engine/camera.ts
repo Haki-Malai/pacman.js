@@ -77,10 +77,19 @@ export class Camera2D {
   private clampToBounds(): void {
     const viewportWorldWidth = this.viewportWidth / this.zoom;
     const viewportWorldHeight = this.viewportHeight / this.zoom;
-    const maxX = Math.max(0, this.worldWidth - viewportWorldWidth);
-    const maxY = Math.max(0, this.worldHeight - viewportWorldHeight);
+    const horizontalOverflow = this.worldWidth - viewportWorldWidth;
+    const verticalOverflow = this.worldHeight - viewportWorldHeight;
 
-    this.x = clamp(this.x, 0, maxX);
-    this.y = clamp(this.y, 0, maxY);
+    if (horizontalOverflow <= 0) {
+      this.x = horizontalOverflow / 2;
+    } else {
+      this.x = clamp(this.x, 0, horizontalOverflow);
+    }
+
+    if (verticalOverflow <= 0) {
+      this.y = verticalOverflow / 2;
+    } else {
+      this.y = clamp(this.y, 0, verticalOverflow);
+    }
   }
 }
