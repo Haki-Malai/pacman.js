@@ -9,21 +9,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
+
+      - uses: pnpm/action-setup@v4
+
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
+
       - name: Type check
-        run: npm run typecheck
+        run: pnpm run typecheck
+
       - name: Test
-        run: npm run test
+        run: pnpm run test
+
       - name: Mechanics CI Gate
-        run: npm run test:mechanics:ci
+        run: pnpm run test:mechanics:ci
+
       - name: Specifications Gate
-        run: npm run spec:check
+        run: pnpm run spec:check
+
       - name: Build
-        run: npm run build
+        run: pnpm run build
