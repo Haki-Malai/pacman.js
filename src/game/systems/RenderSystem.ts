@@ -4,6 +4,8 @@ import { WorldState } from '../domain/world/WorldState';
 import { Camera2D } from '../../engine/camera';
 
 const BACKGROUND_COLOR = '#2d2d2d';
+const POINT_COLOR = '#f7f3c6';
+const POINT_RADIUS_FACTOR = 0.08;
 
 export class RenderSystem {
   constructor(
@@ -17,6 +19,7 @@ export class RenderSystem {
     this.renderer.clear(BACKGROUND_COLOR);
     this.renderer.beginWorld(this.camera);
     this.drawMap();
+    this.drawPoints();
     this.drawEntities();
     this.renderer.endWorld();
   }
@@ -37,6 +40,32 @@ export class RenderSystem {
         const y = tile.y * this.world.tileSize + this.world.tileSize / 2;
 
         this.renderer.drawImageCentered(image, x, y, this.world.tileSize, this.world.tileSize, tile.rotation, tile.flipX, tile.flipY);
+      });
+    });
+  }
+
+  private drawPoints(): void {
+    const context = this.renderer.context;
+    const radius = this.world.tileSize * POINT_RADIUS_FACTOR;
+
+    context.fillStyle = POINT_COLOR;
+
+    this.world.map.tiles.forEach((row) => {
+      row.forEach((tile) => {
+        if (tile.gid === null || tile.collision.collides || tile.collision.penGate) {
+          return;
+        }
+
+        if (tile.collision.up && tile.collision.down && tile.collision.left && tile.collision.right) {
+          return;
+        }
+
+        const x = tile.x * this.world.tileSize + this.world.tileSize / 2;
+        const y = tile.y * this.world.tileSize + this.world.tileSize / 2;
+
+        context.beginPath();
+        context.arc(x, y, radius, 0, Math.PI * 2);
+        context.fill();
       });
     });
   }
