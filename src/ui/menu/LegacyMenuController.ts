@@ -5,7 +5,7 @@ interface LegacyMenuControllerOptions {
     onStartRequested: () => Promise<void>;
 }
 
-const INTRO_DURATION_MS = 3_000;
+const INTRO_DURATION_MS = 4_000;
 const START_ANIMATION_DURATION_MS = 950;
 const MESSAGE_DURATION_MS = 2_600;
 
@@ -118,10 +118,14 @@ export class LegacyMenuController {
         const author = document.createElement('div');
         author.className = 'legacy-credit-name';
 
-        [...LEGACY_AUTHOR_NAME].forEach((char) => {
+        [...LEGACY_AUTHOR_NAME].forEach((char, index) => {
             const letter = document.createElement('span');
-            letter.className =
-                char.trim().length > 0 ? 'legacy-credit-letter' : 'legacy-credit-space';
+            if (char.trim().length > 0) {
+                const lane = index % 2 === 0 ? 'legacy-credit-letter--up' : 'legacy-credit-letter--down';
+                letter.className = `legacy-credit-letter ${lane}`;
+            } else {
+                letter.className = 'legacy-credit-space';
+            }
             letter.textContent = char;
             author.append(letter);
         });

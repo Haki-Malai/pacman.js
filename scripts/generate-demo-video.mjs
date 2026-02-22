@@ -10,10 +10,12 @@ const ROOT = process.cwd();
 const OUT_DIR = path.join(ROOT, '.demo');
 const FRAMES_DIR = path.join(OUT_DIR, 'frames');
 const OUT_VIDEO = path.join(OUT_DIR, 'pacman-demo.mp4');
-const FPS = 12;
-const DURATION_SEC = 10;
+const FPS = Number(process.env.DEMO_FPS ?? 30);
+const DURATION_SEC = Number(process.env.DEMO_DURATION ?? 12);
 const TOTAL_FRAMES = FPS * DURATION_SEC;
-const PLAYBACK_SPEED = 0.5; // 0.5 = half speed
+const PLAYBACK_SPEED = Number(process.env.DEMO_PLAYBACK_SPEED ?? 1); // 1 = real-time
+const MODE = process.env.DEMO_MODE ?? 'full'; // 'full' | 'intro'
+const WITH_REFRESH = process.env.DEMO_WITH_REFRESH === '1';
 const BASE_URL = process.env.DEMO_URL ?? 'http://127.0.0.1:4173';
 const CHROME_PATH = process.env.CHROME_PATH ?? '/usr/bin/chromium';
 
@@ -62,23 +64,31 @@ async function main() {
     try {
       const page = await browser.newPage();
       await page.goto(BASE_URL, { waitUntil: 'networkidle2' });
-      await page.reload({ waitUntil: 'networkidle2' });
-
-      // trigger intro/menu sequence then start game
-      await page.mouse.click(640, 360);
-      await sleep(3300);
-      await page.keyboard.press('Enter');
-      await sleep(500);
 
       const frameDelay = Math.round(1000 / FPS);
       for (let i = 0; i < TOTAL_FRAMES; i += 1) {
+        // Click once to start intro. Optional refresh can be enabled via env.
+        if (WITH_REFRESH && i === Math.floor(FPS * 1.2)) {
+          await page.reload({ waitUntil: 'networkidle2' });
+        }
+        if (i === Math.floor(FPS * 1.5)) {
+          await page.mouse.click(640, 360);
+        }
+
+        // In full mode, start gameplay only after intro has had time to play on camera.
+        if (MODE === 'full' && i === Math.floor(FPS * 6.5)) {
+          await page.keyboard.press('Enter');
+        }
+
         const frame = path.join(FRAMES_DIR, `frame-${String(i).padStart(4, '0')}.png`);
         await page.screenshot({ path: frame });
 
         // Keep gameplay moving a bit so demo feels alive
-        if (i % 8 === 0) await page.keyboard.press('ArrowRight');
-        if (i % 18 === 0) await page.keyboard.press('ArrowDown');
-        if (i % 26 === 0) await page.keyboard.press('ArrowLeft');
+        if (MODE === 'full' && i > 58) {
+          if (i % 8 === 0) await page.keyboard.press('ArrowRight');
+          if (i % 18 === 0) await page.keyboard.press('ArrowDown');
+          if (i % 26 === 0) await page.keyboard.press('ArrowLeft');
+        }
 
         await sleep(frameDelay);
       }
