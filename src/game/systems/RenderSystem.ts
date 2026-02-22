@@ -1,21 +1,40 @@
-import { AssetCatalog } from '../infrastructure/assets/AssetCatalog';
-import { CanvasRendererAdapter } from '../infrastructure/adapters/CanvasRendererAdapter';
-import { WorldState } from '../domain/world/WorldState';
 import { Camera2D } from '../../engine/camera';
+import { buildPointLayout } from '../domain/services/PointLayoutService';
+import { TilePosition } from '../domain/valueObjects/TilePosition';
+import { WorldState } from '../domain/world/WorldState';
+import { CanvasRendererAdapter } from '../infrastructure/adapters/CanvasRendererAdapter';
+import { AssetCatalog } from '../infrastructure/assets/AssetCatalog';
 
 const BACKGROUND_COLOR = '#2d2d2d';
 const POINT_COLOR = '#f7f3c6';
 const POINT_RADIUS_FACTOR = 0.08;
 const POWER_POINT_RADIUS_FACTOR = 0.18;
-const POWER_POINT_DENSITY_MOD = 13;
+
+type PointCenter = {
+  x: number;
+  y: number;
+};
 
 export class RenderSystem {
+  private readonly basePointCenters: PointCenter[];
+  private readonly powerPointCenters: PointCenter[];
+
   constructor(
     private readonly world: WorldState,
     private readonly renderer: CanvasRendererAdapter,
     private readonly camera: Camera2D,
     private readonly assets: AssetCatalog,
-  ) {}
+  ) {
+    const pointLayout = buildPointLayout({
+      map: this.world.map,
+      collisionGrid: this.world.collisionGrid,
+      startTile: this.world.pacman.tile,
+      tileSize: this.world.tileSize,
+    });
+
+    this.basePointCenters = pointLayout.basePoints.map((tile) => this.toPointCenter(tile));
+    this.powerPointCenters = pointLayout.powerPoints.map((tile) => this.toPointCenter(tile));
+  }
 
   render(): void {
     this.renderer.clear(BACKGROUND_COLOR);
@@ -52,34 +71,28 @@ export class RenderSystem {
     const powerRadius = this.world.tileSize * POWER_POINT_RADIUS_FACTOR;
 
     context.fillStyle = POINT_COLOR;
+    this.drawPointBatch(context, this.basePointCenters, baseRadius);
+    this.drawPointBatch(context, this.powerPointCenters, powerRadius);
+  }
 
-    this.world.map.tiles.forEach((row) => {
-      row.forEach((tile) => {
-        if (tile.gid === null || tile.collision.collides || tile.collision.penGate) {
-          return;
-        }
+  private drawPointBatch(context: CanvasRenderingContext2D, points: readonly PointCenter[], radius: number): void {
+    if (!points.length) {
+      return;
+    }
 
-        if (tile.collision.up && tile.collision.down && tile.collision.left && tile.collision.right) {
-          return;
-        }
-
-        const x = tile.x * this.world.tileSize + this.world.tileSize / 2;
-        const y = tile.y * this.world.tileSize + this.world.tileSize / 2;
-
-        // Main point in every accessible tile.
-        context.beginPath();
-        context.arc(x, y, baseRadius, 0, Math.PI * 2);
-        context.fill();
-
-        // Bigger points on deterministic pseudo-random tiles.
-        const hash = (tile.x * 73856093) ^ (tile.y * 19349663);
-        if (Math.abs(hash) % POWER_POINT_DENSITY_MOD === 0) {
-          context.beginPath();
-          context.arc(x, y, powerRadius, 0, Math.PI * 2);
-          context.fill();
-        }
-      });
+    context.beginPath();
+    points.forEach((point) => {
+      context.moveTo(point.x + radius, point.y);
+      context.arc(point.x, point.y, radius, 0, Math.PI * 2);
     });
+    context.fill();
+  }
+
+  private toPointCenter(tile: TilePosition): PointCenter {
+    return {
+      x: tile.x * this.world.tileSize + this.world.tileSize / 2,
+      y: tile.y * this.world.tileSize + this.world.tileSize / 2,
+    };
   }
 
   private drawEntities(): void {
