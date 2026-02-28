@@ -92,7 +92,7 @@ jobs:
             env_path="$DISPATCH_ENV"
             mapped_branch="$(map_env_to_branch "$env_path")"
 
-            git fetch --no-tags --prune --depth=0 origin +refs/heads/*:refs/remotes/origin/*
+            git fetch --no-tags --prune origin +refs/heads/*:refs/remotes/origin/*
 
             if [[ -n "${DISPATCH_REF:-}" ]]; then
               candidate_ref="$DISPATCH_REF"
