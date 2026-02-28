@@ -24,5 +24,22 @@ This is a pacman game i am currently working on for fun. I have developed it aga
 - `openspec/changes/` contains proposed changes and implementation tasks before they are archived into specs.
 - `pnpm run spec:check` validates OpenSpec artifacts.
 
+## Deployment
+- CI checks are defined in `.github/workflows/ci.yml`.
+- GitHub Pages deployments are defined in `.github/workflows/deploy-pages.yml` and run only after successful `CI` runs for `push` events.
+- Branch to environment mapping:
+  - `development` -> `/dev/`
+  - `int` -> `/int/`
+  - `main` -> `/prod/`
+- Expected project URLs:
+  - `https://haki-malai.github.io/pacman.js/dev/`
+  - `https://haki-malai.github.io/pacman.js/int/`
+  - `https://haki-malai.github.io/pacman.js/prod/`
+  - Root `https://haki-malai.github.io/pacman.js/` redirects to `/prod/`.
+- `workflow_dispatch` supports:
+  - `environment`: `dev`, `int`, or `prod` (maps to `development`, `int`, `main`)
+  - `ref` (optional): must resolve to a commit reachable from the mapped branch
+- Pull request events run CI but do not publish deployments.
+
 ## About the game
 The code is written with scalability in mind. Levels are authored in Tiled using the included tileset and exported JSON map. Object layers supply Pacman and ghost spawns (including pen bounds) and place collectibles directly in the map data.

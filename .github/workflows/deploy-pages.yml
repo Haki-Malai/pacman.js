@@ -1,0 +1,270 @@
+name: Deploy Pages
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches:
+      - development
+      - int
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment target environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - int
+          - prod
+      ref:
+        description: "Optional ref to deploy (must be reachable from mapped branch)"
+        required: false
+        type: string
+
+concurrency:
+  group: github-pages-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  resolve_target:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      env_path: ${{ steps.resolve.outputs.env_path }}
+      mapped_branch: ${{ steps.resolve.outputs.mapped_branch }}
+      target_sha: ${{ steps.resolve.outputs.target_sha }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: resolve
+        name: Resolve environment target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          DISPATCH_ENV: ${{ inputs.environment }}
+          DISPATCH_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+
+          map_branch_to_env() {
+            case "$1" in
+              development) echo "dev" ;;
+              int) echo "int" ;;
+              main) echo "prod" ;;
+              *)
+                echo "::error::Unsupported deployment branch '$1'."
+                exit 1
+                ;;
+            esac
+          }
+
+          map_env_to_branch() {
+            case "$1" in
+              dev) echo "development" ;;
+              int) echo "int" ;;
+              prod) echo "main" ;;
+              *)
+                echo "::error::Unsupported environment '$1'."
+                exit 1
+                ;;
+            esac
+          }
+
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            mapped_branch="$WORKFLOW_RUN_BRANCH"
+            env_path="$(map_branch_to_env "$mapped_branch")"
+            target_sha="$WORKFLOW_RUN_SHA"
+          else
+            env_path="$DISPATCH_ENV"
+            mapped_branch="$(map_env_to_branch "$env_path")"
+
+            git fetch --no-tags --prune --depth=0 origin +refs/heads/*:refs/remotes/origin/*
+
+            if [[ -n "${DISPATCH_REF:-}" ]]; then
+              candidate_ref="$DISPATCH_REF"
+              if git rev-parse --verify --quiet "${candidate_ref}^{commit}" >/dev/null; then
+                :
+              elif git rev-parse --verify --quiet "origin/${candidate_ref}^{commit}" >/dev/null; then
+                candidate_ref="origin/${candidate_ref}"
+              else
+                echo "::error::Unable to resolve ref '${DISPATCH_REF}' to a commit."
+                exit 1
+              fi
+
+              target_sha="$(git rev-parse "${candidate_ref}^{commit}")"
+              if ! git merge-base --is-ancestor "$target_sha" "origin/$mapped_branch"; then
+                echo "::error::Ref '${DISPATCH_REF}' resolves to ${target_sha}, which is not reachable from origin/${mapped_branch}."
+                exit 1
+              fi
+            else
+              target_sha="$(git rev-parse "origin/${mapped_branch}^{commit}")"
+            fi
+          fi
+
+          echo "env_path=${env_path}" >> "$GITHUB_OUTPUT"
+          echo "mapped_branch=${mapped_branch}" >> "$GITHUB_OUTPUT"
+          echo "target_sha=${target_sha}" >> "$GITHUB_OUTPUT"
+
+  guard_ci_for_manual:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    needs: resolve_target
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Verify successful CI run exists for target commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = "${{ needs.resolve_target.outputs.target_sha }}";
+            const { owner, repo } = context.repo;
+            const runs = await github.paginate(
+              github.rest.actions.listWorkflowRunsForRepo,
+              { owner, repo, head_sha: sha, status: "completed", per_page: 100 }
+            );
+            const ciRuns = runs.filter(
+              (run) => run.name === "CI" && run.event === "push" && run.conclusion === "success"
+            );
+            if (ciRuns.length === 0) {
+              core.setFailed(`No successful CI push run found for ${sha}.`);
+            }
+
+  build:
+    runs-on: ubuntu-latest
+    needs:
+      - resolve_target
+      - guard_ci_for_manual
+    if: |
+      needs.resolve_target.result == 'success' &&
+      (github.event_name != 'workflow_dispatch' || needs.guard_ci_for_manual.result == 'success')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve_target.outputs.target_sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Upload site artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-dist
+          path: dist
+
+  publish_pages:
+    runs-on: ubuntu-latest
+    needs:
+      - resolve_target
+      - build
+    if: needs.build.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download site artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: site-dist
+          path: _artifact
+
+      - id: publish
+        name: Publish environment content to gh-pages
+        env:
+          ENV_PATH: ${{ needs.resolve_target.outputs.env_path }}
+          TARGET_SHA: ${{ needs.resolve_target.outputs.target_sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          artifact_root="$GITHUB_WORKSPACE/_artifact"
+          if [[ -d "$artifact_root/dist" ]]; then
+            artifact_root="$artifact_root/dist"
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          worktree_dir="$(mktemp -d)"
+          cleanup() {
+            git -C "$GITHUB_WORKSPACE" worktree remove --force "$worktree_dir" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          if git -C "$GITHUB_WORKSPACE" ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git -C "$GITHUB_WORKSPACE" fetch --no-tags origin gh-pages
+            git -C "$GITHUB_WORKSPACE" worktree add "$worktree_dir" FETCH_HEAD
+            git -C "$worktree_dir" checkout -B gh-pages
+          else
+            git -C "$GITHUB_WORKSPACE" worktree add --detach "$worktree_dir"
+            git -C "$worktree_dir" checkout --orphan gh-pages
+            git -C "$worktree_dir" rm -rf . >/dev/null 2>&1 || true
+            find "$worktree_dir" -mindepth 1 -maxdepth 1 ! -name ".git" -exec rm -rf {} +
+          fi
+
+          rm -rf "$worktree_dir/$ENV_PATH"
+          mkdir -p "$worktree_dir/$ENV_PATH"
+          cp -R "$artifact_root"/. "$worktree_dir/$ENV_PATH"/
+
+          touch "$worktree_dir/.nojekyll"
+          cat > "$worktree_dir/index.html" <<'EOF'
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta http-equiv="refresh" content="0; url=./prod/" />
+              <title>Redirecting to production</title>
+              <script>
+                window.location.replace("./prod/");
+              </script>
+            </head>
+            <body>
+              Redirecting to <a href="./prod/">production</a>.
+            </body>
+          </html>
+          EOF
+
+          git -C "$worktree_dir" add -A
+          if git -C "$worktree_dir" diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git -C "$worktree_dir" commit -m "Deploy ${ENV_PATH} from ${TARGET_SHA}"
+          git -C "$worktree_dir" push origin gh-pages
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Deployment summary
+        run: |
+          if [[ "${{ steps.publish.outputs.changed }}" == "true" ]]; then
+            echo "Published /${{ needs.resolve_target.outputs.env_path }}/ from ${{ needs.resolve_target.outputs.target_sha }}."
+          else
+            echo "No content changes detected; skipped push."
+          fi
