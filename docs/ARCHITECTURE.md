@@ -107,6 +107,13 @@ Render order:
 3. `DebugOverlaySystem` overlay
 4. HUD is DOM-based (managed by `HudSystem`/adapter)
 
+## Camera Behavior Contract
+- `CameraSystem.start()` configures bounds, zoom, follow target, and viewport, then calls a one-time snap so the first gameplay frame is centered on Pac-Man instead of animating in from `(0, 0)`.
+- After startup, camera movement remains lerp-based via `CAMERA.followLerp` and updates each frame in `CameraSystem.update()`.
+- `Camera2D` clamps camera coordinates to world bounds on both startup snap and regular updates.
+- Resize handling updates renderer size and camera viewport dimensions before subsequent follow updates.
+- Regression coverage lives in `src/__tests__/camera2d.test.ts` and `src/__tests__/cameraSystem.test.ts`.
+
 ## Core Runtime Contracts
 Public runtime contract:
 - `start(): Promise<void>`

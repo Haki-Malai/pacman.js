@@ -7,6 +7,7 @@ interface CameraLike {
   setZoom(zoom: number): void;
   setViewport(width: number, height: number): void;
   startFollow(target: { x: number; y: number }, lerpX: number, lerpY: number): void;
+  snapToFollowTarget(): void;
   update(): void;
 }
 
@@ -26,6 +27,7 @@ export class CameraSystem {
     this.camera.startFollow(this.world.pacman, CAMERA.followLerp.x, CAMERA.followLerp.y);
 
     this.handleResize();
+    this.camera.snapToFollowTarget();
     this.onResize = () => {
       this.handleResize();
     };

@@ -46,20 +46,27 @@ export class Camera2D {
     this.followLerpY = clamp(lerpY, 0, 1);
   }
 
-  update(): void {
-    if (!this.followTarget) {
+  snapToFollowTarget(): void {
+    const desired = this.getDesiredFollowPosition();
+    if (!desired) {
       this.clampToBounds();
       return;
     }
 
-    const viewportWorldWidth = this.viewportWidth / this.zoom;
-    const viewportWorldHeight = this.viewportHeight / this.zoom;
+    this.x = desired.x;
+    this.y = desired.y;
+    this.clampToBounds();
+  }
 
-    const desiredX = this.followTarget.x - viewportWorldWidth / 2;
-    const desiredY = this.followTarget.y - viewportWorldHeight / 2;
+  update(): void {
+    const desired = this.getDesiredFollowPosition();
+    if (!desired) {
+      this.clampToBounds();
+      return;
+    }
 
-    this.x = lerp(this.x, desiredX, this.followLerpX);
-    this.y = lerp(this.y, desiredY, this.followLerpY);
+    this.x = lerp(this.x, desired.x, this.followLerpX);
+    this.y = lerp(this.y, desired.y, this.followLerpY);
     this.clampToBounds();
   }
 
@@ -72,6 +79,20 @@ export class Camera2D {
 
   applyTransform(ctx: CanvasRenderingContext2D): void {
     ctx.setTransform(this.zoom, 0, 0, this.zoom, -this.x * this.zoom, -this.y * this.zoom);
+  }
+
+  private getDesiredFollowPosition(): { x: number; y: number } | undefined {
+    if (!this.followTarget) {
+      return undefined;
+    }
+
+    const viewportWorldWidth = this.viewportWidth / this.zoom;
+    const viewportWorldHeight = this.viewportHeight / this.zoom;
+
+    return {
+      x: this.followTarget.x - viewportWorldWidth / 2,
+      y: this.followTarget.y - viewportWorldHeight / 2,
+    };
   }
 
   private clampToBounds(): void {
