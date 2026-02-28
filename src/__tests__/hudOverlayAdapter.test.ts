@@ -37,7 +37,7 @@ describe('HudOverlayAdapter', () => {
     expect(scoreValue?.textContent).toBe('0');
     expect(livesValue?.textContent).toBe('3');
     expect(livesIcons?.children.length).toBe(3);
-    expect(livesIcons?.children[0]?.src).toBe('/assets/sprites/Heart.png');
+    expect(livesIcons?.children[0]?.src).toBe('assets/sprites/Heart.png');
 
     addScore(120);
     setLives(2);
@@ -45,7 +45,7 @@ describe('HudOverlayAdapter', () => {
     expect(scoreValue?.textContent).toBe('120');
     expect(livesValue?.textContent).toBe('2');
     expect(livesIcons?.children.length).toBe(2);
-    expect(livesIcons?.children[1]?.src).toBe('/assets/sprites/Heart.png');
+    expect(livesIcons?.children[1]?.src).toBe('assets/sprites/Heart.png');
 
     hud.destroy();
     expect(mount.querySelector('[data-game-hud]')).toBeNull();

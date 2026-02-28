@@ -124,7 +124,7 @@ export class HudOverlayAdapter {
 
   private createHeartIcon(): HTMLImageElement {
     const icon = document.createElement('img');
-    icon.src = '/assets/sprites/Heart.png';
+    icon.src = 'assets/sprites/Heart.png';
     icon.alt = '';
     icon.setAttribute('aria-hidden', 'true');
     icon.className = 'h-4 w-4 object-contain';

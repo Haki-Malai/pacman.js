@@ -71,9 +71,9 @@ export class GameCompositionRoot {
 
     const rng = toRandomSource(this.options.rng ?? Math.random);
 
-    const map = await mapRepository.loadMap('/assets/mazes/default/maze.json');
+    const map = await mapRepository.loadMap('assets/mazes/default/maze.json');
     const tileSize = map.tileWidth || TILE_SIZE;
-    await assets.loadForMap(map, '/assets/mazes/default');
+    await assets.loadForMap(map, 'assets/mazes/default');
 
     const collisionGrid = new CollisionGrid(map.tiles.map((row) => row.map((tile) => ({ ...tile.collision }))));
     const movementRules = new MovementRules(tileSize);

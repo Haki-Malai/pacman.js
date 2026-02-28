@@ -5,12 +5,12 @@ const SPRITE_SHEET_FRAME_WIDTH = 85;
 const SPRITE_SHEET_FRAME_HEIGHT = 91;
 
 const SPRITESHEET_SOURCES = {
-  pacman: '/assets/sprites/PacMan.png',
-  blinky: '/assets/sprites/Blinky.png',
-  clyde: '/assets/sprites/Clyde.png',
-  pinky: '/assets/sprites/Pinky.png',
-  inky: '/assets/sprites/Inky.png',
-  scared: '/assets/sprites/Scared.png',
+  pacman: 'assets/sprites/PacMan.png',
+  blinky: 'assets/sprites/Blinky.png',
+  clyde: 'assets/sprites/Clyde.png',
+  pinky: 'assets/sprites/Pinky.png',
+  inky: 'assets/sprites/Inky.png',
+  scared: 'assets/sprites/Scared.png',
 } as const;
 
 export type SpriteSheetKey = keyof typeof SPRITESHEET_SOURCES;
@@ -42,7 +42,7 @@ export class AssetCatalog {
       jobs.push(this.assets.loadSpriteSheet(key, src, SPRITE_SHEET_FRAME_WIDTH, SPRITE_SHEET_FRAME_HEIGHT));
     });
 
-    jobs.push(this.assets.loadImage('point', '/assets/sprites/Point.png'));
+    jobs.push(this.assets.loadImage('point', 'assets/sprites/Point.png'));
 
     await Promise.all(jobs);
 
