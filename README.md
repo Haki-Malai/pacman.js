@@ -26,19 +26,3 @@ This is a pacman game i am currently working on for fun. I have developed it aga
 
 ## About the game
 The code is written with scalability in mind. Levels are authored in Tiled using the included tileset and exported JSON map. Object layers supply Pacman and ghost spawns (including pen bounds) and place collectibles directly in the map data.
-
-## To-Do List
-- [x] Draw Ghosts
-- [ ] Make static OOP functions in seperate file
-- [x] Add Ghosts etc
-- [x] Add Ghost prison variables
-- [ ] Add Ghost death
-- [ ] Menu
-- [ ] Sound
-- [ ] Display Score, Multipliers, Lifes etc
-- [ ] Highscores
-- [ ] Multiple levels
-- [ ] Add the portals
-
-## To-Do Specialized List
-- [ ] Make Clearer Animation
