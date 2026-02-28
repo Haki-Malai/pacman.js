@@ -59,6 +59,13 @@ export interface AnimationPlayback {
   forward: 1 | -1;
 }
 
+export interface PacmanAnimationPlayback {
+  frame: number;
+  elapsedMs: number;
+  sequenceIndex: number;
+  active: boolean;
+}
+
 export interface GhostJailBounds {
   minX: number;
   maxX: number;
@@ -86,6 +93,12 @@ export class WorldState {
   ghostJailBounds: GhostJailBounds;
   ghostsExitingJail = new Set<GhostEntity>();
   ghostAnimations = new Map<GhostEntity, AnimationPlayback>();
+  pacmanAnimation: PacmanAnimationPlayback = {
+    frame: 0,
+    elapsedMs: 0,
+    sequenceIndex: 0,
+    active: false,
+  };
   isMoving = true;
   collisionDebugEnabled = false;
   hoveredDebugTile: TilePosition | null = null;

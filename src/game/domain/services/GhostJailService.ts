@@ -70,6 +70,7 @@ export class GhostJailService {
     collisionGrid: CollisionGrid;
     movementRules: MovementRules;
     rng: RandomSource;
+    preferDirection?: 'left' | 'right';
   }): TilePosition {
     const releaseY = clamp(params.bounds.y - 1, 0, params.map.height - 1);
     const candidates: TilePosition[] = [];
@@ -91,18 +92,24 @@ export class GhostJailService {
     }
 
     const currentX = clamp(params.currentTile.x, params.bounds.minX, params.bounds.maxX);
-    const nearby = candidates.filter((candidate) => Math.abs(candidate.x - currentX) <= 1);
-    if (nearby.length > 0) {
-      return nearby[params.rng.int(nearby.length)] ?? fallback;
+    const nearestDistance = candidates.reduce((distance, tile) => {
+      return Math.min(distance, Math.abs(tile.x - currentX));
+    }, Number.POSITIVE_INFINITY);
+
+    const nearestCandidates = candidates.filter((tile) => Math.abs(tile.x - currentX) === nearestDistance);
+
+    if (params.preferDirection === 'right') {
+      const rightCandidate = [...nearestCandidates].sort((a, b) => b.x - a.x)[0];
+      return rightCandidate ?? fallback;
     }
 
-    let nearestDistance = Number.POSITIVE_INFINITY;
-    candidates.forEach((candidate) => {
-      nearestDistance = Math.min(nearestDistance, Math.abs(candidate.x - currentX));
-    });
+    if (params.preferDirection === 'left') {
+      const leftCandidate = [...nearestCandidates].sort((a, b) => a.x - b.x)[0];
+      return leftCandidate ?? fallback;
+    }
 
-    const nearestCandidates = candidates.filter((candidate) => Math.abs(candidate.x - currentX) === nearestDistance);
-    return nearestCandidates[params.rng.int(nearestCandidates.length)] ?? fallback;
+    const randomIndex = params.rng.int(Math.max(1, nearestCandidates.length));
+    return nearestCandidates[randomIndex] ?? fallback;
   }
 
   moveGhostInJail(

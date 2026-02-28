@@ -48,4 +48,42 @@ describe('mechanics scenarios: animation state', () => {
       harness.destroy();
     }
   });
+
+  it('MEC-ANI-002 pacman eat animation is event-driven (not movement-driven)', () => {
+    const harness = new MechanicsDomainHarness({
+      seed: 20260222,
+      fixture: 'portal-pair-grid',
+      ghostCount: 0,
+    });
+
+    try {
+      const observedFrames = new Set<number>();
+      for (let tick = 0; tick < 20; tick += 1) {
+        harness.stepTick();
+        observedFrames.add(harness.world.pacmanAnimation.frame);
+      }
+
+      expect(observedFrames).toEqual(new Set([0]));
+
+      harness.world.pacmanAnimation.active = true;
+      const triggeredFrames: number[] = [];
+      for (let tick = 0; tick < 4; tick += 1) {
+        harness.animationSystem.update(1000 / 20);
+        triggeredFrames.push(harness.world.pacmanAnimation.frame);
+      }
+
+      expect(triggeredFrames.some((frame) => frame > 0)).toBe(true);
+      expect(harness.world.pacmanAnimation.active).toBe(true);
+
+      for (let tick = 0; tick < 8; tick += 1) {
+        harness.animationSystem.update(1000 / 20);
+      }
+
+      expect(harness.world.pacmanAnimation.active).toBe(false);
+      expect(harness.world.pacmanAnimation.frame).toBe(0);
+      expect(harness.world.pacmanAnimation.sequenceIndex).toBe(0);
+    } finally {
+      harness.destroy();
+    }
+  });
 });

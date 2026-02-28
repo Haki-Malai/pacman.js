@@ -10,14 +10,23 @@ export const SPEED = {
   ghost: 1,
 } as const;
 
+export const PACMAN_PORTAL_BLINK = {
+  durationMs: 1500,
+  intervalMs: 120,
+} as const;
+
 export const CAMERA = {
   zoom: 5,
   followLerp: { x: 0.09, y: 0.09 },
 } as const;
 
+export const COARSE_POINTER_MEDIA_QUERY = '(hover: none) and (pointer: coarse)';
+
 export const INITIAL_LIVES = 3;
 export const GHOST_JAIL_RELEASE_DELAY_MS = 5000;
+export const GHOST_JAIL_RELEASE_INTERVAL_MS = 900;
 export const GHOST_JAIL_MOVE_SPEED = 0.5;
+export const GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS = 260;
 export const GHOST_JAIL_RELEASE_TWEEN_MS = 650;
 
 export const COLLECTIBLE_CONFIG: Record<

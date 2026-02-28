@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GHOST_JAIL_RELEASE_DELAY_MS, GHOST_JAIL_RELEASE_TWEEN_MS } from '../../config/constants';
+import {
+  GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS,
+  GHOST_JAIL_RELEASE_DELAY_MS,
+  GHOST_JAIL_RELEASE_INTERVAL_MS,
+  GHOST_JAIL_RELEASE_TWEEN_MS,
+} from '../../config/constants';
 import { GhostEntity } from '../../game/domain/entities/GhostEntity';
 import { GhostJailService } from '../../game/domain/services/GhostJailService';
 import { MovementRules } from '../../game/domain/services/MovementRules';
@@ -79,6 +84,62 @@ describe('pacman movement system coverage', () => {
     expect(tryTeleportMock).toHaveBeenCalled();
     expect(syncEntityPositionMock).toHaveBeenCalled();
   });
+
+  it('covers portal blink reset, finite-delta guards, and teleport-triggered blink bootstrap', () => {
+    const world = {
+      pacman: {
+        tile: { x: 0, y: 0 },
+        moved: { x: 0, y: 0 },
+        direction: { current: 'right', next: 'right' },
+        angle: 0,
+        flipY: false,
+        portalBlinkRemainingMs: 0,
+        portalBlinkElapsedMs: 0,
+      },
+      collisionGrid: {
+        getTilesAt: vi.fn(() => ({
+          current: openTile(),
+          up: openTile(),
+          down: openTile(),
+          left: openTile(),
+          right: openTile(),
+        })),
+      },
+      tick: 22,
+    } as unknown as WorldState;
+
+    const movementRules = {
+      applyBufferedDirection: vi.fn(),
+      canMove: vi.fn(() => false),
+      advanceEntity: vi.fn(),
+      syncEntityPosition: vi.fn(),
+    } as unknown as MovementRules;
+
+    const tryTeleportMock = vi.fn(() => true);
+    const portalService = {
+      tryTeleport: tryTeleportMock,
+    } as unknown as PortalService;
+
+    const system = new PacmanMovementSystem(world, movementRules, portalService);
+
+    world.pacman.portalBlinkRemainingMs = 50;
+    world.pacman.portalBlinkElapsedMs = 10;
+    system.update(Number.NaN);
+
+    expect(world.pacman.portalBlinkRemainingMs).toBeGreaterThan(0);
+    expect(world.pacman.portalBlinkElapsedMs).toBe(0);
+
+    tryTeleportMock.mockReturnValue(false);
+    world.pacman.portalBlinkRemainingMs = 30;
+    world.pacman.portalBlinkElapsedMs = 5;
+    system.update(-15);
+    expect(world.pacman.portalBlinkRemainingMs).toBe(30);
+    expect(world.pacman.portalBlinkElapsedMs).toBe(5);
+
+    system.update(45);
+    expect(world.pacman.portalBlinkRemainingMs).toBe(0);
+    expect(world.pacman.portalBlinkElapsedMs).toBe(0);
+  });
 });
 
 describe('ghost release system coverage', () => {
@@ -138,6 +199,141 @@ describe('ghost release system coverage', () => {
     }
   });
 
+  it('stages ghost releases using delay plus per-ghost interval timing', () => {
+    const harness = new MechanicsDomainHarness({ seed: 1818, fixture: 'default-map', ghostCount: 3, autoStartSystems: false });
+
+    try {
+      const findReleaseTileSpy = vi.spyOn(harness.jailService, 'findReleaseTile');
+
+      harness.ghostReleaseSystem.start();
+
+      harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS - 1);
+      expect(findReleaseTileSpy).not.toHaveBeenCalled();
+
+      harness.scheduler.update(1);
+      expect(findReleaseTileSpy).toHaveBeenCalledTimes(1);
+
+      harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS - 1);
+      expect(findReleaseTileSpy).toHaveBeenCalledTimes(1);
+
+      harness.scheduler.update(1);
+      expect(findReleaseTileSpy).toHaveBeenCalledTimes(2);
+
+      harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
+      expect(findReleaseTileSpy).toHaveBeenCalledTimes(3);
+    } finally {
+      harness.destroy();
+    }
+  });
+
+  it('aligns ghosts to the release lane before starting the upward exit tween', () => {
+    const harness = new MechanicsDomainHarness({ seed: 1919, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
+
+    try {
+      const ghost = harness.world.ghosts[0];
+      if (!ghost) {
+        throw new Error('expected one ghost for release alignment coverage');
+      }
+
+      const tweenSpy = vi.spyOn(harness.scheduler, 'addTween');
+      const laneCenterY = harness.world.ghostJailBounds.y * harness.world.tileSize + harness.world.tileSize / 2;
+      const releaseCenterY = (harness.world.ghostJailBounds.y - 1) * harness.world.tileSize + harness.world.tileSize / 2;
+
+      ghost.x += 4;
+
+      harness.ghostReleaseSystem.start();
+      harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS - 1);
+      expect(tweenSpy).not.toHaveBeenCalled();
+
+      harness.scheduler.update(1);
+      expect(tweenSpy).toHaveBeenCalledTimes(1);
+      expect(tweenSpy.mock.calls[0]?.[0]?.to).toEqual(
+        expect.objectContaining({
+          y: laneCenterY,
+        }),
+      );
+
+      harness.scheduler.update(GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS);
+      expect(tweenSpy).toHaveBeenCalledTimes(2);
+      expect(tweenSpy.mock.calls[1]?.[0]?.to).toEqual(
+        expect.objectContaining({
+          y: releaseCenterY,
+        }),
+      );
+
+      harness.scheduler.update(GHOST_JAIL_RELEASE_TWEEN_MS);
+      expect(ghost.state.free).toBe(true);
+      expect(harness.world.ghostsExitingJail.has(ghost)).toBe(false);
+    } finally {
+      harness.destroy();
+    }
+  });
+
+  it('covers fallback lane indexing and preferred-direction split when ghost tiles are invalid', () => {
+    const harness = new MechanicsDomainHarness({ seed: 2020, fixture: 'default-map', ghostCount: 5, autoStartSystems: false });
+
+    try {
+      const [firstGhost, secondGhost, thirdGhost, fourthGhost, fifthGhost] = harness.world.ghosts;
+      if (!firstGhost || !secondGhost || !thirdGhost || !fourthGhost || !fifthGhost) {
+        throw new Error('expected five ghosts for fallback lane test');
+      }
+
+      firstGhost.tile.x = Number.NaN;
+      secondGhost.tile.x = Number.NaN;
+      thirdGhost.tile.x = Number.NaN;
+      fourthGhost.tile.x = Number.NaN;
+      fifthGhost.tile.x = Number.NaN;
+
+      const findReleaseTileSpy = vi.spyOn(harness.jailService, 'findReleaseTile');
+
+      harness.ghostReleaseSystem.start();
+      harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS);
+      harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
+      harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
+      harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
+      harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
+
+      const firstCall = findReleaseTileSpy.mock.calls[0]?.[0];
+      const fifthCall = findReleaseTileSpy.mock.calls[4]?.[0];
+
+      expect(firstCall?.currentTile.x).toBe(harness.world.ghostJailBounds.minX);
+      expect(firstCall?.preferDirection).toBe('left');
+
+      expect(fifthCall?.currentTile.x).toBe(harness.world.ghostJailBounds.minX + 4);
+      expect(fifthCall?.preferDirection).toBe('right');
+    } finally {
+      harness.destroy();
+    }
+  });
+
+  it('covers alignment completion cleanup when a ghost deactivates before the exit tween starts', () => {
+    const harness = new MechanicsDomainHarness({ seed: 2121, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
+
+    try {
+      const ghost = harness.world.ghosts[0];
+      if (!ghost) {
+        throw new Error('expected one ghost for alignment deactivation test');
+      }
+
+      ghost.x += 4;
+      const tweenSpy = vi.spyOn(harness.scheduler, 'addTween');
+
+      harness.ghostReleaseSystem.start();
+      harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS - 1);
+      harness.scheduler.update(1);
+
+      expect(tweenSpy).toHaveBeenCalledTimes(1);
+      ghost.active = false;
+
+      harness.scheduler.update(GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS);
+
+      expect(tweenSpy).toHaveBeenCalledTimes(1);
+      expect(harness.world.ghostsExitingJail.has(ghost)).toBe(false);
+    } finally {
+      harness.destroy();
+    }
+  });
+
   it('covers GhostReleaseSystem with explicit mocked dependencies', () => {
     const ghost = new GhostEntity({
       key: 'inky',
@@ -163,26 +359,35 @@ describe('ghost release system coverage', () => {
       tileSize: 16,
     } as unknown as WorldState;
 
+    ghost.x = 24;
+    ghost.y = 24;
+
     const setEntityTileMock = vi.fn();
     const movementRules = {
       setEntityTile: setEntityTileMock,
     } as unknown as MovementRules;
 
-    const findReleaseTileMock = vi.fn(() => ({ x: 1, y: 0 }));
+    const findReleaseTileMock = vi.fn(() => ({ x: 1, y: 1 }));
     const jailService = {
       moveGhostInJail: vi.fn(),
       findReleaseTile: findReleaseTileMock,
     } as unknown as GhostJailService;
 
     const scheduler = new TimerSchedulerAdapter();
+    const addTweenSpy = vi.spyOn(scheduler, 'addTween');
     const system = new GhostReleaseSystem(world, movementRules, jailService, scheduler, new SeededRandom(11));
 
     system.start();
     scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS);
-    scheduler.update(GHOST_JAIL_RELEASE_TWEEN_MS);
+    scheduler.update(1);
 
     expect(findReleaseTileMock).toHaveBeenCalled();
-    expect(setEntityTileMock).toHaveBeenCalled();
+    expect(addTweenSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        durationMs: 1,
+      }),
+    );
+    expect(setEntityTileMock).toHaveBeenCalledWith(ghost, { x: 1, y: 1 });
     system.destroy();
   });
 });

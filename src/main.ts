@@ -1,3 +1,4 @@
+import './tailwind.css';
 import './style.css';
 import { createPacmanGame } from './game/app/createPacmanGame';
 

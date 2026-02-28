@@ -32,6 +32,8 @@ export class PacmanEntity implements RenderableEntity {
   moved: MovementProgress = { x: 0, y: 0 };
   direction: DirectionState = { current: 'right', next: 'right' };
   tile: TilePosition;
+  portalBlinkRemainingMs = 0;
+  portalBlinkElapsedMs = 0;
 
   constructor(tile: TilePosition, displayWidth: number, displayHeight: number) {
     this.tile = { ...tile };

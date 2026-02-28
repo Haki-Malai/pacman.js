@@ -15,7 +15,7 @@ This is a pacman game i am currently working on for fun. I have developed it aga
 - `src/main.ts` boots the custom Canvas2D game runtime.
 - `src/engine/` contains the in-repo engine primitives (loop, camera, input, timers, tweens, renderer).
 - `src/game/` contains map parsing, runtime gameplay wiring, and UI overlay modules.
-- `src/style.css` contains global styles.
+- `src/tailwind.css` is the Tailwind entry stylesheet (`@tailwind base/components/utilities`).
 - `public/assets/` holds sprites, tilemaps, and other static assets copied to `dist/`.
 - `index.html` is the Vite entry HTML.
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { GhostEntity } from '../../game/domain/entities/GhostEntity';
 import { GhostDecisionService, simulateGhostMovement } from '../../game/domain/services/GhostDecisionService';
 import { GhostJailService, getObjectNumberProperty } from '../../game/domain/services/GhostJailService';
@@ -313,10 +313,58 @@ describe('ghost jail service coverage', () => {
     });
 
     expect(noCandidates).toEqual({ x: 0, y: 2 });
-    expect(nearbyCandidates.y).toBe(2);
-    expect([1, 3]).toContain(nearbyCandidates.x);
-    expect(nearestCandidates.y).toBe(2);
-    expect([0, 4]).toContain(nearestCandidates.x);
+    expect(nearbyCandidates).toEqual({ x: 1, y: 2 });
+    expect(nearestCandidates).toEqual({ x: 4, y: 2 });
+  });
+
+  it('uses deterministic tie-breaking and respects preferred release direction without RNG sorting side-effects', () => {
+    const service = new GhostJailService();
+    const movementRules = new MovementRules(TILE_SIZE);
+    const openGrid = new CollisionGrid(Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => openTile())));
+    const map = makeMap(Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => openTile())));
+
+    const rngInt = vi.fn(() => 1);
+    const rng = {
+      next: () => 0,
+      int: rngInt,
+    };
+
+    const neutral = service.findReleaseTile({
+      currentTile: { x: 2, y: 4 },
+      avoidTile: { x: 2, y: 2 },
+      bounds: { minX: 1, maxX: 3, y: 3 },
+      map,
+      collisionGrid: openGrid,
+      movementRules,
+      rng,
+    });
+
+    const preferLeft = service.findReleaseTile({
+      currentTile: { x: 2, y: 4 },
+      avoidTile: { x: 2, y: 2 },
+      bounds: { minX: 1, maxX: 3, y: 3 },
+      map,
+      collisionGrid: openGrid,
+      movementRules,
+      rng,
+      preferDirection: 'left',
+    });
+
+    const preferRight = service.findReleaseTile({
+      currentTile: { x: 2, y: 4 },
+      avoidTile: { x: 2, y: 2 },
+      bounds: { minX: 1, maxX: 3, y: 3 },
+      map,
+      collisionGrid: openGrid,
+      movementRules,
+      rng,
+      preferDirection: 'right',
+    });
+
+    expect(neutral).toEqual({ x: 3, y: 2 });
+    expect(preferLeft).toEqual({ x: 1, y: 2 });
+    expect(preferRight).toEqual({ x: 3, y: 2 });
+    expect(rngInt).toHaveBeenCalledTimes(1);
   });
 
   it('covers moveGhostInJail direction initialization, edge bounce, and clamping', () => {

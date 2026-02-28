@@ -156,6 +156,61 @@
       "expectations": ["animation key and speed switch and restore"]
     },
     {
+      "id": "MEC-ANI-002",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "pacman-portal-blink-window",
+      "seed": 1502,
+      "ticks": 40,
+      "fixture": "default-map",
+      "actions": ["trigger portal teleport", "advance blink timer"],
+      "expectations": ["blink timer initializes and expires deterministically"]
+    },
+    {
+      "id": "MEC-PAUSE-003",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "pause-overlay-state-hint",
+      "seed": 1503,
+      "ticks": 20,
+      "fixture": "default-map",
+      "actions": ["pause simulation", "resume simulation"],
+      "expectations": ["pause overlay reflects current pause state"]
+    },
+    {
+      "id": "MEC-POINT-001",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "collectible-layout-spawn",
+      "seed": 1504,
+      "ticks": 1,
+      "fixture": "default-map",
+      "actions": ["build collectible layout from map topology"],
+      "expectations": ["base and power points spawn on traversable tiles only"]
+    },
+    {
+      "id": "MEC-POINT-002",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "collectible-consume-and-score",
+      "seed": 1505,
+      "ticks": 180,
+      "fixture": "default-map",
+      "actions": ["move pacman across collectible tiles"],
+      "expectations": ["collectible consumption increments score and clears tile"]
+    },
+    {
+      "id": "MEC-POINT-003",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "collectible-eat-effect-fade",
+      "seed": 1506,
+      "ticks": 120,
+      "fixture": "default-map",
+      "actions": ["consume collectible", "advance effect lifetime"],
+      "expectations": ["eat effect scales and fades until removed"]
+    },
+    {
       "id": "MEC-RUN-001",
       "status": "implemented",
       "layer": "runtime",

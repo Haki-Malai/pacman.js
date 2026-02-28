@@ -18,12 +18,14 @@ import { TiledMapRepository } from '../infrastructure/map/TiledMapRepository';
 import { toRandomSource } from '../shared/random/RandomSource';
 import { AnimationSystem } from '../systems/AnimationSystem';
 import { CameraSystem } from '../systems/CameraSystem';
+import { CollectibleSystem } from '../systems/CollectibleSystem';
 import { DebugOverlaySystem } from '../systems/DebugOverlaySystem';
 import { GhostMovementSystem } from '../systems/GhostMovementSystem';
 import { GhostReleaseSystem } from '../systems/GhostReleaseSystem';
 import { HudSystem } from '../systems/HudSystem';
 import { InputSystem } from '../systems/InputSystem';
 import { PacmanMovementSystem } from '../systems/PacmanMovementSystem';
+import { PauseOverlaySystem } from '../systems/PauseOverlaySystem';
 import { RenderSystem } from '../systems/RenderSystem';
 import { ComposedGame, RuntimeControl } from './contracts';
 
@@ -57,10 +59,7 @@ export class GameCompositionRoot {
     mount.replaceChildren();
 
     const canvas = document.createElement('canvas');
-    canvas.style.display = 'block';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.touchAction = 'none';
+    canvas.className = 'block h-full w-full touch-none transition-[filter] duration-200 ease-out';
     mount.appendChild(canvas);
 
     const camera = new Camera2D();
@@ -136,9 +135,11 @@ export class GameCompositionRoot {
     const ghostMovementSystem = new GhostMovementSystem(world, movementRules, ghostDecisions, portalService, rng);
     const animationSystem = new AnimationSystem(world, SPEED.ghost);
     const cameraSystem = new CameraSystem(world, camera, renderer, canvas);
+    const collectibleSystem = new CollectibleSystem(world);
     const hudSystem = new HudSystem();
+    const pauseOverlaySystem = new PauseOverlaySystem(world, mount, canvas);
     const debugSystem = new DebugOverlaySystem(world, renderer, camera);
-    const renderSystem = new RenderSystem(world, renderer, camera, assets);
+    const renderSystem = new RenderSystem(world, renderer, camera, assets, collectibleSystem);
 
     const updateSystems = [
       inputSystem,
@@ -147,7 +148,9 @@ export class GameCompositionRoot {
       ghostMovementSystem,
       animationSystem,
       cameraSystem,
+      collectibleSystem,
       hudSystem,
+      pauseOverlaySystem,
       debugSystem,
     ];
 

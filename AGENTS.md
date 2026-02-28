@@ -38,6 +38,13 @@ Full usage/reference doc: `docs/TESTING.md`
 3. Clarity (future readers should follow intent quickly)
 4. Performance only when needed (no speculative tuning)
 
+## Styling preference (Tailwind-first)
+
+- Prefer Tailwind utility classes over raw CSS whenever practical.
+- Keep raw CSS to the smallest possible footprint and only for cases Tailwind cannot express cleanly.
+- Avoid introducing new custom CSS selectors for UI states when class toggles with Tailwind utilities can do the same job.
+- If a stylesheet entry file is required for Tailwind directives, keep it minimal and avoid custom rules there.
+
 ## “Write less, keep behavior” rules
 
 - Prefer deleting or simplifying over adding layers.

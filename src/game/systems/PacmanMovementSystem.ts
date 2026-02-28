@@ -1,4 +1,4 @@
-import { SPEED } from '../../config/constants';
+import { PACMAN_PORTAL_BLINK, SPEED } from '../../config/constants';
 import { PortalService } from '../domain/services/PortalService';
 import { MovementRules } from '../domain/services/MovementRules';
 import { WorldState } from '../domain/world/WorldState';
@@ -10,7 +10,8 @@ export class PacmanMovementSystem {
     private readonly portalService: PortalService,
   ) {}
 
-  update(): void {
+  update(deltaMs = 0): void {
+    this.updatePortalBlink(deltaMs);
     this.updateDirectionVisuals();
 
     const collisionTiles = this.world.collisionGrid.getTilesAt(this.world.pacman.tile);
@@ -27,8 +28,34 @@ export class PacmanMovementSystem {
       this.movementRules.advanceEntity(this.world.pacman, this.world.pacman.direction.current, SPEED.pacman);
     }
 
-    this.portalService.tryTeleport(this.world.pacman, this.world.collisionGrid, this.world.tick);
+    const teleported = this.portalService.tryTeleport(this.world.pacman, this.world.collisionGrid, this.world.tick);
+    if (teleported) {
+      this.world.pacman.portalBlinkRemainingMs = PACMAN_PORTAL_BLINK.durationMs;
+      this.world.pacman.portalBlinkElapsedMs = 0;
+    }
+
     this.movementRules.syncEntityPosition(this.world.pacman);
+  }
+
+  private updatePortalBlink(deltaMs: number): void {
+    const remaining = this.world.pacman.portalBlinkRemainingMs ?? 0;
+    if (remaining <= 0) {
+      this.world.pacman.portalBlinkRemainingMs = 0;
+      this.world.pacman.portalBlinkElapsedMs = 0;
+      return;
+    }
+
+    const safeDelta = Number.isFinite(deltaMs) && deltaMs > 0 ? deltaMs : 0;
+    const nextRemaining = Math.max(0, remaining - safeDelta);
+    this.world.pacman.portalBlinkRemainingMs = nextRemaining;
+
+    if (nextRemaining <= 0) {
+      this.world.pacman.portalBlinkElapsedMs = 0;
+      return;
+    }
+
+    const elapsed = this.world.pacman.portalBlinkElapsedMs ?? 0;
+    this.world.pacman.portalBlinkElapsedMs = elapsed + safeDelta;
   }
 
   private updateDirectionVisuals(): void {

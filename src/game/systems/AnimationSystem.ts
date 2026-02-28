@@ -1,5 +1,10 @@
 import { GhostEntity } from '../domain/entities/GhostEntity';
-import { AnimationKey, AnimationPlayback, WorldState } from '../domain/world/WorldState';
+import {
+  AnimationKey,
+  AnimationPlayback,
+  PacmanAnimationPlayback,
+  WorldState,
+} from '../domain/world/WorldState';
 
 interface AnimationDefinition {
   start: number;
@@ -16,6 +21,10 @@ const ANIMATIONS: Record<AnimationKey, AnimationDefinition> = {
   blinkyIdle: { start: 0, end: 7, yoyo: true, frameRate: 4 },
 };
 
+const PACMAN_CHOMP_SEQUENCE = [0, 1, 2, 3, 2, 1] as const;
+const PACMAN_IDLE_FRAME = PACMAN_CHOMP_SEQUENCE[0];
+const PACMAN_CHOMP_FRAME_RATE = 20;
+
 export class AnimationSystem {
   constructor(
     private readonly world: WorldState,
@@ -24,15 +33,48 @@ export class AnimationSystem {
   ) {}
 
   start(): void {
+    this.world.pacmanAnimation = this.createPacmanAnimationPlayback();
+
     this.world.ghosts.forEach((ghost) => {
       this.world.ghostAnimations.set(ghost, this.createAnimationPlayback(`${ghost.key}Idle` as AnimationKey));
     });
   }
 
   update(deltaMs: number): void {
+    this.updatePacmanAnimationState(deltaMs);
+
     this.world.ghosts.forEach((ghost) => {
       this.updateGhostAnimationState(ghost, deltaMs);
     });
+  }
+
+  private updatePacmanAnimationState(deltaMs: number): void {
+    const playback = this.world.pacmanAnimation;
+
+    if (!playback.active) {
+      playback.frame = PACMAN_IDLE_FRAME;
+      playback.elapsedMs = 0;
+      playback.sequenceIndex = 0;
+      return;
+    }
+
+    const frameDurationMs = 1000 / PACMAN_CHOMP_FRAME_RATE;
+    playback.elapsedMs += deltaMs;
+
+    while (playback.elapsedMs >= frameDurationMs) {
+      playback.elapsedMs -= frameDurationMs;
+      playback.sequenceIndex += 1;
+
+      if (playback.sequenceIndex >= PACMAN_CHOMP_SEQUENCE.length) {
+        playback.active = false;
+        playback.frame = PACMAN_IDLE_FRAME;
+        playback.elapsedMs = 0;
+        playback.sequenceIndex = 0;
+        return;
+      }
+
+      playback.frame = PACMAN_CHOMP_SEQUENCE[playback.sequenceIndex];
+    }
   }
 
   private updateGhostAnimationState(ghost: GhostEntity, deltaMs: number): void {
@@ -86,6 +128,15 @@ export class AnimationSystem {
       frame: definition.start,
       elapsedMs: 0,
       forward: 1,
+    };
+  }
+
+  private createPacmanAnimationPlayback(): PacmanAnimationPlayback {
+    return {
+      frame: PACMAN_IDLE_FRAME,
+      elapsedMs: 0,
+      sequenceIndex: 0,
+      active: false,
     };
   }
 }
