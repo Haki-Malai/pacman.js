@@ -120,14 +120,18 @@ jobs:
           echo "target_sha=${target_sha}" >> "$GITHUB_OUTPUT"
 
   guard_ci_for_manual:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     needs: resolve_target
     permissions:
       actions: read
       contents: read
     steps:
+      - name: Skip CI guard for workflow_run deployments
+        if: github.event_name != 'workflow_dispatch'
+        run: echo "CI guard not required for workflow_run deployments."
+
       - name: Verify successful CI run exists for target commit
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/github-script@v7
         with:
           script: |
