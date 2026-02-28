@@ -20,7 +20,7 @@
 
 - [x] 4.1 Run `openspec validate initialize-openspec-spec-workflow --type change --strict --no-interactive`
 - [x] 4.2 Run `pnpm run typecheck`
-- [ ] 4.3 Run `pnpm run lint` (blocked locally: missing `eslint-plugin-tailwindcss` in `node_modules`)
+- [x] 4.3 Run `pnpm run lint`
 - [x] 4.4 Run `pnpm run test`
 - [x] 4.5 Run `pnpm run spec:check`
 - [x] 4.6 Verify no stale legacy references with `rg -n "SPECIFICATIONS\\.md|ROADMAP\\.md" README.md AGENTS.md package.json scripts`
