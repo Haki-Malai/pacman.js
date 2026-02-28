@@ -23,6 +23,7 @@ export const CAMERA = {
 export const COARSE_POINTER_MEDIA_QUERY = '(hover: none) and (pointer: coarse)';
 export const MOBILE_SWIPE_THRESHOLD_PX = 18;
 export const MOBILE_SWIPE_AXIS_LOCK_RATIO = 1.2;
+export const MOBILE_TAP_MAX_DELTA_PX = 10;
 
 export const INITIAL_LIVES = 3;
 export const GHOST_JAIL_RELEASE_DELAY_MS = 5000;

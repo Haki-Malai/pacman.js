@@ -119,6 +119,7 @@ describe('InputSystem', () => {
 
     input.emitPointerMove(pointer({ x: 40, y: 15 }));
     expect(world.pacman.direction.next).toBe('right');
+    input.emitPointerUp(pointer({ x: 40, y: 15 }));
     expect(togglePause).toHaveBeenCalledTimes(0);
   });
 
@@ -151,6 +152,19 @@ describe('InputSystem', () => {
     input.emitPointerDown(pointer({ pointerId: 12, x: 50, y: 50 }));
     input.emitPointerMove(pointer({ pointerId: 12, x: 50, y: 20 }));
     expect(world.pacman.direction.next).toBe('up');
+  });
+
+  it('toggles pause on touch tap gesture', () => {
+    const input = new MockInput();
+    const world = createWorld();
+    const togglePause = vi.fn();
+    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
+    system.start();
+
+    input.emitPointerDown(pointer({ x: 12, y: 12 }));
+    input.emitPointerUp(pointer({ x: 14, y: 13 }));
+
+    expect(togglePause).toHaveBeenCalledTimes(1);
   });
 
   it('keeps desktop pointerdown pause toggle behavior', () => {
