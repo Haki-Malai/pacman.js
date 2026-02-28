@@ -136,8 +136,8 @@ export class GameCompositionRoot {
     const animationSystem = new AnimationSystem(world, SPEED.ghost);
     const cameraSystem = new CameraSystem(world, camera, renderer, canvas);
     const collectibleSystem = new CollectibleSystem(world);
-    const hudSystem = new HudSystem();
-    const pauseOverlaySystem = new PauseOverlaySystem(world, mount, canvas);
+    const hudSystem = new HudSystem(mount);
+    const pauseOverlaySystem = new PauseOverlaySystem(world, mount);
     const debugSystem = new DebugOverlaySystem(world, renderer, camera);
     const renderSystem = new RenderSystem(world, renderer, camera, assets, collectibleSystem);
 

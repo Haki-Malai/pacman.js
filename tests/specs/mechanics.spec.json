@@ -175,7 +175,10 @@
       "ticks": 20,
       "fixture": "default-map",
       "actions": ["pause simulation", "resume simulation"],
-      "expectations": ["pause overlay reflects current pause state"]
+      "expectations": [
+        "pause presentation applies full-surface monochrome only while paused",
+        "bottom HUD status bar remains anchored with score left and heart-based lives right"
+      ]
     },
     {
       "id": "MEC-POINT-001",
