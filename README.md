@@ -20,8 +20,9 @@ This is a pacman game i am currently working on for fun. I have developed it aga
 - `index.html` is the Vite entry HTML.
 
 ## Product docs
-- `SPECIFICATIONS.md` defines the current product behavior contract.
-- `ROADMAP.md` defines the product-first path to complete `v1.0` desktop-web release.
+- `openspec/specs/` defines approved product behavior contracts and governance capabilities.
+- `openspec/changes/` contains proposed changes and implementation tasks before they are archived into specs.
+- `pnpm run spec:check` validates OpenSpec artifacts.
 
 ## About the game
 The code is written with scalability in mind. Levels are authored in Tiled using the included tileset and exported JSON map. Object layers supply Pacman and ghost spawns (including pen bounds) and place collectibles directly in the map data.

@@ -75,11 +75,11 @@ Before calling the task “done”, all of the following must pass with zero iss
 
 If any fail, fix and re-run until clean.
 
-## Behavior Contract Workflow (SPECIFICATIONS.md)
+## Behavior Contract Workflow (OpenSpec)
 
-- `SPECIFICATIONS.md` is mandatory context for every task.
-- `ROADMAP.md` is the prioritization guide for future product work and milestone sequencing.
-- Keep `SPECIFICATIONS.md` human-readable and product-facing (written for product owner/designer audiences, not code-level implementation detail).
+- `openspec/specs/` is the authoritative source for approved product behavior and governance capabilities.
+- `openspec/changes/` contains proposed behavior deltas (`proposal.md`, `design.md`, `specs/`, `tasks.md`) before implementation and archive.
+- Keep OpenSpec capability specs human-readable and product-facing (written for product owner/designer audiences, not code-level implementation detail).
 - If a change may alter behavior or decision logic:
   - Present a **Proposed Behavior Delta** first.
   - Request explicit user approval before code edits.
@@ -91,11 +91,11 @@ If any fail, fix and re-run until clean.
   - Run `pnpm run lint`.
   - Run `pnpm run test`.
   - Run `pnpm run spec:check`.
-  - Reconcile resulting behavior with `SPECIFICATIONS.md`.
+  - Reconcile resulting behavior with relevant OpenSpec capability specs.
   - If any ambiguity remains, stop and ask the user before proceeding.
 - Final report must explicitly state:
   - whether behavior changed,
-  - whether `SPECIFICATIONS.md` was updated,
+  - whether OpenSpec specs or change artifacts were updated,
   - whether any uncertainty remains.
 
 ## TypeScript standards (strict)
