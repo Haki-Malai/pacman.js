@@ -1,3 +1,8 @@
+import {
+  COARSE_POINTER_MEDIA_QUERY,
+  MOBILE_SWIPE_AXIS_LOCK_RATIO,
+  MOBILE_SWIPE_THRESHOLD_PX,
+} from '../../config/constants';
 import { WorldState } from '../domain/world/WorldState';
 import { BrowserInputAdapter, PointerState } from '../infrastructure/adapters/BrowserInputAdapter';
 
@@ -5,8 +10,16 @@ interface PauseController {
   togglePause(): void;
 }
 
+interface ActiveSwipe {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  committed: boolean;
+}
+
 export class InputSystem {
   private disposers: Array<() => void> = [];
+  private activeSwipe: ActiveSwipe | null = null;
 
   constructor(
     private readonly input: BrowserInputAdapter,
@@ -30,6 +43,18 @@ export class InputSystem {
     this.disposers.push(
       this.input.onPointerDown((pointer) => {
         this.handlePointerDown(pointer);
+      }),
+    );
+
+    this.disposers.push(
+      this.input.onPointerUp((pointer) => {
+        this.handlePointerUp(pointer);
+      }),
+    );
+
+    this.disposers.push(
+      this.input.onPointerCancel((pointer) => {
+        this.handlePointerCancel(pointer);
       }),
     );
   }
@@ -56,6 +81,7 @@ export class InputSystem {
       dispose();
     });
     this.disposers = [];
+    this.activeSwipe = null;
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
@@ -93,11 +119,98 @@ export class InputSystem {
 
   private handlePointerMove(pointer: PointerState): void {
     this.world.pointerScreen = { x: pointer.x, y: pointer.y };
+
+    if (!this.activeSwipe || this.activeSwipe.pointerId !== pointer.pointerId || this.activeSwipe.committed) {
+      return;
+    }
+
+    if (this.hasDirectionalKeyboardInput()) {
+      return;
+    }
+
+    const dx = pointer.x - this.activeSwipe.startX;
+    const dy = pointer.y - this.activeSwipe.startY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    const dominant = Math.max(absX, absY);
+
+    if (dominant < MOBILE_SWIPE_THRESHOLD_PX) {
+      return;
+    }
+
+    const minor = Math.min(absX, absY);
+    if (minor > 0 && dominant / minor < MOBILE_SWIPE_AXIS_LOCK_RATIO) {
+      return;
+    }
+
+    if (absX >= absY) {
+      this.world.pacman.direction.next = dx >= 0 ? 'right' : 'left';
+    } else {
+      this.world.pacman.direction.next = dy >= 0 ? 'down' : 'up';
+    }
+
+    this.activeSwipe.committed = true;
   }
 
   private handlePointerDown(pointer: PointerState): void {
     this.world.pointerScreen = { x: pointer.x, y: pointer.y };
+
+    if (this.isTouchLikePointer(pointer)) {
+      this.activeSwipe = {
+        pointerId: pointer.pointerId,
+        startX: pointer.x,
+        startY: pointer.y,
+        committed: false,
+      };
+
+      if (!this.world.isMoving) {
+        this.pauseController.togglePause();
+      }
+      return;
+    }
+
     this.pauseController.togglePause();
+  }
+
+  private handlePointerUp(pointer: PointerState): void {
+    if (this.activeSwipe?.pointerId === pointer.pointerId) {
+      this.activeSwipe = null;
+    }
+  }
+
+  private handlePointerCancel(pointer: PointerState): void {
+    if (this.activeSwipe?.pointerId === pointer.pointerId) {
+      this.activeSwipe = null;
+    }
+  }
+
+  private hasDirectionalKeyboardInput(): boolean {
+    return (
+      this.input.isKeyDown('ArrowLeft') ||
+      this.input.isKeyDown('KeyA') ||
+      this.input.isKeyDown('ArrowRight') ||
+      this.input.isKeyDown('KeyD') ||
+      this.input.isKeyDown('ArrowUp') ||
+      this.input.isKeyDown('KeyW') ||
+      this.input.isKeyDown('ArrowDown') ||
+      this.input.isKeyDown('KeyS')
+    );
+  }
+
+  private isTouchLikePointer(pointer: PointerState): boolean {
+    if (pointer.pointerType === 'touch') {
+      return true;
+    }
+
+    if (!pointer.isPrimary) {
+      return false;
+    }
+
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return !!window.matchMedia?.(COARSE_POINTER_MEDIA_QUERY).matches;
   }
 
   private async copyDebugPanelText(): Promise<void> {

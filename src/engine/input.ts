@@ -2,6 +2,9 @@ export interface PointerState {
   x: number;
   y: number;
   buttons: number;
+  pointerId: number;
+  pointerType: string;
+  isPrimary: boolean;
 }
 
 type KeyListener = (_event: KeyboardEvent) => void;
@@ -13,6 +16,8 @@ export class InputManager {
   private readonly keyDownListeners = new Set<KeyListener>();
   private readonly pointerMoveListeners = new Set<PointerListener>();
   private readonly pointerDownListeners = new Set<PointerListener>();
+  private readonly pointerUpListeners = new Set<PointerListener>();
+  private readonly pointerCancelListeners = new Set<PointerListener>();
 
   constructor(element: HTMLElement) {
     this.element = element;
@@ -21,6 +26,8 @@ export class InputManager {
     window.addEventListener('blur', this.handleBlur);
     this.element.addEventListener('pointermove', this.handlePointerMove);
     this.element.addEventListener('pointerdown', this.handlePointerDown);
+    window.addEventListener('pointerup', this.handlePointerUp);
+    window.addEventListener('pointercancel', this.handlePointerCancel);
   }
 
   isKeyDown(code: string): boolean {
@@ -48,16 +55,34 @@ export class InputManager {
     };
   }
 
+  onPointerUp(listener: PointerListener): () => void {
+    this.pointerUpListeners.add(listener);
+    return () => {
+      this.pointerUpListeners.delete(listener);
+    };
+  }
+
+  onPointerCancel(listener: PointerListener): () => void {
+    this.pointerCancelListeners.add(listener);
+    return () => {
+      this.pointerCancelListeners.delete(listener);
+    };
+  }
+
   destroy(): void {
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
     window.removeEventListener('blur', this.handleBlur);
     this.element.removeEventListener('pointermove', this.handlePointerMove);
     this.element.removeEventListener('pointerdown', this.handlePointerDown);
+    window.removeEventListener('pointerup', this.handlePointerUp);
+    window.removeEventListener('pointercancel', this.handlePointerCancel);
     this.keyDown.clear();
     this.keyDownListeners.clear();
     this.pointerMoveListeners.clear();
     this.pointerDownListeners.clear();
+    this.pointerUpListeners.clear();
+    this.pointerCancelListeners.clear();
   }
 
   private readonly handleKeyDown = (event: KeyboardEvent): void => {
@@ -87,12 +112,27 @@ export class InputManager {
     });
   };
 
+  private readonly handlePointerUp = (event: PointerEvent): void => {
+    this.pointerUpListeners.forEach((listener) => {
+      listener(this.toPointerState(event));
+    });
+  };
+
+  private readonly handlePointerCancel = (event: PointerEvent): void => {
+    this.pointerCancelListeners.forEach((listener) => {
+      listener(this.toPointerState(event));
+    });
+  };
+
   private toPointerState(event: PointerEvent): PointerState {
     const rect = this.element.getBoundingClientRect();
     return {
       x: event.clientX - rect.left,
       y: event.clientY - rect.top,
       buttons: event.buttons,
+      pointerId: event.pointerId,
+      pointerType: event.pointerType,
+      isPrimary: event.isPrimary,
     };
   }
 }

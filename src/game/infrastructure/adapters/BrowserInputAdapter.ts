@@ -26,6 +26,14 @@ export class BrowserInputAdapter {
     return this.input.onPointerDown(listener);
   }
 
+  onPointerUp(listener: (_pointer: PointerState) => void): () => void {
+    return this.input.onPointerUp(listener);
+  }
+
+  onPointerCancel(listener: (_pointer: PointerState) => void): () => void {
+    return this.input.onPointerCancel(listener);
+  }
+
   destroy(): void {
     this.input.destroy();
   }
