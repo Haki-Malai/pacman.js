@@ -167,6 +167,49 @@ describe('InputSystem', () => {
     expect(togglePause).toHaveBeenCalledTimes(1);
   });
 
+  it('toggles pause with a single tap even while paused', () => {
+    const input = new MockInput();
+    const world = createWorld();
+    world.isMoving = false;
+    const togglePause = vi.fn();
+    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
+    system.start();
+
+    input.emitPointerDown(pointer({ x: 30, y: 30 }));
+    input.emitPointerUp(pointer({ x: 33, y: 31 }));
+
+    expect(togglePause).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats slight touch jitter as a tap', () => {
+    const input = new MockInput();
+    const world = createWorld();
+    const togglePause = vi.fn();
+    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
+    system.start();
+
+    input.emitPointerDown(pointer({ x: 40, y: 40 }));
+    input.emitPointerUp(pointer({ x: 50, y: 46 }));
+
+    expect(togglePause).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not toggle pause for swipe gestures while paused', () => {
+    const input = new MockInput();
+    const world = createWorld();
+    world.isMoving = false;
+    const togglePause = vi.fn();
+    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
+    system.start();
+
+    input.emitPointerDown(pointer({ x: 20, y: 20 }));
+    input.emitPointerMove(pointer({ x: 48, y: 22 }));
+    input.emitPointerUp(pointer({ x: 48, y: 22 }));
+
+    expect(world.pacman.direction.next).toBe('right');
+    expect(togglePause).toHaveBeenCalledTimes(0);
+  });
+
   it('keeps desktop pointerdown pause toggle behavior', () => {
     const input = new MockInput();
     const world = createWorld();

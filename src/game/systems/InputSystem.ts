@@ -163,10 +163,6 @@ export class InputSystem {
         startY: pointer.y,
         committed: false,
       };
-
-      if (!this.world.isMoving) {
-        this.pauseController.togglePause();
-      }
       return;
     }
 
