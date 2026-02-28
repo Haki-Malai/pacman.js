@@ -5,9 +5,10 @@ on:
     workflows: ["CI"]
     types: [completed]
     branches:
-      - development
+      - dev
       - int
       - main
+      - development
   workflow_dispatch:
     inputs:
       environment:
@@ -62,7 +63,7 @@ jobs:
 
           map_branch_to_env() {
             case "$1" in
-              development) echo "dev" ;;
+              dev|development) echo "dev" ;;
               int) echo "int" ;;
               main) echo "prod" ;;
               *)
@@ -74,7 +75,7 @@ jobs:
 
           map_env_to_branch() {
             case "$1" in
-              dev) echo "development" ;;
+              dev) echo "dev" ;;
               int) echo "int" ;;
               prod) echo "main" ;;
               *)
