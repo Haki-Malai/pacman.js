@@ -2,6 +2,7 @@ import {
   COARSE_POINTER_MEDIA_QUERY,
   MOBILE_SWIPE_AXIS_LOCK_RATIO,
   MOBILE_SWIPE_THRESHOLD_PX,
+  MOBILE_TAP_MAX_DELTA_PX,
 } from '../../config/constants';
 import { WorldState } from '../domain/world/WorldState';
 import { BrowserInputAdapter, PointerState } from '../infrastructure/adapters/BrowserInputAdapter';
@@ -173,9 +174,20 @@ export class InputSystem {
   }
 
   private handlePointerUp(pointer: PointerState): void {
-    if (this.activeSwipe?.pointerId === pointer.pointerId) {
-      this.activeSwipe = null;
+    if (!this.activeSwipe || this.activeSwipe.pointerId !== pointer.pointerId) {
+      return;
     }
+
+    if (!this.activeSwipe.committed) {
+      const dx = pointer.x - this.activeSwipe.startX;
+      const dy = pointer.y - this.activeSwipe.startY;
+      const delta = Math.max(Math.abs(dx), Math.abs(dy));
+      if (delta <= MOBILE_TAP_MAX_DELTA_PX) {
+        this.pauseController.togglePause();
+      }
+    }
+
+    this.activeSwipe = null;
   }
 
   private handlePointerCancel(pointer: PointerState): void {
