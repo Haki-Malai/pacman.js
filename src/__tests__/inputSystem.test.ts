@@ -105,61 +105,55 @@ function createWorld(): WorldState {
   } as unknown as WorldState;
 }
 
+function createHarness(): {
+  input: MockInput;
+  world: WorldState;
+  togglePause: ReturnType<typeof vi.fn>;
+  system: InputSystem;
+} {
+  const input = new MockInput();
+  const world = createWorld();
+  const togglePause = vi.fn();
+  const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
+  system.start();
+
+  return { input, world, togglePause, system };
+}
+
 describe('InputSystem', () => {
-  it('maps touch swipe to direction with axis lock and threshold', () => {
-    const input = new MockInput();
-    const world = createWorld();
-    const togglePause = vi.fn();
-    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
-    system.start();
+  it('commits swipe direction only after threshold and axis lock', () => {
+    const { input, world, togglePause } = createHarness();
 
     input.emitPointerDown(pointer({ x: 10, y: 10 }));
+
     input.emitPointerMove(pointer({ x: 24, y: 14 }));
+    expect(world.pacman.direction.next).toBe('left');
+
+    input.emitPointerMove(pointer({ x: 29, y: 26 }));
     expect(world.pacman.direction.next).toBe('left');
 
     input.emitPointerMove(pointer({ x: 40, y: 15 }));
     expect(world.pacman.direction.next).toBe('right');
+
     input.emitPointerUp(pointer({ x: 40, y: 15 }));
     expect(togglePause).toHaveBeenCalledTimes(0);
   });
 
-  it('does not commit swipe when keyboard directional input is active', () => {
-    const input = new MockInput();
-    const world = createWorld();
-    const togglePause = vi.fn();
-    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
-    system.start();
+  it('maps vertical swipes to up/down direction', () => {
+    const { input, world } = createHarness();
 
-    input.setKeyDown('ArrowUp', true);
-    input.emitPointerDown(pointer({ x: 10, y: 10 }));
-    input.emitPointerMove(pointer({ x: 10, y: 60 }));
+    input.emitPointerDown(pointer({ x: 20, y: 40 }));
+    input.emitPointerMove(pointer({ x: 24, y: 70 }));
+    expect(world.pacman.direction.next).toBe('down');
 
-    expect(world.pacman.direction.next).toBe('left');
-  });
-
-  it('clears active swipe on pointerup so next swipe can commit', () => {
-    const input = new MockInput();
-    const world = createWorld();
-    const togglePause = vi.fn();
-    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
-    system.start();
-
-    input.emitPointerDown(pointer({ pointerId: 11, x: 20, y: 20 }));
-    input.emitPointerMove(pointer({ pointerId: 11, x: 50, y: 20 }));
-    expect(world.pacman.direction.next).toBe('right');
-
-    input.emitPointerUp(pointer({ pointerId: 11 }));
-    input.emitPointerDown(pointer({ pointerId: 12, x: 50, y: 50 }));
-    input.emitPointerMove(pointer({ pointerId: 12, x: 50, y: 20 }));
+    input.emitPointerUp(pointer({ x: 24, y: 70 }));
+    input.emitPointerDown(pointer({ pointerId: 2, x: 24, y: 70 }));
+    input.emitPointerMove(pointer({ pointerId: 2, x: 20, y: 42 }));
     expect(world.pacman.direction.next).toBe('up');
   });
 
-  it('toggles pause on touch tap gesture', () => {
-    const input = new MockInput();
-    const world = createWorld();
-    const togglePause = vi.fn();
-    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
-    system.start();
+  it('toggles pause on touch tap to pause', () => {
+    const { input, togglePause } = createHarness();
 
     input.emitPointerDown(pointer({ x: 12, y: 12 }));
     input.emitPointerUp(pointer({ x: 14, y: 13 }));
@@ -167,13 +161,9 @@ describe('InputSystem', () => {
     expect(togglePause).toHaveBeenCalledTimes(1);
   });
 
-  it('toggles pause with a single tap even while paused', () => {
-    const input = new MockInput();
-    const world = createWorld();
+  it('toggles pause on touch tap to resume', () => {
+    const { input, world, togglePause } = createHarness();
     world.isMoving = false;
-    const togglePause = vi.fn();
-    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
-    system.start();
 
     input.emitPointerDown(pointer({ x: 30, y: 30 }));
     input.emitPointerUp(pointer({ x: 33, y: 31 }));
@@ -181,26 +171,8 @@ describe('InputSystem', () => {
     expect(togglePause).toHaveBeenCalledTimes(1);
   });
 
-  it('treats slight touch jitter as a tap', () => {
-    const input = new MockInput();
-    const world = createWorld();
-    const togglePause = vi.fn();
-    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
-    system.start();
-
-    input.emitPointerDown(pointer({ x: 40, y: 40 }));
-    input.emitPointerUp(pointer({ x: 50, y: 46 }));
-
-    expect(togglePause).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not toggle pause for swipe gestures while paused', () => {
-    const input = new MockInput();
-    const world = createWorld();
-    world.isMoving = false;
-    const togglePause = vi.fn();
-    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
-    system.start();
+  it('never toggles pause for swipe gestures', () => {
+    const { input, world, togglePause } = createHarness();
 
     input.emitPointerDown(pointer({ x: 20, y: 20 }));
     input.emitPointerMove(pointer({ x: 48, y: 22 }));
@@ -210,14 +182,41 @@ describe('InputSystem', () => {
     expect(togglePause).toHaveBeenCalledTimes(0);
   });
 
-  it('keeps desktop pointerdown pause toggle behavior', () => {
-    const input = new MockInput();
-    const world = createWorld();
-    const togglePause = vi.fn();
-    const system = new InputSystem(input as unknown as BrowserInputAdapter, world, { togglePause });
-    system.start();
+  it('cleans up touch gesture state on pointer cancel', () => {
+    const { input, togglePause } = createHarness();
+
+    input.emitPointerDown(pointer({ pointerId: 11, x: 20, y: 20 }));
+    input.emitPointerCancel(pointer({ pointerId: 11, x: 22, y: 21 }));
+    input.emitPointerUp(pointer({ pointerId: 11, x: 22, y: 21 }));
+
+    expect(togglePause).toHaveBeenCalledTimes(0);
+
+    input.emitPointerDown(pointer({ pointerId: 12, x: 30, y: 30 }));
+    input.emitPointerUp(pointer({ pointerId: 12, x: 31, y: 31 }));
+
+    expect(togglePause).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives keyboard directional input priority over swipe until keys are released', () => {
+    const { input, world } = createHarness();
+
+    input.setKeyDown('ArrowUp', true);
+    input.emitPointerDown(pointer({ x: 10, y: 10 }));
+    input.emitPointerMove(pointer({ x: 10, y: 60 }));
+    expect(world.pacman.direction.next).toBe('left');
+
+    input.setKeyDown('ArrowUp', false);
+    input.emitPointerMove(pointer({ x: 10, y: 60 }));
+    expect(world.pacman.direction.next).toBe('down');
+  });
+
+  it('keeps desktop pointerdown pause toggle behavior unchanged', () => {
+    const { input, togglePause } = createHarness();
 
     input.emitPointerDown(pointer({ pointerType: 'mouse', isPrimary: true }));
+    expect(togglePause).toHaveBeenCalledTimes(1);
+
+    input.emitPointerUp(pointer({ pointerType: 'mouse', isPrimary: true }));
     expect(togglePause).toHaveBeenCalledTimes(1);
   });
 });
