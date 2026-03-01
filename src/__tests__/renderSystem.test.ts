@@ -158,7 +158,8 @@ function createWorld(map: WorldMapData, collisionGrid: CollisionGrid, pacmanTile
         deathRecoveryVisible: true,
       },
       ghosts: [],
-      ghostScaredRecovery: new Map(),
+      ghostScaredTimers: new Map(),
+      ghostScaredWarnings: new Map(),
       ghostAnimations: new Map(),
     } as unknown as WorldState;
 }
@@ -556,7 +557,8 @@ describe('RenderSystem draw order', () => {
         deathRecoveryVisible: true,
       },
       ghosts: [ghost],
-      ghostScaredRecovery: new Map(),
+      ghostScaredTimers: new Map(),
+      ghostScaredWarnings: new Map(),
       ghostAnimations: new Map([
         [
           ghost,
@@ -631,7 +633,7 @@ describe('RenderSystem draw order', () => {
     expect(drawOrder).toEqual(['base-tile', 'ghost', 'jail-overlay', 'pacman']);
   });
 
-  it('draws scared-to-base crossfade for ghosts with active scared recovery', () => {
+  it('draws warning-phase scared ghosts as blue or base sprite based on warning toggle state', () => {
     const map: WorldMapData = {
       width: 1,
       height: 1,
@@ -670,6 +672,7 @@ describe('RenderSystem draw order', () => {
     });
     ghost.x = 8;
     ghost.y = 8;
+    ghost.state.scared = true;
 
     const world = {
       map,
@@ -694,7 +697,17 @@ describe('RenderSystem draw order', () => {
         deathRecoveryVisible: true,
       },
       ghosts: [ghost],
-      ghostScaredRecovery: new Map([[ghost, { elapsedMs: 450, durationMs: 900 }]]),
+      ghostScaredTimers: new Map([[ghost, 600]]),
+      ghostScaredWarnings: new Map([
+        [
+          ghost,
+          {
+            elapsedMs: 600,
+            nextToggleAtMs: 660,
+            showBaseColor: false,
+          },
+        ],
+      ]),
       ghostAnimations: new Map([
         [
           ghost,
@@ -746,9 +759,20 @@ describe('RenderSystem draw order', () => {
     const renderSystem = new RenderSystem(world, renderer, {} as Camera2D, assets);
     renderSystem.render();
 
-    const drawCalls = drawSpriteFrame.mock.calls as Array<[unknown, ...unknown[]]>;
+    let drawCalls = drawSpriteFrame.mock.calls as Array<[unknown, ...unknown[]]>;
     expect(drawCalls.some(([sheet]) => sheet === scaredSheet)).toBe(true);
+    expect(drawCalls.some(([sheet]) => sheet === baseSheet)).toBe(false);
+
+    world.ghostScaredWarnings.set(ghost, {
+      elapsedMs: 700,
+      nextToggleAtMs: 760,
+      showBaseColor: true,
+    });
+    drawSpriteFrame.mockClear();
+    renderSystem.render();
+    drawCalls = drawSpriteFrame.mock.calls as Array<[unknown, ...unknown[]]>;
     expect(drawCalls.some(([sheet]) => sheet === baseSheet)).toBe(true);
+    expect(drawCalls.some(([sheet]) => sheet === scaredSheet)).toBe(false);
   });
 
   it('keeps Pac-Man visible during death recovery even when portal blink phase would hide him', () => {
@@ -803,7 +827,8 @@ describe('RenderSystem draw order', () => {
         deathRecoveryVisible: true,
       },
       ghosts: [],
-      ghostScaredRecovery: new Map(),
+      ghostScaredTimers: new Map(),
+      ghostScaredWarnings: new Map(),
       ghostAnimations: new Map(),
     } as unknown as WorldState;
 

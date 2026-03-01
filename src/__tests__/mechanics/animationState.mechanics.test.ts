@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SPEED } from '../../config/constants';
+import { GHOST_SCARED_DURATION_MS, GHOST_SCARED_WARNING_DURATION_MS, SPEED } from '../../config/constants';
 import { getScenarioOrThrow } from '../helpers/mechanicsSpec';
 import { runMechanicsAssertion } from '../helpers/mechanicsTestUtils';
 import { MechanicsDomainHarness } from '../helpers/mechanicsDomainHarness';
@@ -87,7 +87,7 @@ describe('mechanics scenarios: animation state', () => {
     }
   });
 
-  it('MEC-ANI-003 scared-exit starts and completes ghost recovery visual state', () => {
+  it('MEC-ANI-003 scared warning starts near expiry and clears on scared end', () => {
     const scenario = getScenarioOrThrow('MEC-ANI-003');
     const harness = new MechanicsDomainHarness({
       seed: scenario.seed,
@@ -106,23 +106,35 @@ describe('mechanics scenarios: animation state', () => {
       ghost.state.free = true;
       harness.animationSystem.start();
       harness.setGhostScared(true, 0);
-      harness.animationSystem.update(100);
-      harness.setGhostScared(false, 0);
-      harness.animationSystem.update(1);
+      harness.animationSystem.update(GHOST_SCARED_DURATION_MS - GHOST_SCARED_WARNING_DURATION_MS + 1);
 
       runMechanicsAssertion(
         {
           scenarioId: scenario.id,
           seed: scenario.seed,
           tick: harness.world.tick,
-          inputTrace: [...harness.trace, 'toggle scared off and progress recovery crossfade'],
+          inputTrace: [...harness.trace, 'advance scared timer into warning phase and to expiry'],
           snapshotWindow: [harness.snapshot()],
-          assertion: 'ghost should have recovery visual state after scared exit and clear it at duration end',
+          assertion: 'ghost warning visual state should toggle before expiry and clear when scared ends',
         },
         () => {
-          expect(harness.world.ghostScaredRecovery.has(ghost)).toBe(true);
-          harness.animationSystem.update(900);
-          expect(harness.world.ghostScaredRecovery.has(ghost)).toBe(false);
+          expect(harness.world.ghostScaredWarnings.has(ghost)).toBe(true);
+
+          const initialShowBaseColor = harness.world.ghostScaredWarnings.get(ghost)?.showBaseColor ?? false;
+          let toggled = false;
+          for (let i = 0; i < 8; i += 1) {
+            harness.animationSystem.update(80);
+            const currentShowBaseColor = harness.world.ghostScaredWarnings.get(ghost)?.showBaseColor ?? initialShowBaseColor;
+            if (currentShowBaseColor !== initialShowBaseColor) {
+              toggled = true;
+              break;
+            }
+          }
+
+          expect(toggled).toBe(true);
+          harness.animationSystem.update(GHOST_SCARED_WARNING_DURATION_MS);
+          expect(harness.world.ghostScaredWarnings.has(ghost)).toBe(false);
+          expect(ghost.state.scared).toBe(false);
         },
       );
     } finally {

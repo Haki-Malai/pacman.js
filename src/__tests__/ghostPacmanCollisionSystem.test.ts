@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { GHOST_EAT_JAIL_FREE_DELAY_MS, PACMAN_DEATH_RECOVERY } from '../config/constants';
+import {
+  GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS,
+  GHOST_JAIL_RELEASE_DELAY_MS,
+  GHOST_JAIL_RELEASE_TWEEN_MS,
+  PACMAN_DEATH_RECOVERY,
+} from '../config/constants';
 import { getGameState, resetGameState } from '../state/gameState';
 import { GhostEntity } from '../game/domain/entities/GhostEntity';
 import { MechanicsDomainHarness } from './helpers/mechanicsDomainHarness';
@@ -46,7 +51,7 @@ describe('GhostPacmanCollisionSystem', () => {
     }
   });
 
-  it('applies ghost-hit outcome when ghost is scared and frees ghost in jail after delay', () => {
+  it('applies ghost-hit outcome when ghost is scared and re-enters normal jail release flow', () => {
     const harness = new MechanicsDomainHarness({ seed: 4102, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
 
     try {
@@ -67,12 +72,19 @@ describe('GhostPacmanCollisionSystem', () => {
       expect(ghost.tile).toEqual(harness.world.ghostJailReturnTile);
       expect(ghost.state.free).toBe(false);
       expect(ghost.state.scared).toBe(false);
+      expect(ghost.state.soonFree).toBe(true);
 
-      harness.scheduler.update(GHOST_EAT_JAIL_FREE_DELAY_MS - 1);
+      harness.ghostReleaseSystem.update();
+      harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS - 1);
       expect(ghost.state.free).toBe(false);
 
       harness.scheduler.update(1);
+      expect(harness.world.ghostsExitingJail.has(ghost)).toBe(true);
+
+      harness.scheduler.update(GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS + 50);
+      harness.scheduler.update(GHOST_JAIL_RELEASE_TWEEN_MS + 50);
       expect(ghost.state.free).toBe(true);
+      expect(ghost.state.soonFree).toBe(false);
     } finally {
       harness.destroy();
     }

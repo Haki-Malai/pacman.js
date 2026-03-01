@@ -31,14 +31,13 @@ When simulation is paused, the runtime SHALL show pause presentation feedback, a
 - **WHEN** runtime transitions between paused and resumed states
 - **THEN** pause overlay/scene treatment is visible only during pause and is removed after resume
 
-### Requirement: Scared ghost recovery visual crossfades to base sprite
-When a ghost leaves scared state, the runtime SHALL render a deterministic recovery transition that crossfades from scared sprite to the ghost's base sprite over configured duration.
+### Requirement: Scared ghost warning alternates between scared and base color deterministically
+During the final warning window of scared mode, the runtime SHALL alternate ghost visuals between the scared (blue) sprite and that ghost's base sprite color using deterministic cadence progression.
 
-#### Scenario: Crossfade starts on scared-to-normal transition
-- **WHEN** a ghost state changes from scared to non-scared
-- **THEN** ghost recovery visual state starts at full scared opacity and zero base opacity
+#### Scenario: Warning alternation starts at scared-window threshold
+- **WHEN** a ghost remains scared and the remaining scared time reaches the configured warning duration
+- **THEN** that ghost starts alternating between scared and base-color visuals
 
-#### Scenario: Crossfade progresses and completes deterministically
-- **WHEN** update ticks advance through the configured recovery duration
-- **THEN** scared opacity decreases while base opacity increases until recovery visual state is cleared at completion
-
+#### Scenario: Warning alternation cadence and termination are deterministic
+- **WHEN** update ticks advance through the warning window
+- **THEN** visual alternation uses configured deterministic cadence progression and ends when scared mode expires

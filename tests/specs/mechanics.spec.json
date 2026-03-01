@@ -76,7 +76,11 @@
       "ticks": 180,
       "fixture": "default-map",
       "actions": ["collide pacman with scared ghost", "advance jail-free delay"],
-      "expectations": ["ghost teleports to jail return tile", "ghost becomes free in jail after delay", "score uses ghost chain values"]
+      "expectations": [
+        "ghost teleports to jail return tile",
+        "ghost re-enters wait/roam/release jail flow before becoming free",
+        "score uses ghost chain values"
+      ]
     },
     {
       "id": "MEC-JAIL-001",
@@ -181,12 +185,12 @@
       "id": "MEC-ANI-003",
       "status": "implemented",
       "layer": "systems",
-      "mechanic": "ghost-scared-recovery-crossfade",
+      "mechanic": "ghost-scared-warning-color-alternation",
       "seed": 1508,
       "ticks": 90,
       "fixture": "default-map",
-      "actions": ["toggle scared on", "toggle scared off", "advance recovery window"],
-      "expectations": ["ghost recovery visual state starts on scared exit and clears after deterministic duration"]
+      "actions": ["toggle scared on", "advance scared timer into warning window", "advance to scared expiry"],
+      "expectations": ["ghost warning alternates between scared and base visual state", "warning visual state clears when scared expires"]
     },
     {
       "id": "MEC-PAUSE-003",
