@@ -300,6 +300,7 @@ describe('ghost jail service coverage', () => {
     const customGridRows = Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => wallTile()));
     customGridRows[2][0] = openTile();
     customGridRows[2][4] = openTile();
+    customGridRows[1][4] = openTile();
     const nearestGrid = new CollisionGrid(customGridRows);
 
     const nearestCandidates = service.findReleaseTile({

@@ -15,15 +15,19 @@ The runtime SHALL detect ghost/Pac-Man contact when they overlap on the same til
 - **THEN** the collision flow is triggered for that tick
 
 ### Requirement: Collision currently resolves to Pac-Man life loss
-For this capability version, detected ghost/Pac-Man collision SHALL resolve by scared-state policy: collisions with non-scared ghosts SHALL resolve to Pac-Man hit behavior, and collisions with scared ghosts SHALL resolve to ghost-hit behavior.
+For this capability version, detected ghost/Pac-Man collision SHALL resolve by scared-state policy: collisions with non-scared ghosts SHALL resolve to Pac-Man hit behavior, and collisions with scared ghosts SHALL resolve to ghost-hit behavior. During active post-portal Pac-Man blink shield, non-scared ghost collisions SHALL be suppressed for that tick, while scared ghost collisions SHALL still resolve to ghost-hit behavior.
 
 #### Scenario: Non-scared ghost collision applies Pac-Man hit
-- **WHEN** Pac-Man collides with an active free non-scared ghost
+- **WHEN** Pac-Man collides with an active free non-scared ghost while portal blink shield is not active
 - **THEN** the runtime applies Pac-Man hit behavior
 
 #### Scenario: Scared ghost collision applies ghost-hit
 - **WHEN** Pac-Man collides with an active free scared ghost
 - **THEN** the runtime applies ghost-hit behavior for the colliding ghost
+
+#### Scenario: Portal blink shield suppresses non-scared collision outcome
+- **WHEN** Pac-Man collides with an active free non-scared ghost while post-portal blink shield is active
+- **THEN** the runtime suppresses Pac-Man hit behavior for that tick
 
 ### Requirement: Pac-Man hit decrements one life and respawns at spawn tile
 When Pac-Man hit behavior is applied, the runtime SHALL decrement lives by exactly one, clamp lives to zero minimum, respawn Pac-Man at the configured Pac-Man spawn tile with deterministic spawn direction state, and start deterministic death recovery state.
@@ -71,3 +75,4 @@ When ghost-hit behavior is applied, the runtime SHALL award chain-based points, 
 #### Scenario: Eaten ghost resumes map play through normal jail lifecycle
 - **WHEN** an eaten ghost has been returned to jail
 - **THEN** it waits/roams in jail and is released back to map movement through the existing staged release behavior rather than free-in-place delay
+

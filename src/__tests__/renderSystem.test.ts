@@ -3,7 +3,6 @@ import path from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Camera2D } from '../engine/camera';
 import { getObjectNumberProperty } from '../game/domain/services/GhostJailService';
-import { canMove } from '../game/domain/services/MovementRules';
 import { buildPointLayout } from '../game/domain/services/PointLayoutService';
 import { DIRECTIONS, DIRECTION_VECTORS } from '../game/domain/valueObjects/Direction';
 import { RenderSystem } from '../game/systems/RenderSystem';
@@ -84,13 +83,24 @@ function isMapVoidTile(map: WorldMapData, tile: { x: number; y: number }): boole
   return !mapTile || mapTile.gid === null;
 }
 
-function hasNavigableVoidBoundaryEdge(
-  map: WorldMapData,
-  collisionGrid: CollisionGrid,
-  tile: { x: number; y: number },
-  tileSize: number,
-): boolean {
-  const collisionTiles = collisionGrid.getTilesAt(tile);
+function hasOpenEdgeToVoid(map: WorldMapData, tile: { x: number; y: number }): boolean {
+  const collision = map.tiles[tile.y]?.[tile.x]?.collision;
+  if (!collision) {
+    return false;
+  }
+
+  const isEdgeBlocked = (direction: (typeof DIRECTIONS)[number]): boolean => {
+    if (direction === 'up') {
+      return collision.up;
+    }
+    if (direction === 'down') {
+      return collision.down;
+    }
+    if (direction === 'left') {
+      return collision.left;
+    }
+    return collision.right;
+  };
 
   return DIRECTIONS.some((direction) => {
     const vector = DIRECTION_VECTORS[direction];
@@ -100,14 +110,14 @@ function hasNavigableVoidBoundaryEdge(
       return false;
     }
 
-    return canMove(direction, 0, 0, collisionTiles, tileSize, 'pacman');
+    return !isEdgeBlocked(direction);
   });
 }
 
 function collectVoidBoundaryForbiddenTiles(
   map: WorldMapData,
-  collisionGrid: CollisionGrid,
-  tileSize: number,
+  _collisionGrid: CollisionGrid,
+  _tileSize: number,
 ): Array<{ x: number; y: number }> {
   const forbidden: Array<{ x: number; y: number }> = [];
 
@@ -118,7 +128,7 @@ function collectVoidBoundaryForbiddenTiles(
         continue;
       }
 
-      if (hasNavigableVoidBoundaryEdge(map, collisionGrid, { x, y }, tileSize)) {
+      if (hasOpenEdgeToVoid(map, { x, y })) {
         forbidden.push({ x, y });
       }
     }
@@ -450,12 +460,8 @@ describe('RenderSystem point rendering regression', () => {
     const forbiddenTiles = collectVoidBoundaryForbiddenTiles(map, collisionGrid, map.tileWidth);
     expect(forbiddenTiles).toEqual(
       expect.arrayContaining([
-        { x: 2, y: 1 },
-        { x: 48, y: 1 },
-        { x: 1, y: 2 },
-        { x: 49, y: 48 },
-        { x: 2, y: 49 },
-        { x: 48, y: 49 },
+        { x: 1, y: 26 },
+        { x: 49, y: 26 },
       ]),
     );
 

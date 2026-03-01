@@ -138,6 +138,39 @@
       "expectations": ["teleport is rejected"]
     },
     {
+      "id": "MEC-PORT-004",
+      "status": "implemented",
+      "layer": "infrastructure",
+      "mechanic": "production-map-portal-endpoint-pairs",
+      "seed": 1304,
+      "ticks": 2,
+      "fixture": "default-map",
+      "actions": ["parse default map portal endpoints", "attempt centered teleport from resolved endpoints"],
+      "expectations": ["default map exposes deterministic horizontal and vertical portal endpoint pairs", "centered teleport succeeds between production endpoints"]
+    },
+    {
+      "id": "MEC-PORT-005",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "portal-endpoint-outward-no-void-leak",
+      "seed": 1305,
+      "ticks": 1,
+      "fixture": "default-map",
+      "actions": ["place pacman at right endpoint", "hold outward direction", "advance one movement tick"],
+      "expectations": ["pacman does not enter void boundary cell", "endpoint teleport still resolves to paired portal tile"]
+    },
+    {
+      "id": "MEC-PORT-006",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "portal-vertical-endpoint-transfer",
+      "seed": 1306,
+      "ticks": 2,
+      "fixture": "default-map",
+      "actions": ["place pacman at top endpoint", "hold outward up direction", "advance movement ticks"],
+      "expectations": ["top endpoint teleports to bottom endpoint", "bottom endpoint teleports back to top endpoint"]
+    },
+    {
       "id": "MEC-TIME-001",
       "status": "implemented",
       "layer": "systems",

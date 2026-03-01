@@ -24,18 +24,6 @@
       "fixture": "default-map",
       "actions": ["consume all collectibles"],
       "expectations": ["level-complete transition triggers once"]
-    },
-    {
-      "id": "RD-MAP-001",
-      "status": "roadmap",
-      "layer": "infrastructure",
-      "mechanic": "portal-pen-gate-map-contract",
-      "title": "production maze contains portal and pen-gate contract",
-      "seed": 2105,
-      "ticks": 1,
-      "fixture": "default-map",
-      "actions": ["parse production maze"],
-      "expectations": ["portal and pen-gate tiles are present and valid"]
     }
   ]
 }

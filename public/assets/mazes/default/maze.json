@@ -127,6 +127,78 @@
               "value": 27
             }
           ]
+        },
+        {
+          "id": 3,
+          "name": "portal-left",
+          "rotation": 0,
+          "type": "portal",
+          "visible": true,
+          "x": 8,
+          "y": 408,
+          "width": 0,
+          "height": 0,
+          "properties": [
+            {
+              "name": "pairId",
+              "type": "string",
+              "value": "horizontal"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "name": "portal-right",
+          "rotation": 0,
+          "type": "portal",
+          "visible": true,
+          "x": 808,
+          "y": 408,
+          "width": 0,
+          "height": 0,
+          "properties": [
+            {
+              "name": "pairId",
+              "type": "string",
+              "value": "horizontal"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "name": "portal-top",
+          "rotation": 0,
+          "type": "portal",
+          "visible": true,
+          "x": 408,
+          "y": 8,
+          "width": 0,
+          "height": 0,
+          "properties": [
+            {
+              "name": "pairId",
+              "type": "string",
+              "value": "vertical"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "name": "portal-bottom",
+          "rotation": 0,
+          "type": "portal",
+          "visible": true,
+          "x": 408,
+          "y": 808,
+          "width": 0,
+          "height": 0,
+          "properties": [
+            {
+              "name": "pairId",
+              "type": "string",
+              "value": "vertical"
+            }
+          ]
         }
       ],
       "opacity": 1,
@@ -137,7 +209,7 @@
     }
   ],
   "nextlayerid": 3,
-  "nextobjectid": 3,
+  "nextobjectid": 7,
   "orientation": "orthogonal",
   "renderorder": "right-down",
   "tiledversion": "1.11.2",

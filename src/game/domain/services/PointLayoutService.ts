@@ -65,17 +65,28 @@ function isMapVoidTile(map: WorldMapData, tile: TilePosition): boolean {
   return !mapTile || mapTile.gid === null;
 }
 
-function hasNavigableVoidBoundaryEdge(
-  map: WorldMapData,
-  collisionGrid: CollisionGrid,
-  tile: TilePosition,
-  tileSize: number,
-): boolean {
+function hasOpenEdgeToVoid(map: WorldMapData, tile: TilePosition): boolean {
   if (!isTraversalPlayableTile(map, tile)) {
     return false;
   }
 
-  const collisionTiles = collisionGrid.getTilesAt(tile);
+  const collision = map.tiles[tile.y]?.[tile.x]?.collision;
+  if (!collision) {
+    return false;
+  }
+
+  const isEdgeBlocked = (direction: (typeof DIRECTIONS)[number]): boolean => {
+    if (direction === 'up') {
+      return collision.up;
+    }
+    if (direction === 'down') {
+      return collision.down;
+    }
+    if (direction === 'left') {
+      return collision.left;
+    }
+    return collision.right;
+  };
 
   return DIRECTIONS.some((direction) => {
     const delta = DIRECTION_VECTORS[direction];
@@ -85,7 +96,7 @@ function hasNavigableVoidBoundaryEdge(
       return false;
     }
 
-    return canMove(direction, 0, 0, collisionTiles, tileSize, 'pacman');
+    return !isEdgeBlocked(direction);
   });
 }
 
@@ -100,15 +111,15 @@ function isTraversalPlayableTile(map: WorldMapData, tile: TilePosition): boolean
 
 function isPointPlayableTile(
   map: WorldMapData,
-  collisionGrid: CollisionGrid,
+  _collisionGrid: CollisionGrid,
   tile: TilePosition,
-  tileSize: number,
+  _tileSize: number,
 ): boolean {
   if (!isTraversalPlayableTile(map, tile)) {
     return false;
   }
 
-  return !hasNavigableVoidBoundaryEdge(map, collisionGrid, tile, tileSize);
+  return !hasOpenEdgeToVoid(map, tile);
 }
 
 function getNavigablePlayableNeighbors(

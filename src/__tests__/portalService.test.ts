@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PortalService } from '../game/domain/services/PortalService';
 import { CollisionGrid, CollisionTile } from '../game/domain/world/CollisionGrid';
+import { PortalPair } from '../game/domain/world/WorldState';
 
 const openTile = (): CollisionTile => ({
   collides: false,
@@ -61,5 +62,30 @@ describe('PortalService', () => {
 
     expect(moved).toBe(false);
     expect(entity.tile).toEqual({ x: 0, y: 1 });
+  });
+
+  it('uses explicit portal pairs when multiple production endpoints exist', () => {
+    const grid = new CollisionGrid([
+      [openTile(), { ...openTile(), portal: true }, openTile()],
+      [{ ...openTile(), portal: true }, openTile(), { ...openTile(), portal: true }],
+      [openTile(), { ...openTile(), portal: true }, openTile()],
+    ]);
+
+    const explicitPairs: PortalPair[] = [
+      { from: { x: 0, y: 1 }, to: { x: 2, y: 1 } },
+      { from: { x: 1, y: 0 }, to: { x: 1, y: 2 } },
+    ];
+
+    const portals = new PortalService(grid, explicitPairs);
+    const horizontalEntity = { tile: { x: 0, y: 1 }, moved: { x: 0, y: 0 } };
+    const verticalEntity = { tile: { x: 1, y: 0 }, moved: { x: 0, y: 0 } };
+
+    const movedHorizontal = portals.tryTeleport(horizontalEntity, grid, 30);
+    const movedVertical = portals.tryTeleport(verticalEntity, grid, 31);
+
+    expect(movedHorizontal).toBe(true);
+    expect(horizontalEntity.tile).toEqual({ x: 2, y: 1 });
+    expect(movedVertical).toBe(true);
+    expect(verticalEntity.tile).toEqual({ x: 1, y: 2 });
   });
 });
