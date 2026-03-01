@@ -153,6 +153,11 @@ export class RenderSystem {
   }
 
   private isPacmanVisible(): boolean {
+    const deathRecoveryRemaining = this.world.pacman.deathRecoveryRemainingMs ?? 0;
+    if (deathRecoveryRemaining > 0) {
+      return this.world.pacman.deathRecoveryVisible ?? true;
+    }
+
     const remaining = this.world.pacman.portalBlinkRemainingMs ?? 0;
     if (remaining <= 0) {
       return true;
@@ -165,6 +170,12 @@ export class RenderSystem {
 
   private drawGhosts(): void {
     this.world.ghosts.forEach((ghost) => {
+      const recovery = this.world.ghostScaredRecovery?.get(ghost);
+      if (recovery) {
+        this.drawGhostRecoveryCrossfade(ghost, recovery.elapsedMs, recovery.durationMs);
+        return;
+      }
+
       const sheetKey = ghost.state.scared ? 'scared' : ghost.key;
       const sheet = this.assets.getSpriteSheet(sheetKey);
       if (!sheet) {
@@ -184,5 +195,53 @@ export class RenderSystem {
         ghost.flipY,
       );
     });
+  }
+
+  private drawGhostRecoveryCrossfade(ghost: WorldState['ghosts'][number], elapsedMs: number, durationMs: number): void {
+    const baseSheet = this.assets.getSpriteSheet(ghost.key);
+    const scaredSheet = this.assets.getSpriteSheet('scared');
+    if (!baseSheet && !scaredSheet) {
+      return;
+    }
+
+    const frame = this.world.ghostAnimations.get(ghost)?.frame ?? 0;
+    const safeDuration = durationMs > 0 ? durationMs : 1;
+    const progress = Math.max(0, Math.min(1, elapsedMs / safeDuration));
+    const scaredAlpha = 1 - progress;
+    const baseAlpha = progress;
+
+    if (scaredSheet && scaredAlpha > 0) {
+      this.renderer.context.save();
+      this.renderer.context.globalAlpha = scaredAlpha;
+      this.renderer.drawSpriteFrame(
+        scaredSheet,
+        frame,
+        ghost.x,
+        ghost.y,
+        ghost.displayWidth,
+        ghost.displayHeight,
+        (ghost.angle * Math.PI) / 180,
+        ghost.flipX,
+        ghost.flipY,
+      );
+      this.renderer.context.restore();
+    }
+
+    if (baseSheet && baseAlpha > 0) {
+      this.renderer.context.save();
+      this.renderer.context.globalAlpha = baseAlpha;
+      this.renderer.drawSpriteFrame(
+        baseSheet,
+        frame,
+        ghost.x,
+        ghost.y,
+        ghost.displayWidth,
+        ghost.displayHeight,
+        (ghost.angle * Math.PI) / 180,
+        ghost.flipX,
+        ghost.flipY,
+      );
+      this.renderer.context.restore();
+    }
   }
 }

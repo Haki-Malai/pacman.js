@@ -86,4 +86,47 @@ describe('mechanics scenarios: animation state', () => {
       harness.destroy();
     }
   });
+
+  it('MEC-ANI-003 scared-exit starts and completes ghost recovery visual state', () => {
+    const scenario = getScenarioOrThrow('MEC-ANI-003');
+    const harness = new MechanicsDomainHarness({
+      seed: scenario.seed,
+      fixture: 'default-map',
+      ghostCount: 1,
+      autoStartSystems: false,
+    });
+
+    try {
+      const ghost = harness.world.ghosts[0];
+      expect(ghost).toBeDefined();
+      if (!ghost) {
+        throw new Error('missing ghost for scared recovery scenario');
+      }
+
+      ghost.state.free = true;
+      harness.animationSystem.start();
+      harness.setGhostScared(true, 0);
+      harness.animationSystem.update(100);
+      harness.setGhostScared(false, 0);
+      harness.animationSystem.update(1);
+
+      runMechanicsAssertion(
+        {
+          scenarioId: scenario.id,
+          seed: scenario.seed,
+          tick: harness.world.tick,
+          inputTrace: [...harness.trace, 'toggle scared off and progress recovery crossfade'],
+          snapshotWindow: [harness.snapshot()],
+          assertion: 'ghost should have recovery visual state after scared exit and clear it at duration end',
+        },
+        () => {
+          expect(harness.world.ghostScaredRecovery.has(ghost)).toBe(true);
+          harness.animationSystem.update(900);
+          expect(harness.world.ghostScaredRecovery.has(ghost)).toBe(false);
+        },
+      );
+    } finally {
+      harness.destroy();
+    }
+  });
 });

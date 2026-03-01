@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { GHOST_EAT_JAIL_FREE_DELAY_MS, PACMAN_DEATH_RECOVERY } from '../config/constants';
 import { getGameState, resetGameState } from '../state/gameState';
 import { GhostEntity } from '../game/domain/entities/GhostEntity';
 import { MechanicsDomainHarness } from './helpers/mechanicsDomainHarness';
@@ -37,13 +38,15 @@ describe('GhostPacmanCollisionSystem', () => {
       expect(harness.world.pacman.tile).toEqual(harness.world.pacmanSpawnTile);
       expect(harness.world.pacman.direction.current).toBe('right');
       expect(harness.world.pacman.direction.next).toBe('right');
+      expect(harness.world.pacman.deathRecoveryRemainingMs).toBe(PACMAN_DEATH_RECOVERY.durationMs);
+      expect(harness.world.pacman.deathRecoveryVisible).toBe(true);
       expectGhostTileUnchanged(ghost, ghostTileBefore);
     } finally {
       harness.destroy();
     }
   });
 
-  it('still applies pacman-hit outcome when ghost is scared', () => {
+  it('applies ghost-hit outcome when ghost is scared and frees ghost in jail after delay', () => {
     const harness = new MechanicsDomainHarness({ seed: 4102, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
 
     try {
@@ -59,14 +62,23 @@ describe('GhostPacmanCollisionSystem', () => {
 
       harness.ghostPacmanCollisionSystem.update();
 
-      expect(getGameState().lives).toBe(2);
-      expect(harness.world.pacman.tile).toEqual(harness.world.pacmanSpawnTile);
+      expect(getGameState().lives).toBe(3);
+      expect(getGameState().score).toBe(200);
+      expect(ghost.tile).toEqual(harness.world.ghostJailReturnTile);
+      expect(ghost.state.free).toBe(false);
+      expect(ghost.state.scared).toBe(false);
+
+      harness.scheduler.update(GHOST_EAT_JAIL_FREE_DELAY_MS - 1);
+      expect(ghost.state.free).toBe(false);
+
+      harness.scheduler.update(1);
+      expect(ghost.state.free).toBe(true);
     } finally {
       harness.destroy();
     }
   });
 
-  it('clamps lives at zero on repeated collisions', () => {
+  it('clamps lives at zero when additional collisions happen after recovery expires', () => {
     const harness = new MechanicsDomainHarness({ seed: 4103, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
 
     try {
@@ -83,8 +95,33 @@ describe('GhostPacmanCollisionSystem', () => {
       harness.ghostPacmanCollisionSystem.update();
       expect(getGameState().lives).toBe(0);
 
+      harness.world.pacman.deathRecoveryRemainingMs = 0;
       harness.ghostPacmanCollisionSystem.update();
       expect(getGameState().lives).toBe(0);
+    } finally {
+      harness.destroy();
+    }
+  });
+
+  it('ignores collisions while Pac-Man death recovery invulnerability is active', () => {
+    const harness = new MechanicsDomainHarness({ seed: 4105, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
+
+    try {
+      const ghost = harness.world.ghosts[0];
+      if (!ghost) {
+        throw new Error('expected one ghost');
+      }
+
+      harness.movementRules.setEntityTile(harness.world.pacman, { x: 13, y: 13 });
+      harness.movementRules.setEntityTile(ghost, { x: 13, y: 13 });
+      ghost.state.free = true;
+
+      harness.ghostPacmanCollisionSystem.update();
+      expect(getGameState().lives).toBe(2);
+
+      harness.movementRules.setEntityTile(harness.world.pacman, { x: 13, y: 13 });
+      harness.ghostPacmanCollisionSystem.update();
+      expect(getGameState().lives).toBe(2);
     } finally {
       harness.destroy();
     }

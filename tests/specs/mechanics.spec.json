@@ -68,6 +68,17 @@
       "expectations": ["same seed trajectories match", "different seed diverges"]
     },
     {
+      "id": "MEC-GHO-004",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "scared-ghost-eat-jail-return",
+      "seed": 1104,
+      "ticks": 180,
+      "fixture": "default-map",
+      "actions": ["collide pacman with scared ghost", "advance jail-free delay"],
+      "expectations": ["ghost teleports to jail return tile", "ghost becomes free in jail after delay", "score uses ghost chain values"]
+    },
+    {
       "id": "MEC-JAIL-001",
       "status": "implemented",
       "layer": "domain",
@@ -167,6 +178,17 @@
       "expectations": ["blink timer initializes and expires deterministically"]
     },
     {
+      "id": "MEC-ANI-003",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "ghost-scared-recovery-crossfade",
+      "seed": 1508,
+      "ticks": 90,
+      "fixture": "default-map",
+      "actions": ["toggle scared on", "toggle scared off", "advance recovery window"],
+      "expectations": ["ghost recovery visual state starts on scared exit and clears after deterministic duration"]
+    },
+    {
       "id": "MEC-PAUSE-003",
       "status": "implemented",
       "layer": "systems",
@@ -223,6 +245,17 @@
       "fixture": "default-map",
       "actions": ["collide pacman with active ghost"],
       "expectations": ["lives decrement once", "pacman respawns at spawn tile", "ghost position is preserved"]
+    },
+    {
+      "id": "MEC-LIFE-002",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "death-recovery-invulnerability-blink",
+      "seed": 1509,
+      "ticks": 180,
+      "fixture": "default-map",
+      "actions": ["trigger pacman life loss", "collide during recovery", "advance recovery timer"],
+      "expectations": ["collision effects are suppressed while recovery is active", "pacman recovery blink expires deterministically", "collision effects resume after recovery"]
     },
     {
       "id": "MEC-RUN-001",

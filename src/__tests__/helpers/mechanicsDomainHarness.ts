@@ -143,7 +143,12 @@ export class MechanicsDomainHarness {
       this.portalService,
       rng,
     );
-    this.ghostPacmanCollisionSystem = new GhostPacmanCollisionSystem(this.world, this.movementRules);
+    this.ghostPacmanCollisionSystem = new GhostPacmanCollisionSystem(
+      this.world,
+      this.movementRules,
+      this.scheduler,
+      SPEED.ghost,
+    );
     this.animationSystem = new AnimationSystem(this.world, SPEED.ghost);
 
     if (options.autoStartSystems ?? true) {

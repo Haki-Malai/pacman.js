@@ -31,8 +31,8 @@ export function isTileCrossingContact(snapshot: GhostPacmanCollisionSnapshot): b
   return tilesMatch(snapshot.pacmanPrevious, snapshot.ghostCurrent) && tilesMatch(snapshot.ghostPrevious, snapshot.pacmanCurrent);
 }
 
-function defaultOutcomeResolver(): GhostPacmanCollisionOutcome {
-  return 'pacman-hit';
+function defaultOutcomeResolver(ghost: GhostEntity): GhostPacmanCollisionOutcome {
+  return ghost.state.scared ? 'ghost-hit' : 'pacman-hit';
 }
 
 export function findFirstCollision(params: {

@@ -2,18 +2,6 @@
   "schemaVersion": 1,
   "scenarios": [
     {
-      "id": "RD-GHOST-001",
-      "status": "roadmap",
-      "layer": "systems",
-      "mechanic": "ghost-death-respawn",
-      "title": "ghost death to jail and respawn flow",
-      "seed": 2101,
-      "ticks": 600,
-      "fixture": "default-map",
-      "actions": ["collide pacman with vulnerable ghost"],
-      "expectations": ["ghost returns to jail and re-enters release lifecycle"]
-    },
-    {
       "id": "RD-SCORE-001",
       "status": "roadmap",
       "layer": "systems",

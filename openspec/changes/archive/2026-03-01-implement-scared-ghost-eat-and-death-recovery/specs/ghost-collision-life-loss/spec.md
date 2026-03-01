@@ -1,18 +1,4 @@
-# ghost-collision-life-loss Specification
-
-## Purpose
-TBD - created by archiving change implement-ghost-collision-life-loss. Update Purpose after archive.
-## Requirements
-### Requirement: Ghost and Pac-Man contact is detected deterministically in tile space
-The runtime SHALL detect ghost/Pac-Man contact when they overlap on the same tile, and MUST also detect head-on tile-crossing contact when Pac-Man and a ghost swap tiles within one tick.
-
-#### Scenario: Same-tile contact triggers collision
-- **WHEN** Pac-Man and an active free ghost occupy the same tile during a tick
-- **THEN** the collision flow is triggered for that tick
-
-#### Scenario: Tile-crossing contact triggers collision
-- **WHEN** Pac-Man moves from tile A to B while an active free ghost moves from tile B to A in the same tick
-- **THEN** the collision flow is triggered for that tick
+## MODIFIED Requirements
 
 ### Requirement: Collision currently resolves to Pac-Man life loss
 For this capability version, detected ghost/Pac-Man collision SHALL resolve by scared-state policy: collisions with non-scared ghosts SHALL resolve to Pac-Man hit behavior, and collisions with scared ghosts SHALL resolve to ghost-hit behavior.
@@ -43,12 +29,7 @@ The runtime MUST process at most one collision outcome per tick even when multip
 - **WHEN** two or more active free ghosts collide with Pac-Man in the same tick
 - **THEN** exactly one collision outcome is applied in that tick using deterministic ghost iteration order
 
-### Requirement: Pac-Man hit reset scope is Pac-Man-only
-Pac-Man hit behavior SHALL reset Pac-Man state only, and MUST NOT reset ghost positions as part of this capability.
-
-#### Scenario: Ghost position is preserved during Pac-Man respawn
-- **WHEN** Pac-Man collision triggers life-loss and respawn
-- **THEN** the colliding ghost remains at its runtime position and is not force-reset by this flow
+## ADDED Requirements
 
 ### Requirement: Pac-Man death recovery window prevents immediate re-hit
 After Pac-Man hit respawn, the runtime SHALL apply a fixed-duration death recovery window during which collision effects are ignored for Pac-Man and recovery visibility blink timing follows deterministic cadence progression.
@@ -71,4 +52,3 @@ When ghost-hit behavior is applied, the runtime SHALL award chain-based points, 
 #### Scenario: Eaten ghost becomes free in jail after delay
 - **WHEN** configured ghost-eat jail delay elapses for an eaten ghost
 - **THEN** that ghost becomes free while remaining at jail return tile
-

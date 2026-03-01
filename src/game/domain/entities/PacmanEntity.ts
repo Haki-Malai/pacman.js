@@ -34,6 +34,10 @@ export class PacmanEntity implements RenderableEntity {
   tile: TilePosition;
   portalBlinkRemainingMs = 0;
   portalBlinkElapsedMs = 0;
+  deathRecoveryRemainingMs = 0;
+  deathRecoveryElapsedMs = 0;
+  deathRecoveryNextToggleAtMs = 0;
+  deathRecoveryVisible = true;
 
   constructor(tile: TilePosition, displayWidth: number, displayHeight: number) {
     this.tile = { ...tile };

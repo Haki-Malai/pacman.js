@@ -135,7 +135,7 @@ export class GameCompositionRoot {
     const pacmanSystem = new PacmanMovementSystem(world, movementRules, portalService);
     const ghostReleaseSystem = new GhostReleaseSystem(world, movementRules, jailService, scheduler, rng);
     const ghostMovementSystem = new GhostMovementSystem(world, movementRules, ghostDecisions, portalService, rng);
-    const ghostPacmanCollisionSystem = new GhostPacmanCollisionSystem(world, movementRules);
+    const ghostPacmanCollisionSystem = new GhostPacmanCollisionSystem(world, movementRules, scheduler, SPEED.ghost);
     const animationSystem = new AnimationSystem(world, SPEED.ghost);
     const cameraSystem = new CameraSystem(world, camera, renderer, canvas);
     const collectibleSystem = new CollectibleSystem(world);

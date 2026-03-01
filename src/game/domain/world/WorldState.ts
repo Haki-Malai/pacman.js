@@ -59,6 +59,11 @@ export interface AnimationPlayback {
   forward: 1 | -1;
 }
 
+export interface GhostScaredRecovery {
+  elapsedMs: number;
+  durationMs: number;
+}
+
 export interface PacmanAnimationPlayback {
   frame: number;
   elapsedMs: number;
@@ -93,7 +98,10 @@ export class WorldState {
   pacmanPreviousTile: TilePosition;
   ghosts: GhostEntity[];
   ghostPreviousTiles = new Map<GhostEntity, TilePosition>();
+  ghostScaredRecovery = new Map<GhostEntity, GhostScaredRecovery>();
   ghostJailBounds: GhostJailBounds;
+  readonly ghostJailReturnTile: TilePosition;
+  ghostEatChainCount = 0;
   ghostsExitingJail = new Set<GhostEntity>();
   ghostAnimations = new Map<GhostEntity, AnimationPlayback>();
   pacmanAnimation: PacmanAnimationPlayback = {
@@ -126,6 +134,10 @@ export class WorldState {
     this.pacmanPreviousTile = { ...params.pacman.tile };
     this.ghosts = params.ghosts;
     this.ghostJailBounds = params.ghostJailBounds;
+    this.ghostJailReturnTile = {
+      x: params.ghostJailBounds.minX + Math.floor((params.ghostJailBounds.maxX - params.ghostJailBounds.minX) / 2),
+      y: params.ghostJailBounds.y,
+    };
   }
 
   nextTick(): number {

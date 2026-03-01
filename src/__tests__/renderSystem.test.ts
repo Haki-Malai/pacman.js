@@ -140,22 +140,27 @@ function createWorld(map: WorldMapData, collisionGrid: CollisionGrid, pacmanTile
       sequenceIndex: 0,
       active: false,
     },
-    pacman: {
-      tile: { ...pacmanTile },
-      moved: { x: 0, y: 0 },
-      x: center.x,
-      y: center.y,
+      pacman: {
+        tile: { ...pacmanTile },
+        moved: { x: 0, y: 0 },
+        x: center.x,
+        y: center.y,
       displayWidth: 10,
       displayHeight: 10,
       angle: 0,
       flipX: false,
-      flipY: false,
-      portalBlinkRemainingMs: 0,
-      portalBlinkElapsedMs: 0,
-    },
-    ghosts: [],
-    ghostAnimations: new Map(),
-  } as unknown as WorldState;
+        flipY: false,
+        portalBlinkRemainingMs: 0,
+        portalBlinkElapsedMs: 0,
+        deathRecoveryRemainingMs: 0,
+        deathRecoveryElapsedMs: 0,
+        deathRecoveryNextToggleAtMs: 0,
+        deathRecoveryVisible: true,
+      },
+      ghosts: [],
+      ghostScaredRecovery: new Map(),
+      ghostAnimations: new Map(),
+    } as unknown as WorldState;
 }
 
 function createRenderHarness(options: RenderHarnessOptions = {}): {
@@ -545,8 +550,13 @@ describe('RenderSystem draw order', () => {
         flipY: false,
         portalBlinkRemainingMs: 0,
         portalBlinkElapsedMs: 0,
+        deathRecoveryRemainingMs: 0,
+        deathRecoveryElapsedMs: 0,
+        deathRecoveryNextToggleAtMs: 0,
+        deathRecoveryVisible: true,
       },
       ghosts: [ghost],
+      ghostScaredRecovery: new Map(),
       ghostAnimations: new Map([
         [
           ghost,
@@ -619,5 +629,219 @@ describe('RenderSystem draw order', () => {
     renderSystem.render();
 
     expect(drawOrder).toEqual(['base-tile', 'ghost', 'jail-overlay', 'pacman']);
+  });
+
+  it('draws scared-to-base crossfade for ghosts with active scared recovery', () => {
+    const map: WorldMapData = {
+      width: 1,
+      height: 1,
+      tileWidth: 16,
+      tileHeight: 16,
+      widthInPixels: 16,
+      heightInPixels: 16,
+      tiles: [
+        [
+          {
+            x: 0,
+            y: 0,
+            rawGid: 1,
+            gid: 1,
+            localId: 1,
+            imagePath: 'base.png',
+            rotation: 0,
+            flipX: false,
+            flipY: false,
+            collision: createCollisionTile(),
+          },
+        ],
+      ],
+      collisionByGid: new Map([[1, createCollisionTile()]]),
+      imageByGid: new Map([[1, 'base.png']]),
+      spawnObjects: [],
+    };
+
+    const ghost = new GhostEntity({
+      key: 'inky',
+      tile: { x: 0, y: 0 },
+      direction: 'right',
+      speed: 1,
+      displayWidth: 11,
+      displayHeight: 11,
+    });
+    ghost.x = 8;
+    ghost.y = 8;
+
+    const world = {
+      map,
+      tileSize: 16,
+      collisionGrid: new CollisionGrid([[createCollisionTile()]]),
+      pacmanAnimation: { frame: 0, elapsedMs: 0, sequenceIndex: 0, active: false },
+      pacman: {
+        tile: { x: 0, y: 0 },
+        moved: { x: 0, y: 0 },
+        x: 8,
+        y: 8,
+        displayWidth: 10,
+        displayHeight: 10,
+        angle: 0,
+        flipX: false,
+        flipY: false,
+        portalBlinkRemainingMs: 0,
+        portalBlinkElapsedMs: 0,
+        deathRecoveryRemainingMs: 0,
+        deathRecoveryElapsedMs: 0,
+        deathRecoveryNextToggleAtMs: 0,
+        deathRecoveryVisible: true,
+      },
+      ghosts: [ghost],
+      ghostScaredRecovery: new Map([[ghost, { elapsedMs: 450, durationMs: 900 }]]),
+      ghostAnimations: new Map([
+        [
+          ghost,
+          {
+            key: 'inkyIdle',
+            frame: 3,
+            elapsedMs: 0,
+            forward: 1,
+          },
+        ],
+      ]),
+    } as unknown as WorldState;
+
+    const drawSpriteFrame = vi.fn();
+    const renderer = {
+      clear: vi.fn(),
+      beginWorld: vi.fn(),
+      endWorld: vi.fn(),
+      drawImageCentered: vi.fn(),
+      drawSpriteFrame,
+      context: {
+        save: vi.fn(),
+        restore: vi.fn(),
+        drawImage: vi.fn(),
+        globalAlpha: 1,
+      } as unknown as CanvasRenderingContext2D,
+    } as unknown as CanvasRendererAdapter;
+
+    const scaredSheet = { id: 'scared-sheet' } as unknown as ReturnType<AssetCatalog['getSpriteSheet']>;
+    const baseSheet = { id: 'base-sheet' } as unknown as ReturnType<AssetCatalog['getSpriteSheet']>;
+    const pacmanSheet = { id: 'pacman-sheet' } as unknown as ReturnType<AssetCatalog['getSpriteSheet']>;
+    const assets = {
+      getCollectibleImage: () => null,
+      getTileImage: () => null,
+      getSpriteSheet: (key: string) => {
+        if (key === 'scared') {
+          return scaredSheet;
+        }
+        if (key === 'inky') {
+          return baseSheet;
+        }
+        if (key === 'pacman') {
+          return pacmanSheet;
+        }
+        return undefined;
+      },
+    } as unknown as AssetCatalog;
+
+    const renderSystem = new RenderSystem(world, renderer, {} as Camera2D, assets);
+    renderSystem.render();
+
+    const drawCalls = drawSpriteFrame.mock.calls as Array<[unknown, ...unknown[]]>;
+    expect(drawCalls.some(([sheet]) => sheet === scaredSheet)).toBe(true);
+    expect(drawCalls.some(([sheet]) => sheet === baseSheet)).toBe(true);
+  });
+
+  it('keeps Pac-Man visible during death recovery even when portal blink phase would hide him', () => {
+    const map: WorldMapData = {
+      width: 1,
+      height: 1,
+      tileWidth: 16,
+      tileHeight: 16,
+      widthInPixels: 16,
+      heightInPixels: 16,
+      tiles: [
+        [
+          {
+            x: 0,
+            y: 0,
+            rawGid: 1,
+            gid: 1,
+            localId: 1,
+            imagePath: 'base.png',
+            rotation: 0,
+            flipX: false,
+            flipY: false,
+            collision: createCollisionTile(),
+          },
+        ],
+      ],
+      collisionByGid: new Map([[1, createCollisionTile()]]),
+      imageByGid: new Map([[1, 'base.png']]),
+      spawnObjects: [],
+    };
+
+    const world = {
+      map,
+      tileSize: 16,
+      collisionGrid: new CollisionGrid([[createCollisionTile()]]),
+      pacmanAnimation: { frame: 0, elapsedMs: 0, sequenceIndex: 0, active: false },
+      pacman: {
+        tile: { x: 0, y: 0 },
+        moved: { x: 0, y: 0 },
+        x: 8,
+        y: 8,
+        displayWidth: 10,
+        displayHeight: 10,
+        angle: 0,
+        flipX: false,
+        flipY: false,
+        portalBlinkRemainingMs: 300,
+        portalBlinkElapsedMs: 1300,
+        deathRecoveryRemainingMs: 500,
+        deathRecoveryElapsedMs: 700,
+        deathRecoveryNextToggleAtMs: 0,
+        deathRecoveryVisible: true,
+      },
+      ghosts: [],
+      ghostScaredRecovery: new Map(),
+      ghostAnimations: new Map(),
+    } as unknown as WorldState;
+
+    const drawSpriteFrame = vi.fn();
+    const renderer = {
+      clear: vi.fn(),
+      beginWorld: vi.fn(),
+      endWorld: vi.fn(),
+      drawImageCentered: vi.fn(),
+      drawSpriteFrame,
+      context: {
+        save: vi.fn(),
+        restore: vi.fn(),
+        drawImage: vi.fn(),
+        globalAlpha: 1,
+      } as unknown as CanvasRenderingContext2D,
+    } as unknown as CanvasRendererAdapter;
+
+    const pacmanSheet = { id: 'pacman-sheet' } as unknown as ReturnType<AssetCatalog['getSpriteSheet']>;
+    const assets = {
+      getCollectibleImage: () => null,
+      getTileImage: () => null,
+      getSpriteSheet: (key: string) => (key === 'pacman' ? pacmanSheet : undefined),
+    } as unknown as AssetCatalog;
+
+    const renderSystem = new RenderSystem(world, renderer, {} as Camera2D, assets);
+    renderSystem.render();
+
+    expect(drawSpriteFrame).toHaveBeenCalledWith(
+      pacmanSheet,
+      0,
+      8,
+      8,
+      10,
+      10,
+      0,
+      false,
+      false,
+    );
   });
 });
