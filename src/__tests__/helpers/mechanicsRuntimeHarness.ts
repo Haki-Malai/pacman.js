@@ -124,6 +124,7 @@ export class MechanicsRuntimeHarness {
       wrapUpdateSystem('PacmanMovementSystem', this.domainHarness.pacmanSystem, this.updateOrder),
       wrapUpdateSystem('GhostReleaseSystem', this.domainHarness.ghostReleaseSystem, this.updateOrder),
       wrapUpdateSystem('GhostMovementSystem', this.domainHarness.ghostMovementSystem, this.updateOrder),
+      wrapUpdateSystem('GhostPacmanCollisionSystem', this.domainHarness.ghostPacmanCollisionSystem, this.updateOrder),
       wrapUpdateSystem('AnimationSystem', this.domainHarness.animationSystem, this.updateOrder),
       makeNoopUpdateSystem('CameraSystem', this.updateOrder),
       makeNoopUpdateSystem('HudSystem', this.updateOrder),

@@ -88,8 +88,11 @@ export class WorldState {
   readonly map: WorldMapData;
   readonly tileSize: number;
   readonly collisionGrid: CollisionGrid;
+  readonly pacmanSpawnTile: TilePosition;
   pacman: PacmanEntity;
+  pacmanPreviousTile: TilePosition;
   ghosts: GhostEntity[];
+  ghostPreviousTiles = new Map<GhostEntity, TilePosition>();
   ghostJailBounds: GhostJailBounds;
   ghostsExitingJail = new Set<GhostEntity>();
   ghostAnimations = new Map<GhostEntity, AnimationPlayback>();
@@ -110,6 +113,7 @@ export class WorldState {
     map: WorldMapData;
     tileSize: number;
     collisionGrid: CollisionGrid;
+    pacmanSpawnTile: TilePosition;
     pacman: PacmanEntity;
     ghosts: GhostEntity[];
     ghostJailBounds: GhostJailBounds;
@@ -117,7 +121,9 @@ export class WorldState {
     this.map = params.map;
     this.tileSize = params.tileSize;
     this.collisionGrid = params.collisionGrid;
+    this.pacmanSpawnTile = { ...params.pacmanSpawnTile };
     this.pacman = params.pacman;
+    this.pacmanPreviousTile = { ...params.pacman.tile };
     this.ghosts = params.ghosts;
     this.ghostJailBounds = params.ghostJailBounds;
   }

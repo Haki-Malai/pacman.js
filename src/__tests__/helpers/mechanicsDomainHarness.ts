@@ -13,6 +13,7 @@ import { TimerSchedulerAdapter } from '../../game/infrastructure/adapters/TimerS
 import { SeededRandom } from '../../game/shared/random/SeededRandom';
 import { AnimationSystem } from '../../game/systems/AnimationSystem';
 import { GhostMovementSystem } from '../../game/systems/GhostMovementSystem';
+import { GhostPacmanCollisionSystem } from '../../game/systems/GhostPacmanCollisionSystem';
 import { GhostReleaseSystem } from '../../game/systems/GhostReleaseSystem';
 import { PacmanMovementSystem } from '../../game/systems/PacmanMovementSystem';
 import { MechanicsScenario, MechanicsSnapshot } from './mechanicsTypes';
@@ -64,6 +65,7 @@ export class MechanicsDomainHarness {
   readonly pacmanSystem: PacmanMovementSystem;
   readonly ghostReleaseSystem: GhostReleaseSystem;
   readonly ghostMovementSystem: GhostMovementSystem;
+  readonly ghostPacmanCollisionSystem: GhostPacmanCollisionSystem;
   readonly animationSystem: AnimationSystem;
   readonly trace: string[] = [];
   readonly snapshots: MechanicsSnapshot[] = [];
@@ -122,6 +124,7 @@ export class MechanicsDomainHarness {
       map: safeMap,
       tileSize,
       collisionGrid,
+      pacmanSpawnTile: pacmanTile,
       pacman,
       ghosts,
       ghostJailBounds,
@@ -140,6 +143,7 @@ export class MechanicsDomainHarness {
       this.portalService,
       rng,
     );
+    this.ghostPacmanCollisionSystem = new GhostPacmanCollisionSystem(this.world, this.movementRules);
     this.animationSystem = new AnimationSystem(this.world, SPEED.ghost);
 
     if (options.autoStartSystems ?? true) {
@@ -225,6 +229,7 @@ export class MechanicsDomainHarness {
       this.pacmanSystem.update();
       this.ghostReleaseSystem.update();
       this.ghostMovementSystem.update();
+      this.ghostPacmanCollisionSystem.update();
       this.animationSystem.update(deltaMs);
     }
 

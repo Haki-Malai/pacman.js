@@ -14,7 +14,11 @@ export class GhostMovementSystem {
   ) {}
 
   update(): void {
+    this.world.ghostPreviousTiles.clear();
+
     this.world.ghosts.forEach((ghost) => {
+      this.world.ghostPreviousTiles.set(ghost, { ...ghost.tile });
+
       if (!ghost.state.free || this.world.ghostsExitingJail.has(ghost)) {
         return;
       }

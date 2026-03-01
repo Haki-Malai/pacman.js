@@ -22,6 +22,7 @@ describe('mechanics scenarios: runtime pipeline', () => {
         'PacmanMovementSystem',
         'GhostReleaseSystem',
         'GhostMovementSystem',
+        'GhostPacmanCollisionSystem',
         'AnimationSystem',
         'CameraSystem',
         'HudSystem',
