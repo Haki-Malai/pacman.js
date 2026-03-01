@@ -40,6 +40,10 @@ export class GhostPacmanCollisionSystem {
       return;
     }
 
+    if (collision.outcome === 'pacman-hit' && this.isPacmanInPortalShieldWindow()) {
+      return;
+    }
+
     if (collision.outcome === 'pacman-hit') {
       this.applyPacmanHitOutcome();
       return;
@@ -82,6 +86,10 @@ export class GhostPacmanCollisionSystem {
 
   private isPacmanInDeathRecovery(): boolean {
     return (this.world.pacman.deathRecoveryRemainingMs ?? 0) > 0;
+  }
+
+  private isPacmanInPortalShieldWindow(): boolean {
+    return (this.world.pacman.portalBlinkRemainingMs ?? 0) > 0;
   }
 
   private resetGhostEatChainIfNoScaredGhosts(): void {

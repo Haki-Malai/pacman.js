@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PACMAN_DEATH_RECOVERY } from '../../config/constants';
+import { PACMAN_DEATH_RECOVERY, PACMAN_PORTAL_BLINK } from '../../config/constants';
 import { getGameState, resetGameState } from '../../state/gameState';
 import { getScenarioOrThrow } from '../helpers/mechanicsSpec';
 import { runMechanicsAssertion } from '../helpers/mechanicsTestUtils';
@@ -101,6 +101,60 @@ describe('mechanics scenarios: life loss collision', () => {
           harness.movementRules.setEntityTile(ghost, collisionTile);
           harness.ghostPacmanCollisionSystem.update();
           expect(getGameState().lives).toBe(1);
+        },
+      );
+    } finally {
+      harness.destroy();
+    }
+  });
+
+  it('MEC-LIFE-003 portal blink shield suppresses non-scared hits while still allowing scared ghost-hit', () => {
+    const scenario = getScenarioOrThrow('MEC-LIFE-003');
+    resetGameState(0, 3);
+
+    const harness = new MechanicsDomainHarness({
+      seed: scenario.seed,
+      fixture: 'default-map',
+      ghostCount: 1,
+      autoStartSystems: false,
+    });
+
+    try {
+      const ghost = harness.world.ghosts[0];
+      if (!ghost) {
+        throw new Error('expected one ghost for portal shield scenario');
+      }
+
+      const collisionTile = { x: 22, y: 22 };
+      harness.movementRules.setEntityTile(harness.world.pacman, collisionTile);
+      harness.movementRules.setEntityTile(ghost, collisionTile);
+      harness.world.pacman.portalBlinkRemainingMs = PACMAN_PORTAL_BLINK.durationMs;
+      ghost.state.free = true;
+      ghost.state.scared = false;
+
+      runMechanicsAssertion(
+        {
+          scenarioId: scenario.id,
+          seed: scenario.seed,
+          tick: harness.world.tick,
+          inputTrace: [
+            'set active portal blink shield',
+            'collide with non-scared ghost',
+            'collide with scared ghost while shield remains active',
+          ],
+          snapshotWindow: [harness.snapshot()],
+          assertion: 'portal shield suppresses non-scared life loss but still allows scared ghost-hit',
+        },
+        () => {
+          harness.ghostPacmanCollisionSystem.update();
+          expect(getGameState().lives).toBe(3);
+          expect(getGameState().score).toBe(0);
+
+          ghost.state.scared = true;
+          harness.movementRules.setEntityTile(ghost, collisionTile);
+          harness.ghostPacmanCollisionSystem.update();
+          expect(getGameState().lives).toBe(3);
+          expect(getGameState().score).toBe(200);
         },
       );
     } finally {
