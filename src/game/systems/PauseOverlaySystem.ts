@@ -52,6 +52,9 @@ export class PauseOverlaySystem {
     overlay.style.opacity = '0';
     overlay.style.visibility = 'hidden';
     overlay.style.transition = 'opacity 200ms ease-out';
+    overlay.style.pointerEvents = 'none';
+    overlay.style.userSelect = 'none';
+    overlay.style.webkitUserSelect = 'none';
     overlay.setAttribute('data-pause-overlay', 'true');
     overlay.setAttribute('aria-hidden', 'true');
 
@@ -71,6 +74,9 @@ export class PauseOverlaySystem {
     title.style.textIndent = '0.34em';
     title.style.textAlign = 'center';
     title.style.textShadow = '0 0 18px rgba(0, 0, 0, 0.7)';
+    title.style.pointerEvents = 'none';
+    title.style.userSelect = 'none';
+    title.style.webkitUserSelect = 'none';
     title.textContent = 'PAUSED';
 
     const hint = document.createElement('p');
@@ -86,6 +92,9 @@ export class PauseOverlaySystem {
     hint.style.letterSpacing = '0.12em';
     hint.style.textAlign = 'center';
     hint.style.textTransform = 'uppercase';
+    hint.style.pointerEvents = 'none';
+    hint.style.userSelect = 'none';
+    hint.style.webkitUserSelect = 'none';
     hint.textContent = 'Tap or press Space to resume';
 
     overlay.append(title, hint);

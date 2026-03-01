@@ -28,6 +28,17 @@ describe('PauseOverlaySystem', () => {
     expect(overlay).not.toBeNull();
     expect(overlay?.getAttribute('aria-hidden')).toBe('true');
     expect(overlay?.classList.contains('opacity-100')).toBe(false);
+    expect(overlay?.style.pointerEvents).toBe('none');
+    expect(overlay?.style.userSelect).toBe('none');
+    expect(overlay?.style.webkitUserSelect).toBe('none');
+    const textElements = overlay?.querySelectorAll('p') ?? [];
+    expect(textElements).toHaveLength(2);
+    expect(textElements[0]?.style.pointerEvents).toBe('none');
+    expect(textElements[0]?.style.userSelect).toBe('none');
+    expect(textElements[0]?.style.webkitUserSelect).toBe('none');
+    expect(textElements[1]?.style.pointerEvents).toBe('none');
+    expect(textElements[1]?.style.userSelect).toBe('none');
+    expect(textElements[1]?.style.webkitUserSelect).toBe('none');
     expect(mount.classList.contains('grayscale')).toBe(false);
 
     world.isMoving = false;
