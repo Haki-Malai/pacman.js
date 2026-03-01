@@ -52,6 +52,37 @@ describe('GhostPacmanCollisionSystem', () => {
     }
   });
 
+  it('applies life loss when adjacent-tile sprites overlap in world space', () => {
+    const harness = new MechanicsDomainHarness({ seed: 4111, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
+
+    try {
+      const ghost = harness.world.ghosts[0];
+      if (!ghost) {
+        throw new Error('expected one ghost');
+      }
+
+      harness.movementRules.setEntityTile(harness.world.pacman, { x: 20, y: 20 });
+      harness.movementRules.setEntityTile(ghost, { x: 21, y: 20 });
+      ghost.state.free = true;
+      ghost.state.scared = false;
+
+      harness.world.pacman.moved.x = 3;
+      harness.world.pacman.moved.y = 0;
+      harness.movementRules.syncEntityPosition(harness.world.pacman);
+
+      ghost.moved.x = -3;
+      ghost.moved.y = 0;
+      harness.movementRules.syncEntityPosition(ghost);
+
+      harness.ghostPacmanCollisionSystem.update();
+
+      expect(getGameState().lives).toBe(2);
+      expect(harness.world.pacman.tile).toEqual(harness.world.pacmanSpawnTile);
+    } finally {
+      harness.destroy();
+    }
+  });
+
   it('applies ghost-hit outcome when ghost is scared and re-enters normal jail release flow', () => {
     const harness = new MechanicsDomainHarness({ seed: 4102, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
 

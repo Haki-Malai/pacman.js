@@ -1,4 +1,5 @@
 import { AssetStore, SpriteSheetAsset } from '../../../engine/assets';
+import { CollisionMaskFrame } from '../../domain/valueObjects/CollisionMask';
 import { WorldMapData } from '../../domain/world/WorldState';
 
 const SPRITE_SHEET_FRAME_WIDTH = 85;
@@ -20,6 +21,9 @@ export class AssetCatalog {
   private readonly tileImageCache = new Map<string, HTMLImageElement>();
   private readonly spritesheets = new Map<SpriteSheetKey, SpriteSheetAsset>();
   private readonly collectibles = new Map<string, HTMLImageElement>();
+  private readonly spriteMaskCache = new Map<string, CollisionMaskFrame>();
+  private maskCanvas: HTMLCanvasElement | OffscreenCanvas | null = null;
+  private maskContext: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
 
   async loadForMap(map: WorldMapData, baseTilePath: string): Promise<void> {
     const uniqueTileImages = new Set<string>();
@@ -68,5 +72,106 @@ export class AssetCatalog {
 
   getCollectibleImage(key: string): HTMLImageElement | undefined {
     return this.collectibles.get(key);
+  }
+
+  getSpriteMask(
+    key: SpriteSheetKey,
+    frame: number,
+    width: number,
+    height: number,
+    alphaThreshold: number = 1,
+  ): CollisionMaskFrame {
+    const safeWidth = Math.max(1, Math.round(width));
+    const safeHeight = Math.max(1, Math.round(height));
+    const safeThreshold = Math.max(0, Math.min(255, Math.floor(alphaThreshold)));
+    const cacheKey = `${key}:${frame}:${safeWidth}:${safeHeight}:${safeThreshold}`;
+    const cached = this.spriteMaskCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const sheet = this.getSpriteSheet(key);
+    if (!sheet) {
+      throw new Error(`Spritesheet asset not found: ${key}`);
+    }
+
+    const columns = Math.max(1, Math.floor(sheet.image.width / sheet.frameWidth));
+    const clampedFrame = Math.max(0, Math.min(frame, sheet.frameCount - 1));
+    const frameX = (clampedFrame % columns) * sheet.frameWidth;
+    const frameY = Math.floor(clampedFrame / columns) * sheet.frameHeight;
+    const context = this.getMaskContext(safeWidth, safeHeight);
+    context.save();
+    context.clearRect(0, 0, safeWidth, safeHeight);
+    context.imageSmoothingEnabled = false;
+    context.drawImage(
+      sheet.image,
+      frameX,
+      frameY,
+      sheet.frameWidth,
+      sheet.frameHeight,
+      0,
+      0,
+      safeWidth,
+      safeHeight,
+    );
+
+    const imageData = context.getImageData(0, 0, safeWidth, safeHeight).data;
+    context.restore();
+
+    const opaque = new Uint8Array(safeWidth * safeHeight);
+    for (let index = 0; index < opaque.length; index += 1) {
+      const alpha = imageData[index * 4 + 3] ?? 0;
+      opaque[index] = alpha >= safeThreshold ? 1 : 0;
+    }
+
+    const mask: CollisionMaskFrame = {
+      width: safeWidth,
+      height: safeHeight,
+      opaque,
+    };
+    this.spriteMaskCache.set(cacheKey, mask);
+    return mask;
+  }
+
+  private getMaskContext(
+    width: number,
+    height: number,
+  ): CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D {
+    if (
+      this.maskContext &&
+      this.maskCanvas &&
+      this.maskCanvas.width === width &&
+      this.maskCanvas.height === height
+    ) {
+      return this.maskContext;
+    }
+
+    if (typeof OffscreenCanvas !== 'undefined') {
+      const canvas = new OffscreenCanvas(width, height);
+      const context = canvas.getContext('2d');
+      if (!context) {
+        throw new Error('Offscreen canvas 2D context is required for sprite mask generation');
+      }
+      context.imageSmoothingEnabled = false;
+      this.maskCanvas = canvas;
+      this.maskContext = context;
+      return context;
+    }
+
+    if (typeof document !== 'undefined') {
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        throw new Error('Canvas 2D context is required for sprite mask generation');
+      }
+      context.imageSmoothingEnabled = false;
+      this.maskCanvas = canvas;
+      this.maskContext = context;
+      return context;
+    }
+
+    throw new Error('No canvas implementation available for sprite mask generation');
   }
 }

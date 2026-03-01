@@ -1,9 +1,10 @@
 import { Camera2D } from '../../engine/camera';
-import { COLLECTIBLE_CONFIG, GHOST_SCARED_WARNING_DURATION_MS, PACMAN_PORTAL_BLINK } from '../../config/constants';
+import { COLLECTIBLE_CONFIG, PACMAN_PORTAL_BLINK } from '../../config/constants';
 import { WorldState, WorldTile } from '../domain/world/WorldState';
 import { CanvasRendererAdapter } from '../infrastructure/adapters/CanvasRendererAdapter';
 import { AssetCatalog } from '../infrastructure/assets/AssetCatalog';
 import { CollectibleSystem } from './CollectibleSystem';
+import { resolveGhostSpriteSheetKey } from './resolveGhostSpriteSheetKey';
 
 const BACKGROUND_COLOR = '#2d2d2d';
 const BASE_POINT_SIZE = COLLECTIBLE_CONFIG[0].size;
@@ -170,7 +171,7 @@ export class RenderSystem {
 
   private drawGhosts(): void {
     this.world.ghosts.forEach((ghost) => {
-      const sheetKey = this.resolveGhostSheetKey(ghost);
+      const sheetKey = resolveGhostSpriteSheetKey(this.world, ghost);
       const sheet = this.assets.getSpriteSheet(sheetKey);
       if (!sheet) {
         return;
@@ -189,21 +190,5 @@ export class RenderSystem {
         ghost.flipY,
       );
     });
-  }
-
-  private resolveGhostSheetKey(ghost: WorldState['ghosts'][number]): 'scared' | typeof ghost.key {
-    if (!ghost.state.scared) {
-      return ghost.key;
-    }
-
-    const remaining = this.world.ghostScaredTimers.get(ghost) ?? 0;
-    if (remaining > 0 && remaining <= GHOST_SCARED_WARNING_DURATION_MS) {
-      const warning = this.world.ghostScaredWarnings.get(ghost);
-      if (warning?.showBaseColor) {
-        return ghost.key;
-      }
-    }
-
-    return 'scared';
   }
 }

@@ -161,4 +161,57 @@ describe('mechanics scenarios: life loss collision', () => {
       harness.destroy();
     }
   });
+
+  it('MEC-LIFE-004 adjacent tile sprite overlap still resolves collision outcomes', () => {
+    const scenario = getScenarioOrThrow('MEC-LIFE-004');
+    resetGameState(0, 3);
+
+    const harness = new MechanicsDomainHarness({
+      seed: scenario.seed,
+      fixture: 'default-map',
+      ghostCount: 1,
+      autoStartSystems: false,
+    });
+
+    try {
+      const ghost = harness.world.ghosts[0];
+      if (!ghost) {
+        throw new Error('expected one ghost for adjacent overlap scenario');
+      }
+
+      harness.movementRules.setEntityTile(harness.world.pacman, { x: 23, y: 23 });
+      harness.movementRules.setEntityTile(ghost, { x: 24, y: 23 });
+      ghost.state.free = true;
+      ghost.state.scared = false;
+
+      harness.world.pacman.moved.x = 3;
+      harness.world.pacman.moved.y = 0;
+      harness.movementRules.syncEntityPosition(harness.world.pacman);
+
+      ghost.moved.x = -3;
+      ghost.moved.y = 0;
+      harness.movementRules.syncEntityPosition(ghost);
+
+      runMechanicsAssertion(
+        {
+          scenarioId: scenario.id,
+          seed: scenario.seed,
+          tick: harness.world.tick,
+          inputTrace: [
+            'place pacman and ghost on adjacent tiles',
+            'offset both entities toward each other to overlap rendered sprite area',
+            'run ghost-pacman collision update',
+          ],
+          snapshotWindow: [harness.snapshot()],
+          assertion: 'adjacent tiles still collide when sprite masks overlap in world space',
+        },
+        () => {
+          harness.ghostPacmanCollisionSystem.update();
+          expect(getGameState().lives).toBe(2);
+        },
+      );
+    } finally {
+      harness.destroy();
+    }
+  });
 });
