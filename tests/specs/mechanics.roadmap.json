@@ -26,18 +26,6 @@
       "expectations": ["score increases by collectible rules", "score event emits each change"]
     },
     {
-      "id": "RD-LIFE-001",
-      "status": "roadmap",
-      "layer": "systems",
-      "mechanic": "life-loss-and-reset",
-      "title": "pacman collision decrements lives and triggers reset",
-      "seed": 2103,
-      "ticks": 300,
-      "fixture": "default-map",
-      "actions": ["collide pacman with non-scared ghost"],
-      "expectations": ["lives decrement", "positions reset deterministically"]
-    },
-    {
       "id": "RD-LEVEL-001",
       "status": "roadmap",
       "layer": "runtime",

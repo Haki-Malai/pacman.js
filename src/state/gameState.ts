@@ -52,6 +52,17 @@ export function setLives(lives: number): void {
   gameEvents.emit(GameEvent.LivesChanged, state.lives);
 }
 
+export function loseLife(amount = 1): number {
+  const safeAmount = Math.max(0, Math.floor(amount));
+  if (safeAmount === 0) {
+    return state.lives;
+  }
+
+  state.lives = Math.max(0, state.lives - safeAmount);
+  gameEvents.emit(GameEvent.LivesChanged, state.lives);
+  return state.lives;
+}
+
 export function getGameState(): GameState {
   return { ...state };
 }

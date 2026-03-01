@@ -63,9 +63,12 @@ Frame-by-frame behavior execution.
 - `PacmanMovementSystem`
 - `GhostReleaseSystem`
 - `GhostMovementSystem`
+- `GhostPacmanCollisionSystem`
 - `AnimationSystem`
 - `CameraSystem`
+- `CollectibleSystem`
 - `HudSystem`
+- `PauseOverlaySystem`
 - `DebugOverlaySystem`
 - `RenderSystem`
 
@@ -96,10 +99,13 @@ Update order (fixed):
 2. `PacmanMovementSystem`
 3. `GhostReleaseSystem`
 4. `GhostMovementSystem`
-5. `AnimationSystem`
-6. `CameraSystem`
-7. `HudSystem`
-8. `DebugOverlaySystem`
+5. `GhostPacmanCollisionSystem`
+6. `AnimationSystem`
+7. `CameraSystem`
+8. `CollectibleSystem`
+9. `HudSystem`
+10. `PauseOverlaySystem`
+11. `DebugOverlaySystem`
 
 Render order:
 1. `RenderSystem` map

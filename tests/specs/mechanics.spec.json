@@ -214,6 +214,17 @@
       "expectations": ["eat effect scales and fades until removed"]
     },
     {
+      "id": "MEC-LIFE-001",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "life-loss-and-respawn",
+      "seed": 1507,
+      "ticks": 1,
+      "fixture": "default-map",
+      "actions": ["collide pacman with active ghost"],
+      "expectations": ["lives decrement once", "pacman respawns at spawn tile", "ghost position is preserved"]
+    },
+    {
       "id": "MEC-RUN-001",
       "status": "implemented",
       "layer": "runtime",

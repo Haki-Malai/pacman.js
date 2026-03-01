@@ -21,6 +21,7 @@ import { CameraSystem } from '../systems/CameraSystem';
 import { CollectibleSystem } from '../systems/CollectibleSystem';
 import { DebugOverlaySystem } from '../systems/DebugOverlaySystem';
 import { GhostMovementSystem } from '../systems/GhostMovementSystem';
+import { GhostPacmanCollisionSystem } from '../systems/GhostPacmanCollisionSystem';
 import { GhostReleaseSystem } from '../systems/GhostReleaseSystem';
 import { HudSystem } from '../systems/HudSystem';
 import { InputSystem } from '../systems/InputSystem';
@@ -121,6 +122,7 @@ export class GameCompositionRoot {
       map,
       tileSize,
       collisionGrid,
+      pacmanSpawnTile: pacmanTile,
       pacman,
       ghosts,
       ghostJailBounds,
@@ -133,6 +135,7 @@ export class GameCompositionRoot {
     const pacmanSystem = new PacmanMovementSystem(world, movementRules, portalService);
     const ghostReleaseSystem = new GhostReleaseSystem(world, movementRules, jailService, scheduler, rng);
     const ghostMovementSystem = new GhostMovementSystem(world, movementRules, ghostDecisions, portalService, rng);
+    const ghostPacmanCollisionSystem = new GhostPacmanCollisionSystem(world, movementRules);
     const animationSystem = new AnimationSystem(world, SPEED.ghost);
     const cameraSystem = new CameraSystem(world, camera, renderer, canvas);
     const collectibleSystem = new CollectibleSystem(world);
@@ -146,6 +149,7 @@ export class GameCompositionRoot {
       pacmanSystem,
       ghostReleaseSystem,
       ghostMovementSystem,
+      ghostPacmanCollisionSystem,
       animationSystem,
       cameraSystem,
       collectibleSystem,
