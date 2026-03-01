@@ -1,5 +1,5 @@
 import { CollisionTile, createEmptyCollisionTile } from '../../domain/world/CollisionGrid';
-import { WorldMapData, WorldObject, WorldProperty, WorldTile } from '../../domain/world/WorldState';
+import { PortalPair, WorldMapData, WorldObject, WorldProperty, WorldTile } from '../../domain/world/WorldState';
 
 export const FLIPPED_HORIZONTAL = 0x80000000;
 export const FLIPPED_VERTICAL = 0x40000000;
@@ -207,6 +207,258 @@ const toWorldObject = (object: TiledObject): WorldObject => ({
   })),
 });
 
+const PORTAL_RESOLVE_MAX_RADIUS = 4;
+
+interface ResolvedPortalEndpoint {
+  tile: { x: number; y: number };
+  pairId?: string;
+  order: number;
+}
+
+function createBlockingCollisionTile(): CollisionTile {
+  return {
+    collides: true,
+    penGate: false,
+    portal: false,
+    up: true,
+    down: true,
+    left: true,
+    right: true,
+  };
+}
+
+function isWalkablePortalTile(tile: WorldTile | undefined): tile is WorldTile {
+  if (!tile) {
+    return false;
+  }
+
+  return tile.gid !== null && !tile.collision.collides && !tile.collision.penGate;
+}
+
+function clampToGrid(value: number, maxExclusive: number): number {
+  if (maxExclusive <= 0) {
+    return 0;
+  }
+
+  if (value < 0) {
+    return 0;
+  }
+
+  if (value >= maxExclusive) {
+    return maxExclusive - 1;
+  }
+
+  return value;
+}
+
+function resolvePortalTileFromObject(params: {
+  objectX: number;
+  objectY: number;
+  tileWidth: number;
+  tileHeight: number;
+  width: number;
+  height: number;
+  tiles: WorldTile[][];
+}): { x: number; y: number } | null {
+  if (
+    !Number.isFinite(params.objectX) ||
+    !Number.isFinite(params.objectY) ||
+    !Number.isFinite(params.tileWidth) ||
+    !Number.isFinite(params.tileHeight) ||
+    params.tileWidth <= 0 ||
+    params.tileHeight <= 0
+  ) {
+    return null;
+  }
+
+  const originX = clampToGrid(Math.floor(params.objectX / params.tileWidth), params.width);
+  const originY = clampToGrid(Math.floor(params.objectY / params.tileHeight), params.height);
+
+  for (let distance = 0; distance <= PORTAL_RESOLVE_MAX_RADIUS; distance += 1) {
+    const minY = Math.max(0, originY - distance);
+    const maxY = Math.min(params.height - 1, originY + distance);
+
+    for (let y = minY; y <= maxY; y += 1) {
+      const remainingDistance = distance - Math.abs(y - originY);
+      const minX = Math.max(0, originX - remainingDistance);
+      const maxX = Math.min(params.width - 1, originX + remainingDistance);
+
+      for (let x = minX; x <= maxX; x += 1) {
+        if (Math.abs(x - originX) + Math.abs(y - originY) !== distance) {
+          continue;
+        }
+
+        const tile = params.tiles[y]?.[x];
+        if (isWalkablePortalTile(tile)) {
+          return { x, y };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function readObjectStringProperty(object: WorldObject, name: string): string | undefined {
+  const value = object.properties?.find((property) => property.name === name)?.value;
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function compareResolvedEndpoints(a: ResolvedPortalEndpoint, b: ResolvedPortalEndpoint): number {
+  if (a.tile.y !== b.tile.y) {
+    return a.tile.y - b.tile.y;
+  }
+  if (a.tile.x !== b.tile.x) {
+    return a.tile.x - b.tile.x;
+  }
+  return a.order - b.order;
+}
+
+function buildPortalPairs(endpoints: ResolvedPortalEndpoint[]): PortalPair[] {
+  const groupedByPairId = new Map<string, ResolvedPortalEndpoint[]>();
+  const consumedTiles = new Set<string>();
+  const portalPairs: PortalPair[] = [];
+
+  endpoints.forEach((endpoint) => {
+    if (!endpoint.pairId) {
+      return;
+    }
+
+    const group = groupedByPairId.get(endpoint.pairId) ?? [];
+    group.push(endpoint);
+    groupedByPairId.set(endpoint.pairId, group);
+  });
+
+  const pairIds = [...groupedByPairId.keys()].sort((a, b) => a.localeCompare(b));
+  pairIds.forEach((pairId) => {
+    const group = groupedByPairId.get(pairId);
+    if (!group) {
+      return;
+    }
+
+    group.sort(compareResolvedEndpoints);
+    for (let index = 0; index + 1 < group.length; index += 2) {
+      const from = group[index];
+      const to = group[index + 1];
+      portalPairs.push({
+        from: { ...from.tile },
+        to: { ...to.tile },
+      });
+      consumedTiles.add(`${from.tile.x},${from.tile.y}`);
+      consumedTiles.add(`${to.tile.x},${to.tile.y}`);
+    }
+  });
+
+  const fallbackEndpoints = endpoints
+    .filter((endpoint) => !consumedTiles.has(`${endpoint.tile.x},${endpoint.tile.y}`))
+    .sort(compareResolvedEndpoints);
+
+  for (let index = 0; index + 1 < fallbackEndpoints.length; index += 2) {
+    const from = fallbackEndpoints[index];
+    const to = fallbackEndpoints[index + 1];
+    portalPairs.push({
+      from: { ...from.tile },
+      to: { ...to.tile },
+    });
+  }
+
+  return portalPairs;
+}
+
+function applyPortalFlagsFromSpawnObjects(params: {
+  spawnObjects: WorldObject[];
+  tiles: WorldTile[][];
+  tileWidth: number;
+  tileHeight: number;
+  width: number;
+  height: number;
+}): PortalPair[] {
+  const endpointsByTile = new Map<string, ResolvedPortalEndpoint>();
+
+  params.spawnObjects.forEach((object, order) => {
+    if (object.type !== 'portal' || typeof object.x !== 'number' || typeof object.y !== 'number') {
+      return;
+    }
+
+    const resolvedTile = resolvePortalTileFromObject({
+      objectX: object.x,
+      objectY: object.y,
+      tileWidth: params.tileWidth,
+      tileHeight: params.tileHeight,
+      width: params.width,
+      height: params.height,
+      tiles: params.tiles,
+    });
+
+    if (!resolvedTile) {
+      return;
+    }
+
+    const target = params.tiles[resolvedTile.y]?.[resolvedTile.x];
+    if (!target) {
+      return;
+    }
+
+    const key = `${resolvedTile.x},${resolvedTile.y}`;
+    const pairId = readObjectStringProperty(object, 'pairId');
+    const existing = endpointsByTile.get(key);
+    if (existing) {
+      if (!existing.pairId && pairId) {
+        existing.pairId = pairId;
+      }
+      return;
+    }
+
+    target.collision.portal = true;
+    endpointsByTile.set(key, {
+      tile: resolvedTile,
+      pairId,
+      order,
+    });
+  });
+
+  const endpoints = [...endpointsByTile.values()].sort(compareResolvedEndpoints);
+  return buildPortalPairs(endpoints);
+}
+
+function applyVoidLeakBoundaryGuards(tiles: WorldTile[][]): void {
+  const isVoidTile = (tile: WorldTile | undefined): boolean => !tile || tile.gid === null;
+  const directions: Array<{ dx: number; dy: number; edge: keyof Pick<CollisionTile, 'up' | 'right' | 'down' | 'left'> }> = [
+    { dx: 0, dy: -1, edge: 'up' },
+    { dx: 1, dy: 0, edge: 'right' },
+    { dx: 0, dy: 1, edge: 'down' },
+    { dx: -1, dy: 0, edge: 'left' },
+  ];
+
+  for (let y = 0; y < tiles.length; y += 1) {
+    const row = tiles[y];
+    if (!row) {
+      continue;
+    }
+
+    for (let x = 0; x < row.length; x += 1) {
+      const tile = row[x];
+      if (!tile || tile.gid === null || tile.collision.portal) {
+        continue;
+      }
+
+      const leaksToVoid = directions.some(({ dx, dy, edge }) => {
+        const neighbor = tiles[y + dy]?.[x + dx];
+        return isVoidTile(neighbor) && !tile.collision[edge];
+      });
+
+      if (leaksToVoid) {
+        tile.collision = createBlockingCollisionTile();
+      }
+    }
+  }
+}
+
 export function parseTiledMap(map: TiledMap): WorldMapData {
   const mazeLayer = map.layers.find((layer) => isRecord(layer) && layer.type === 'tilelayer' && layer.name === 'Maze') as
     | TiledTileLayer
@@ -267,7 +519,7 @@ export function parseTiledMap(map: TiledMap): WorldMapData {
           rotation: 0,
           flipX: false,
           flipY: false,
-          collision: createEmptyCollisionTile(),
+          collision: createBlockingCollisionTile(),
         });
         continue;
       }
@@ -302,6 +554,16 @@ export function parseTiledMap(map: TiledMap): WorldMapData {
 
   const spawnObjects = (spawnLayer?.objects ?? []).map((object) => toWorldObject(object));
 
+  const portalPairs = applyPortalFlagsFromSpawnObjects({
+    spawnObjects,
+    tiles,
+    tileWidth: map.tilewidth,
+    tileHeight: map.tileheight,
+    width,
+    height,
+  });
+  applyVoidLeakBoundaryGuards(tiles);
+
   return {
     width,
     height,
@@ -312,6 +574,7 @@ export function parseTiledMap(map: TiledMap): WorldMapData {
     tiles,
     collisionByGid,
     imageByGid,
+    portalPairs,
     spawnObjects,
     pacmanSpawn: spawnObjects.find((object) => object.type === 'pacman'),
     ghostHome: spawnObjects.find((object) => object.type === 'ghost-home'),

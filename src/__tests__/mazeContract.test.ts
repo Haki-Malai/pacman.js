@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { parseTiledMap } from '../game/infrastructure/map/TiledParser';
 
 type TiledProperty = {
   name: string;
@@ -14,20 +15,37 @@ type TiledTile = {
 };
 
 type TiledLayer = {
+  id?: number;
   name: string;
   type: string;
+  x?: number;
+  y?: number;
   width?: number;
   height?: number;
   data?: number[];
   objects?: Array<{
+    id?: number;
+    name?: string;
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
     type: string;
     properties?: TiledProperty[];
   }>;
 };
 
 type TiledMap = {
+  width: number;
+  height: number;
+  tilewidth: number;
+  tileheight: number;
   layers: TiledLayer[];
   tilesets: Array<{
+    firstgid: number;
+    name: string;
+    tilewidth: number;
+    tileheight: number;
     tiles?: TiledTile[];
   }>;
 };
@@ -90,6 +108,110 @@ describe('maze.json contract', () => {
     expect(typeof getPropertyValue(ghostHome?.properties, 'endX')).toBe('number');
     expect(typeof getPropertyValue(ghostHome?.properties, 'gridY')).toBe('number');
     expect(getPropertyValue(ghostHome?.properties, 'ghostCount')).toBe(4);
+  });
+
+  it('contains portal spawn objects that define production teleport anchors', () => {
+    const map = readMap();
+    const spawnLayer = map.layers.find((layer) => layer.name === 'Spawns');
+    const objects = spawnLayer?.objects ?? [];
+
+    const leftPortal = objects.find((object) => object.name === 'portal-left' && object.type === 'portal');
+    const rightPortal = objects.find((object) => object.name === 'portal-right' && object.type === 'portal');
+    const topPortal = objects.find((object) => object.name === 'portal-top' && object.type === 'portal');
+    const bottomPortal = objects.find((object) => object.name === 'portal-bottom' && object.type === 'portal');
+
+    expect(leftPortal).toBeDefined();
+    expect(rightPortal).toBeDefined();
+    expect(topPortal).toBeDefined();
+    expect(bottomPortal).toBeDefined();
+    expect(leftPortal?.x).toBe(8);
+    expect(leftPortal?.y).toBe(408);
+    expect(getPropertyValue(leftPortal?.properties, 'pairId')).toBe('horizontal');
+    expect(rightPortal?.x).toBe(808);
+    expect(rightPortal?.y).toBe(408);
+    expect(getPropertyValue(rightPortal?.properties, 'pairId')).toBe('horizontal');
+    expect(topPortal?.x).toBe(408);
+    expect(topPortal?.y).toBe(8);
+    expect(getPropertyValue(topPortal?.properties, 'pairId')).toBe('vertical');
+    expect(bottomPortal?.x).toBe(408);
+    expect(bottomPortal?.y).toBe(808);
+    expect(getPropertyValue(bottomPortal?.properties, 'pairId')).toBe('vertical');
+  });
+
+  it('parses deterministic portal endpoint tiles from portal spawn objects', () => {
+    const parsed = parseTiledMap(readMap());
+    const portalTiles: Array<{ x: number; y: number }> = [];
+
+    for (let y = 0; y < parsed.height; y += 1) {
+      for (let x = 0; x < parsed.width; x += 1) {
+        if (parsed.tiles[y]?.[x]?.collision.portal) {
+          portalTiles.push({ x, y });
+        }
+      }
+    }
+
+    expect(portalTiles).toEqual([
+      { x: 25, y: 1 },
+      { x: 1, y: 26 },
+      { x: 49, y: 26 },
+      { x: 25, y: 49 },
+    ]);
+
+    expect(parsed.portalPairs).toEqual([
+      {
+        from: { x: 1, y: 26 },
+        to: { x: 49, y: 26 },
+      },
+      {
+        from: { x: 25, y: 1 },
+        to: { x: 25, y: 49 },
+      },
+    ]);
+  });
+
+  it('parses boundary void cells as blocking tiles', () => {
+    const parsed = parseTiledMap(readMap());
+    const leftVoid = parsed.tiles[26]?.[0]?.collision;
+    const rightVoid = parsed.tiles[26]?.[50]?.collision;
+
+    expect(leftVoid).toMatchObject({
+      collides: true,
+      penGate: false,
+      portal: false,
+      up: true,
+      down: true,
+      left: true,
+      right: true,
+    });
+    expect(rightVoid).toMatchObject({
+      collides: true,
+      penGate: false,
+      portal: false,
+      up: true,
+      down: true,
+      left: true,
+      right: true,
+    });
+  });
+
+  it('blocks non-portal tiles that expose an open edge directly into map void', () => {
+    const parsed = parseTiledMap(readMap());
+    const leakBandTile = parsed.tiles[1]?.[24]?.collision;
+
+    expect(leakBandTile).toMatchObject({
+      collides: true,
+      penGate: false,
+      portal: false,
+      up: true,
+      right: true,
+      down: true,
+      left: true,
+    });
+
+    const portalEndpoint = parsed.tiles[26]?.[49]?.collision;
+    expect(portalEndpoint?.portal).toBe(true);
+    expect(portalEndpoint?.collides).toBe(false);
+    expect(parsed.tiles[1]?.[25]?.collision.portal).toBe(true);
   });
 
   it('contains seeded tile collision properties for the migration rules', () => {

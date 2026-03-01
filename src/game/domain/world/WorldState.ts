@@ -35,6 +35,11 @@ export interface WorldTile {
   collision: CollisionTile;
 }
 
+export interface PortalPair {
+  from: TilePosition;
+  to: TilePosition;
+}
+
 export interface WorldMapData {
   width: number;
   height: number;
@@ -45,6 +50,7 @@ export interface WorldMapData {
   tiles: WorldTile[][];
   collisionByGid: Map<number, CollisionTile>;
   imageByGid: Map<number, string>;
+  portalPairs?: PortalPair[];
   spawnObjects: WorldObject[];
   pacmanSpawn?: WorldObject;
   ghostHome?: WorldObject;

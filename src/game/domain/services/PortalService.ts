@@ -1,4 +1,5 @@
 import { TilePosition } from '../valueObjects/TilePosition';
+import { PortalPair } from '../world/WorldState';
 import { CollisionGrid } from '../world/CollisionGrid';
 
 interface PortalTrackedEntity {
@@ -14,7 +15,14 @@ export class PortalService {
   private readonly portalPairs = new Map<string, TilePosition>();
   private readonly lastTeleportTick = new WeakMap<object, number>();
 
-  constructor(collisionGrid: CollisionGrid) {
+  constructor(collisionGrid: CollisionGrid, explicitPortalPairs: PortalPair[] = []) {
+    if (explicitPortalPairs.length > 0) {
+      explicitPortalPairs.forEach((pair) => {
+        this.setPortalPair(pair.from, pair.to);
+      });
+      return;
+    }
+
     const portals: TilePosition[] = [];
     for (let y = 0; y < collisionGrid.height; y += 1) {
       for (let x = 0; x < collisionGrid.width; x += 1) {
@@ -28,8 +36,7 @@ export class PortalService {
     for (let i = 0; i + 1 < portals.length; i += 2) {
       const from = portals[i];
       const to = portals[i + 1];
-      this.portalPairs.set(tileKey(from), { ...to });
-      this.portalPairs.set(tileKey(to), { ...from });
+      this.setPortalPair(from, to);
     }
   }
 
@@ -49,13 +56,7 @@ export class PortalService {
     }
 
     const targetCollision = collisionGrid.getTileAt(destination.x, destination.y);
-    if (
-      targetCollision.collides &&
-      targetCollision.up &&
-      targetCollision.right &&
-      targetCollision.down &&
-      targetCollision.left
-    ) {
+    if (this.isFullyBlocking(targetCollision)) {
       return false;
     }
 
@@ -64,5 +65,26 @@ export class PortalService {
     entity.moved.y = 0;
     this.lastTeleportTick.set(entity, tick);
     return true;
+  }
+
+  private setPortalPair(from: TilePosition, to: TilePosition): void {
+    this.portalPairs.set(tileKey(from), { ...to });
+    this.portalPairs.set(tileKey(to), { ...from });
+  }
+
+  private isFullyBlocking(collisionTile: {
+    collides: boolean;
+    up: boolean;
+    right: boolean;
+    down: boolean;
+    left: boolean;
+  }): boolean {
+    return (
+      collisionTile.collides &&
+      collisionTile.up &&
+      collisionTile.right &&
+      collisionTile.down &&
+      collisionTile.left
+    );
   }
 }

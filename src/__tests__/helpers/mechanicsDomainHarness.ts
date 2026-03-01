@@ -132,7 +132,7 @@ export class MechanicsDomainHarness {
     });
 
     this.scheduler = new TimerSchedulerAdapter();
-    this.portalService = new PortalService(collisionGrid);
+    this.portalService = new PortalService(collisionGrid, safeMap.portalPairs ?? []);
     this.decisions = new GhostDecisionService();
 
     this.pacmanSystem = new PacmanMovementSystem(this.world, this.movementRules, this.portalService);

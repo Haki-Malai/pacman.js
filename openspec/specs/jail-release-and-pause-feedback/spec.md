@@ -18,11 +18,23 @@ Before upward exit, releasing ghosts MUST align to a valid release lane tile, an
 - **THEN** the ghost aligns to a deterministic lane choice, respects preferred direction when provided, and only then starts the exit tween
 
 ### Requirement: Post-portal Pac-Man visibility blink is time-bounded and deterministic
-After successful portal teleport, Pac-Man visibility SHALL blink for a fixed duration using deterministic interval phase calculation, then return to normal visibility.
+After successful portal teleport, Pac-Man visibility SHALL blink for a fixed duration using deterministic interval phase calculation, then return to normal visibility. That same blink window SHALL act as a collision shield for non-scared ghost collisions while still allowing scared ghost collisions to resolve as ghost-hit. The production default map SHALL expose deterministic horizontal and vertical portal endpoint pairs so portal behavior is reachable in both tunnel axes during normal runtime play.
 
 #### Scenario: Blink window starts on teleport and resets on expiry
 - **WHEN** Pac-Man teleports through a portal and subsequent ticks advance
 - **THEN** blink timing starts immediately, visibility toggles by configured interval, and blink state clears when duration reaches zero
+
+#### Scenario: Blink window suppresses non-scared collision effects
+- **WHEN** Pac-Man collides with an active free non-scared ghost during active post-portal blink window
+- **THEN** no Pac-Man hit behavior is applied for that tick
+
+#### Scenario: Blink window still permits scared ghost-hit behavior
+- **WHEN** Pac-Man collides with an active free scared ghost during active post-portal blink window
+- **THEN** ghost-hit behavior is applied for the colliding ghost
+
+#### Scenario: Production map exposes deterministic portal endpoint pairs
+- **WHEN** the default production maze is parsed into runtime collision data
+- **THEN** exactly four portal endpoints are present as two deterministic pairs: horizontal `(1,26) <-> (49,26)` and vertical `(25,1) <-> (25,49)`
 
 ### Requirement: Pause state presents overlay and scene treatment while simulation is paused
 When simulation is paused, the runtime SHALL show pause presentation feedback, and SHALL remove that presentation when simulation resumes.
@@ -41,3 +53,4 @@ During the final warning window of scared mode, the runtime SHALL alternate ghos
 #### Scenario: Warning alternation cadence and termination are deterministic
 - **WHEN** update ticks advance through the warning window
 - **THEN** visual alternation uses configured deterministic cadence progression and ends when scared mode expires
+

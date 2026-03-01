@@ -128,7 +128,7 @@ export class GameCompositionRoot {
       ghostJailBounds,
     });
 
-    const portalService = new PortalService(collisionGrid);
+    const portalService = new PortalService(collisionGrid, map.portalPairs ?? []);
     const ghostDecisions = new GhostDecisionService();
 
     const inputSystem = new InputSystem(input, world, runtimeControl);

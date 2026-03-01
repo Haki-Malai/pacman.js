@@ -22,6 +22,16 @@ export const createEmptyCollisionTile = (): CollisionTile => ({
   right: false,
 });
 
+const BOUNDARY_COLLISION_TILE: CollisionTile = Object.freeze({
+  collides: true,
+  penGate: false,
+  portal: false,
+  up: true,
+  down: true,
+  left: true,
+  right: true,
+});
+
 export class CollisionGrid {
   readonly width: number;
   readonly height: number;
@@ -32,11 +42,15 @@ export class CollisionGrid {
   }
 
   getTileAt(x: number, y: number): CollisionTile {
+    if (!this.isInBounds(x, y)) {
+      return BOUNDARY_COLLISION_TILE;
+    }
+
     const row = this.grid[y];
     if (!row) {
-      return createEmptyCollisionTile();
+      return BOUNDARY_COLLISION_TILE;
     }
-    return row[x] ?? createEmptyCollisionTile();
+    return row[x] ?? BOUNDARY_COLLISION_TILE;
   }
 
   getTilesAt(tile: TilePosition): CollisionTiles {
@@ -52,5 +66,9 @@ export class CollisionGrid {
 
   toArray(): CollisionTile[][] {
     return this.grid.map((row) => row.map((tile) => ({ ...tile })));
+  }
+
+  private isInBounds(x: number, y: number): boolean {
+    return y >= 0 && y < this.height && x >= 0 && x < this.width;
   }
 }

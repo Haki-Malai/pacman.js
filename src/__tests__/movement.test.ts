@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { applyBufferedDirection, canMove, DEFAULT_TILE_SIZE, BufferedEntity } from '../game/domain/services/MovementRules';
-import { CollisionTile, CollisionTiles } from '../game/domain/world/CollisionGrid';
+import { CollisionGrid, CollisionTile, CollisionTiles } from '../game/domain/world/CollisionGrid';
 
 const tileSize = DEFAULT_TILE_SIZE;
 const tile = (overrides: Partial<CollisionTile> = {}): CollisionTile => ({
@@ -102,6 +102,16 @@ describe('canMove', () => {
 
     expect(canMove('down', 0, 0, collisionTiles, tileSize, 'pacman')).toBe(false);
     expect(canMove('down', 0, 0, collisionTiles, tileSize, 'ghost')).toBe(true);
+  });
+
+  it('blocks center movement into out-of-bounds neighbors on both axes', () => {
+    const grid = new CollisionGrid([[tile()]]);
+    const collisionTiles = grid.getTilesAt({ x: 0, y: 0 });
+
+    expect(canMove('left', 0, 0, collisionTiles, tileSize)).toBe(false);
+    expect(canMove('right', 0, 0, collisionTiles, tileSize)).toBe(false);
+    expect(canMove('up', 0, 0, collisionTiles, tileSize)).toBe(false);
+    expect(canMove('down', 0, 0, collisionTiles, tileSize)).toBe(false);
   });
 });
 
