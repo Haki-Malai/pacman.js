@@ -7,6 +7,8 @@ export class GameRuntime implements PacmanGame {
   private composed: ComposedGame | null = null;
   private started = false;
   private destroyed = false;
+  private pausedByFocusLoss = false;
+  private focusListenersBound = false;
 
   constructor(private readonly compositionRoot: GameCompositionRoot) {}
 
@@ -19,6 +21,7 @@ export class GameRuntime implements PacmanGame {
 
     this.loop = new FixedStepLoop(this.update, this.render);
     this.started = true;
+    this.bindFocusListeners();
     this.composed.updateSystems.forEach((system) => {
       system.start?.();
     });
@@ -39,6 +42,7 @@ export class GameRuntime implements PacmanGame {
       return;
     }
 
+    this.pausedByFocusLoss = false;
     this.composed.world.isMoving = true;
     this.composed.scheduler.setPaused(false);
   }
@@ -50,6 +54,8 @@ export class GameRuntime implements PacmanGame {
 
     this.destroyed = true;
     this.started = false;
+    this.unbindFocusListeners();
+    this.pausedByFocusLoss = false;
 
     this.loop?.stop();
     this.loop = null;
@@ -81,6 +87,86 @@ export class GameRuntime implements PacmanGame {
       }
     },
   };
+
+  private bindFocusListeners(): void {
+    if (this.focusListenersBound || !this.canBindWindowListeners()) {
+      return;
+    }
+
+    window.addEventListener('blur', this.handleWindowBlur);
+    window.addEventListener('focus', this.handleWindowFocus);
+    if (this.canBindDocumentListeners()) {
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+    this.focusListenersBound = true;
+  }
+
+  private unbindFocusListeners(): void {
+    if (!this.focusListenersBound || !this.canBindWindowListeners()) {
+      return;
+    }
+
+    window.removeEventListener('blur', this.handleWindowBlur);
+    window.removeEventListener('focus', this.handleWindowFocus);
+    if (this.canBindDocumentListeners()) {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+    this.focusListenersBound = false;
+  }
+
+  private readonly handleWindowBlur = (): void => {
+    this.handleFocusLost();
+  };
+
+  private readonly handleWindowFocus = (): void => {
+    this.handleFocusReturned();
+  };
+
+  private readonly handleVisibilityChange = (): void => {
+    if (typeof document === 'undefined' || !('hidden' in document)) {
+      return;
+    }
+
+    if (document.hidden) {
+      this.handleFocusLost();
+      return;
+    }
+
+    this.handleFocusReturned();
+  };
+
+  private canBindWindowListeners(): boolean {
+    return (
+      typeof window !== 'undefined' &&
+      typeof window.addEventListener === 'function' &&
+      typeof window.removeEventListener === 'function'
+    );
+  }
+
+  private canBindDocumentListeners(): boolean {
+    return (
+      typeof document !== 'undefined' &&
+      typeof document.addEventListener === 'function' &&
+      typeof document.removeEventListener === 'function'
+    );
+  }
+
+  private handleFocusLost(): void {
+    if (!this.started || this.destroyed || !this.composed || !this.composed.world.isMoving) {
+      return;
+    }
+
+    this.pause();
+    this.pausedByFocusLoss = true;
+  }
+
+  private handleFocusReturned(): void {
+    if (!this.started || this.destroyed || !this.composed || !this.pausedByFocusLoss) {
+      return;
+    }
+
+    this.resume();
+  }
 
   private readonly update = (deltaMs: number): void => {
     if (!this.composed || this.destroyed) {

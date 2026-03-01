@@ -9,7 +9,7 @@ import { MovementRules } from '../domain/services/MovementRules';
 import { PortalService } from '../domain/services/PortalService';
 import { TilePosition } from '../domain/valueObjects/TilePosition';
 import { CollisionGrid } from '../domain/world/CollisionGrid';
-import { WorldMapData, WorldState } from '../domain/world/WorldState';
+import { WorldState } from '../domain/world/WorldState';
 import { AssetCatalog } from '../infrastructure/assets/AssetCatalog';
 import { BrowserInputAdapter } from '../infrastructure/adapters/BrowserInputAdapter';
 import { CanvasRendererAdapter } from '../infrastructure/adapters/CanvasRendererAdapter';
@@ -29,7 +29,6 @@ import { PacmanMovementSystem } from '../systems/PacmanMovementSystem';
 import { PauseOverlaySystem } from '../systems/PauseOverlaySystem';
 import { RenderSystem } from '../systems/RenderSystem';
 import { ComposedGame, RuntimeControl } from './contracts';
-import { MapVariant, resolveMapPathsForVariant } from './mapRuntimeConfig';
 
 const GHOST_KEYS: GhostKey[] = ['inky', 'clyde', 'pinky', 'blinky'];
 
@@ -46,7 +45,6 @@ function clamp(value: number, min: number, max: number): number {
 export interface GameCompositionOptions {
   mountId?: string;
   rng?: (() => number) | { next(): number; int(maxExclusive: number): number };
-  mapVariant?: MapVariant;
 }
 
 export class GameCompositionRoot {
@@ -73,21 +71,10 @@ export class GameCompositionRoot {
     const assets = new AssetCatalog();
 
     const rng = toRandomSource(this.options.rng ?? Math.random);
-    const mapVariant = this.options.mapVariant ?? 'default';
-    const mapPaths = resolveMapPathsForVariant(mapVariant);
 
-    let map: WorldMapData;
-    try {
-      map = await mapRepository.loadMap(mapPaths.mapJsonPath);
-      await assets.loadForMap(map, mapPaths.tileBasePath);
-    } catch (error) {
-      if (mapVariant === 'demo') {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new Error(`Failed to start DEMO mode map from "${mapPaths.mapJsonPath}": ${message}`);
-      }
-      throw error;
-    }
+    const map = await mapRepository.loadMap('assets/mazes/default/maze.json');
     const tileSize = map.tileWidth || TILE_SIZE;
+    await assets.loadForMap(map, 'assets/mazes/default');
 
     const collisionGrid = new CollisionGrid(map.tiles.map((row) => row.map((tile) => ({ ...tile.collision }))));
     const movementRules = new MovementRules(tileSize);
