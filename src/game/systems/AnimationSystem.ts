@@ -1,3 +1,4 @@
+import { GHOST_SCARED_RECOVERY_CROSSFADE_MS } from '../../config/constants';
 import { GhostEntity } from '../domain/entities/GhostEntity';
 import {
   AnimationKey,
@@ -81,12 +82,19 @@ export class AnimationSystem {
     if (ghost.state.scared && ghost.state.animation !== 'scared') {
       ghost.state.animation = 'scared';
       ghost.speed = 0.5;
+      this.world.ghostScaredRecovery.delete(ghost);
       this.world.ghostAnimations.set(ghost, this.createAnimationPlayback('scaredIdle'));
     } else if (!ghost.state.scared && ghost.state.animation === 'scared') {
       ghost.state.animation = 'default';
       ghost.speed = this.defaultGhostSpeed;
       this.world.ghostAnimations.set(ghost, this.createAnimationPlayback(`${ghost.key}Idle` as AnimationKey));
+      this.world.ghostScaredRecovery.set(ghost, {
+        elapsedMs: 0,
+        durationMs: GHOST_SCARED_RECOVERY_CROSSFADE_MS,
+      });
     }
+
+    this.updateGhostScaredRecovery(ghost, deltaMs);
 
     const playback = this.world.ghostAnimations.get(ghost);
     if (!playback) {
@@ -118,6 +126,19 @@ export class AnimationSystem {
         playback.forward = 1;
         playback.frame += 1;
       }
+    }
+  }
+
+  private updateGhostScaredRecovery(ghost: GhostEntity, deltaMs: number): void {
+    const recovery = this.world.ghostScaredRecovery.get(ghost);
+    if (!recovery) {
+      return;
+    }
+
+    const safeDelta = Number.isFinite(deltaMs) && deltaMs > 0 ? deltaMs : 0;
+    recovery.elapsedMs = Math.min(recovery.durationMs, recovery.elapsedMs + safeDelta);
+    if (recovery.elapsedMs >= recovery.durationMs) {
+      this.world.ghostScaredRecovery.delete(ghost);
     }
   }
 

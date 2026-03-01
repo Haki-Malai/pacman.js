@@ -89,6 +89,20 @@ describe('GhostPacmanCollisionService', () => {
     expect(collision?.ghost).toBe(first);
   });
 
+  it('defaults to ghost-hit outcome when collision ghost is scared', () => {
+    const ghost = makeGhost({ x: 5, y: 5 });
+    ghost.state.scared = true;
+
+    const collision = findFirstCollision({
+      pacmanCurrent: { x: 5, y: 5 },
+      pacmanPrevious: { x: 5, y: 4 },
+      ghosts: [ghost],
+      ghostPreviousTiles: new Map([[ghost, { x: 5, y: 5 }]]),
+    });
+
+    expect(collision?.outcome).toBe('ghost-hit');
+  });
+
   it('supports an overridable outcome resolver for future ghost-hit behavior', () => {
     const ghost = makeGhost({ x: 3, y: 3 });
 

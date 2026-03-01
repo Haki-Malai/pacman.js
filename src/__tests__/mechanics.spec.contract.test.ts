@@ -8,6 +8,7 @@ const EXPECTED_IMPLEMENTED_IDS = [
   'MEC-GHO-001',
   'MEC-GHO-002',
   'MEC-GHO-003',
+  'MEC-GHO-004',
   'MEC-JAIL-001',
   'MEC-JAIL-002',
   'MEC-PORT-001',
@@ -17,15 +18,17 @@ const EXPECTED_IMPLEMENTED_IDS = [
   'MEC-TIME-002',
   'MEC-ANI-001',
   'MEC-ANI-002',
+  'MEC-ANI-003',
   'MEC-PAUSE-003',
   'MEC-POINT-001',
   'MEC-POINT-002',
   'MEC-POINT-003',
   'MEC-LIFE-001',
+  'MEC-LIFE-002',
   'MEC-RUN-001',
 ];
 
-const EXPECTED_ROADMAP_IDS = ['RD-GHOST-001', 'RD-SCORE-001', 'RD-LEVEL-001', 'RD-MAP-001'];
+const EXPECTED_ROADMAP_IDS = ['RD-SCORE-001', 'RD-LEVEL-001', 'RD-MAP-001'];
 
 describe('mechanics specs contract', () => {
   it('contains a valid implemented mechanics scenario catalog with unique ids', () => {

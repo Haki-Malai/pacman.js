@@ -15,6 +15,12 @@ export const PACMAN_PORTAL_BLINK = {
   intervalMs: 120,
 } as const;
 
+export const PACMAN_DEATH_RECOVERY = {
+  durationMs: 1200,
+  blinkStartIntervalMs: 60,
+  blinkEndIntervalMs: 220,
+} as const;
+
 export const CAMERA = {
   zoom: 5,
   followLerp: { x: 0.09, y: 0.09 },
@@ -31,6 +37,9 @@ export const GHOST_JAIL_RELEASE_INTERVAL_MS = 900;
 export const GHOST_JAIL_MOVE_SPEED = 0.5;
 export const GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS = 260;
 export const GHOST_JAIL_RELEASE_TWEEN_MS = 650;
+export const GHOST_EAT_JAIL_FREE_DELAY_MS = 2000;
+export const GHOST_SCARED_RECOVERY_CROSSFADE_MS = 900;
+export const GHOST_EAT_CHAIN_SCORES = [200, 400, 800, 1600] as const;
 
 export const COLLECTIBLE_CONFIG: Record<
   number,
