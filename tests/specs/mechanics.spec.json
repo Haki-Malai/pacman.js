@@ -306,6 +306,17 @@
       "expectations": ["non-scared collision is suppressed while portal shield is active", "scared collision still resolves as ghost-hit while portal shield is active"]
     },
     {
+      "id": "MEC-LIFE-004",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "adjacent-tile-pixel-overlap-collision",
+      "seed": 1511,
+      "ticks": 1,
+      "fixture": "default-map",
+      "actions": ["place pacman and ghost on adjacent tiles", "apply opposite sub-tile offsets to overlap sprites", "run collision update"],
+      "expectations": ["collision resolves when opaque sprite pixels overlap even across adjacent tiles", "life loss outcome still applies for non-scared ghost"]
+    },
+    {
       "id": "MEC-RUN-001",
       "status": "implemented",
       "layer": "runtime",

@@ -102,9 +102,7 @@ export class WorldState {
   readonly collisionGrid: CollisionGrid;
   readonly pacmanSpawnTile: TilePosition;
   pacman: PacmanEntity;
-  pacmanPreviousTile: TilePosition;
   ghosts: GhostEntity[];
-  ghostPreviousTiles = new Map<GhostEntity, TilePosition>();
   ghostScaredTimers = new Map<GhostEntity, number>();
   ghostScaredWarnings = new Map<GhostEntity, GhostScaredWarningVisualState>();
   ghostJailBounds: GhostJailBounds;
@@ -139,7 +137,6 @@ export class WorldState {
     this.collisionGrid = params.collisionGrid;
     this.pacmanSpawnTile = { ...params.pacmanSpawnTile };
     this.pacman = params.pacman;
-    this.pacmanPreviousTile = { ...params.pacman.tile };
     this.ghosts = params.ghosts;
     this.ghostJailBounds = params.ghostJailBounds;
     this.ghostJailReturnTile = {

@@ -14,7 +14,6 @@ export class PacmanMovementSystem {
     this.updatePortalBlink(deltaMs);
     this.updateDeathRecovery(deltaMs);
     this.updateDirectionVisuals();
-    this.world.pacmanPreviousTile = { ...this.world.pacman.tile };
 
     const collisionTiles = this.world.collisionGrid.getTilesAt(this.world.pacman.tile);
     this.movementRules.applyBufferedDirection(this.world.pacman, collisionTiles);

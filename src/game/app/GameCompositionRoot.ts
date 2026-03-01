@@ -9,7 +9,7 @@ import { MovementRules } from '../domain/services/MovementRules';
 import { PortalService } from '../domain/services/PortalService';
 import { TilePosition } from '../domain/valueObjects/TilePosition';
 import { CollisionGrid } from '../domain/world/CollisionGrid';
-import { WorldState } from '../domain/world/WorldState';
+import { WorldMapData, WorldState } from '../domain/world/WorldState';
 import { AssetCatalog } from '../infrastructure/assets/AssetCatalog';
 import { BrowserInputAdapter } from '../infrastructure/adapters/BrowserInputAdapter';
 import { CanvasRendererAdapter } from '../infrastructure/adapters/CanvasRendererAdapter';
@@ -21,7 +21,7 @@ import { CameraSystem } from '../systems/CameraSystem';
 import { CollectibleSystem } from '../systems/CollectibleSystem';
 import { DebugOverlaySystem } from '../systems/DebugOverlaySystem';
 import { GhostMovementSystem } from '../systems/GhostMovementSystem';
-import { GhostPacmanCollisionSystem } from '../systems/GhostPacmanCollisionSystem';
+import { GhostPacmanCollisionSystem, SpriteMaskProvider } from '../systems/GhostPacmanCollisionSystem';
 import { GhostReleaseSystem } from '../systems/GhostReleaseSystem';
 import { HudSystem } from '../systems/HudSystem';
 import { InputSystem } from '../systems/InputSystem';
@@ -29,6 +29,7 @@ import { PacmanMovementSystem } from '../systems/PacmanMovementSystem';
 import { PauseOverlaySystem } from '../systems/PauseOverlaySystem';
 import { RenderSystem } from '../systems/RenderSystem';
 import { ComposedGame, RuntimeControl } from './contracts';
+import { MapVariant, resolveMapPathsForVariant } from './mapRuntimeConfig';
 
 const GHOST_KEYS: GhostKey[] = ['inky', 'clyde', 'pinky', 'blinky'];
 
@@ -45,6 +46,7 @@ function clamp(value: number, min: number, max: number): number {
 export interface GameCompositionOptions {
   mountId?: string;
   rng?: (() => number) | { next(): number; int(maxExclusive: number): number };
+  mapVariant?: MapVariant;
 }
 
 export class GameCompositionRoot {
@@ -71,10 +73,21 @@ export class GameCompositionRoot {
     const assets = new AssetCatalog();
 
     const rng = toRandomSource(this.options.rng ?? Math.random);
+    const mapVariant = this.options.mapVariant ?? 'default';
+    const mapPaths = resolveMapPathsForVariant(mapVariant);
 
-    const map = await mapRepository.loadMap('assets/mazes/default/maze.json');
+    let map: WorldMapData;
+    try {
+      map = await mapRepository.loadMap(mapPaths.mapJsonPath);
+      await assets.loadForMap(map, mapPaths.tileBasePath);
+    } catch (error) {
+      if (mapVariant === 'demo') {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to start DEMO mode map from "${mapPaths.mapJsonPath}": ${message}`);
+      }
+      throw error;
+    }
     const tileSize = map.tileWidth || TILE_SIZE;
-    await assets.loadForMap(map, 'assets/mazes/default');
 
     const collisionGrid = new CollisionGrid(map.tiles.map((row) => row.map((tile) => ({ ...tile.collision }))));
     const movementRules = new MovementRules(tileSize);
@@ -135,7 +148,18 @@ export class GameCompositionRoot {
     const pacmanSystem = new PacmanMovementSystem(world, movementRules, portalService);
     const ghostReleaseSystem = new GhostReleaseSystem(world, movementRules, jailService, scheduler, rng);
     const ghostMovementSystem = new GhostMovementSystem(world, movementRules, ghostDecisions, portalService, rng);
-    const ghostPacmanCollisionSystem = new GhostPacmanCollisionSystem(world, movementRules, SPEED.ghost);
+    const spriteMaskProvider: SpriteMaskProvider = {
+      getPacmanMask: (frame, width, height, alphaThreshold) =>
+        assets.getSpriteMask('pacman', frame, width, height, alphaThreshold),
+      getGhostMask: (key, frame, width, height, alphaThreshold) =>
+        assets.getSpriteMask(key, frame, width, height, alphaThreshold),
+    };
+    const ghostPacmanCollisionSystem = new GhostPacmanCollisionSystem(
+      world,
+      movementRules,
+      SPEED.ghost,
+      spriteMaskProvider,
+    );
     const animationSystem = new AnimationSystem(world, SPEED.ghost);
     const cameraSystem = new CameraSystem(world, camera, renderer, canvas);
     const collectibleSystem = new CollectibleSystem(world);
