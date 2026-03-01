@@ -26,6 +26,7 @@ const ANIMATIONS: Record<AnimationKey, AnimationDefinition> = {
 const PACMAN_CHOMP_SEQUENCE = [0, 1, 2, 3, 2, 1] as const;
 const PACMAN_IDLE_FRAME = PACMAN_CHOMP_SEQUENCE[0];
 const PACMAN_CHOMP_FRAME_RATE = 20;
+const SCARED_GHOST_SPEED = 0.5;
 
 export class AnimationSystem {
   constructor(
@@ -84,12 +85,19 @@ export class AnimationSystem {
 
     if (ghost.state.scared && ghost.state.animation !== 'scared') {
       ghost.state.animation = 'scared';
-      ghost.speed = 0.5;
+      ghost.speed = SCARED_GHOST_SPEED;
       this.world.ghostAnimations.set(ghost, this.createAnimationPlayback('scaredIdle'));
     } else if (!ghost.state.scared && ghost.state.animation === 'scared') {
       ghost.state.animation = 'default';
-      ghost.speed = this.defaultGhostSpeed;
       this.world.ghostAnimations.set(ghost, this.createAnimationPlayback(`${ghost.key}Idle` as AnimationKey));
+
+      if (this.canRestoreGhostSpeed(ghost)) {
+        ghost.speed = this.defaultGhostSpeed;
+      }
+    }
+
+    if (!ghost.state.scared && ghost.speed !== this.defaultGhostSpeed && this.canRestoreGhostSpeed(ghost)) {
+      ghost.speed = this.defaultGhostSpeed;
     }
 
     const playback = this.world.ghostAnimations.get(ghost);
@@ -224,5 +232,13 @@ export class AnimationSystem {
       sequenceIndex: 0,
       active: false,
     };
+  }
+
+  private canRestoreGhostSpeed(ghost: GhostEntity): boolean {
+    if (!ghost.state.free) {
+      return true;
+    }
+
+    return ghost.moved.x === 0 && ghost.moved.y === 0;
   }
 }
