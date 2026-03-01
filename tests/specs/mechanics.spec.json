@@ -262,6 +262,17 @@
       "expectations": ["collision effects are suppressed while recovery is active", "pacman recovery blink expires deterministically", "collision effects resume after recovery"]
     },
     {
+      "id": "MEC-LIFE-003",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "portal-blink-collision-shield-scared-override",
+      "seed": 1510,
+      "ticks": 3,
+      "fixture": "default-map",
+      "actions": ["activate portal blink shield", "collide with non-scared ghost", "collide with scared ghost"],
+      "expectations": ["non-scared collision is suppressed while portal shield is active", "scared collision still resolves as ghost-hit while portal shield is active"]
+    },
+    {
       "id": "MEC-RUN-001",
       "status": "implemented",
       "layer": "runtime",

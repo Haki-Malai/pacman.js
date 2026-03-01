@@ -4,6 +4,7 @@ import {
   GHOST_JAIL_RELEASE_DELAY_MS,
   GHOST_JAIL_RELEASE_TWEEN_MS,
   PACMAN_DEATH_RECOVERY,
+  PACMAN_PORTAL_BLINK,
 } from '../config/constants';
 import { getGameState, resetGameState } from '../state/gameState';
 import { GhostEntity } from '../game/domain/entities/GhostEntity';
@@ -134,6 +135,60 @@ describe('GhostPacmanCollisionSystem', () => {
       harness.movementRules.setEntityTile(harness.world.pacman, { x: 13, y: 13 });
       harness.ghostPacmanCollisionSystem.update();
       expect(getGameState().lives).toBe(2);
+    } finally {
+      harness.destroy();
+    }
+  });
+
+  it('suppresses non-scared pacman-hit collisions while post-portal shield is active', () => {
+    const harness = new MechanicsDomainHarness({ seed: 4106, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
+
+    try {
+      const ghost = harness.world.ghosts[0];
+      if (!ghost) {
+        throw new Error('expected one ghost');
+      }
+
+      const collisionTile = { x: 16, y: 16 };
+      harness.movementRules.setEntityTile(harness.world.pacman, collisionTile);
+      harness.movementRules.setEntityTile(ghost, collisionTile);
+      harness.world.pacman.portalBlinkRemainingMs = PACMAN_PORTAL_BLINK.durationMs;
+      ghost.state.free = true;
+      ghost.state.scared = false;
+
+      harness.ghostPacmanCollisionSystem.update();
+
+      expect(getGameState().lives).toBe(3);
+      expect(harness.world.pacman.tile).toEqual(collisionTile);
+      expect(harness.world.pacman.deathRecoveryRemainingMs).toBe(0);
+    } finally {
+      harness.destroy();
+    }
+  });
+
+  it('still applies ghost-hit collisions while post-portal shield is active', () => {
+    const harness = new MechanicsDomainHarness({ seed: 4107, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
+
+    try {
+      const ghost = harness.world.ghosts[0];
+      if (!ghost) {
+        throw new Error('expected one ghost');
+      }
+
+      const collisionTile = { x: 17, y: 17 };
+      harness.movementRules.setEntityTile(harness.world.pacman, collisionTile);
+      harness.movementRules.setEntityTile(ghost, collisionTile);
+      harness.world.pacman.portalBlinkRemainingMs = PACMAN_PORTAL_BLINK.durationMs;
+      ghost.state.free = true;
+      ghost.state.scared = true;
+
+      harness.ghostPacmanCollisionSystem.update();
+
+      expect(getGameState().lives).toBe(3);
+      expect(getGameState().score).toBe(200);
+      expect(ghost.tile).toEqual(harness.world.ghostJailReturnTile);
+      expect(ghost.state.free).toBe(false);
+      expect(ghost.state.scared).toBe(false);
     } finally {
       harness.destroy();
     }
