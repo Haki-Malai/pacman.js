@@ -27,6 +27,8 @@ const DIRECTIONAL_KEY_PRIORITY: ReadonlyArray<{ codes: readonly string[]; direct
   { codes: ['ArrowUp', 'KeyW'], direction: 'up' },
   { codes: ['ArrowDown', 'KeyS'], direction: 'down' },
 ];
+const BROWSER_SCROLL_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
+const PAUSE_EVENT_KEYS = new Set([' ', 'Spacebar']);
 
 export class InputSystem {
   private disposers: Array<() => void> = [];
@@ -66,6 +68,12 @@ export class InputSystem {
       return;
     }
 
+    if (this.isPauseToggleEvent(event)) {
+      event.preventDefault();
+      this.pauseController.togglePause();
+      return;
+    }
+
     if (event.code === 'KeyH') {
       const shouldEnableScared = this.world.ghosts.some((ghost) => ghost.active && !ghost.state.scared);
       if (shouldEnableScared) {
@@ -92,10 +100,13 @@ export class InputSystem {
       return;
     }
 
-    if (event.code === 'Space') {
+    if (BROWSER_SCROLL_KEYS.has(event.code)) {
       event.preventDefault();
-      this.pauseController.togglePause();
     }
+  }
+
+  private isPauseToggleEvent(event: Pick<KeyboardEvent, 'code' | 'key'>): boolean {
+    return event.code === 'Space' || PAUSE_EVENT_KEYS.has(event.key);
   }
 
   private handlePointerMove(pointer: PointerState): void {
@@ -120,6 +131,12 @@ export class InputSystem {
 
     if (!this.isTouchLikePointer(pointer)) {
       this.pauseController.togglePause();
+      return;
+    }
+
+    if (!this.world.isMoving) {
+      this.pauseController.togglePause();
+      this.activeTouchGesture = null;
       return;
     }
 

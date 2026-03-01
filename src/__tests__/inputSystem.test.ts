@@ -31,6 +31,10 @@ class MockInput {
     };
   }
 
+  emitKeyDown(event: KeyboardEvent): void {
+    this.keyDownListeners.forEach((listener) => listener(event));
+  }
+
   onPointerMove(listener: (_pointer: PointerState) => void): () => void {
     this.pointerMoveListeners.push(listener);
     return () => {
@@ -121,6 +125,45 @@ function createHarness(): {
 }
 
 describe('InputSystem', () => {
+  it('toggles pause on keyboard Space code and legacy Spacebar key', () => {
+    const { input, togglePause } = createHarness();
+
+    const spacePreventDefault = vi.fn();
+    input.emitKeyDown({
+      code: 'Space',
+      key: ' ',
+      repeat: false,
+      preventDefault: spacePreventDefault,
+    } as unknown as KeyboardEvent);
+
+    const legacySpacePreventDefault = vi.fn();
+    input.emitKeyDown({
+      code: 'Unidentified',
+      key: 'Spacebar',
+      repeat: false,
+      preventDefault: legacySpacePreventDefault,
+    } as unknown as KeyboardEvent);
+
+    expect(togglePause).toHaveBeenCalledTimes(2);
+    expect(spacePreventDefault).toHaveBeenCalledTimes(1);
+    expect(legacySpacePreventDefault).toHaveBeenCalledTimes(1);
+  });
+
+  it('prevents default browser behavior for directional arrow keys', () => {
+    const { input, togglePause } = createHarness();
+
+    const preventDefault = vi.fn();
+    input.emitKeyDown({
+      code: 'ArrowUp',
+      key: 'ArrowUp',
+      repeat: false,
+      preventDefault,
+    } as unknown as KeyboardEvent);
+
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(togglePause).toHaveBeenCalledTimes(0);
+  });
+
   it('commits swipe direction only after threshold and axis lock', () => {
     const { input, world, togglePause } = createHarness();
 
@@ -168,6 +211,17 @@ describe('InputSystem', () => {
     input.emitPointerDown(pointer({ x: 30, y: 30 }));
     input.emitPointerUp(pointer({ x: 33, y: 31 }));
 
+    expect(togglePause).toHaveBeenCalledTimes(1);
+  });
+
+  it('resumes paused touch input immediately on pointer down', () => {
+    const { input, world, togglePause } = createHarness();
+    world.isMoving = false;
+
+    input.emitPointerDown(pointer({ x: 30, y: 30 }));
+    expect(togglePause).toHaveBeenCalledTimes(1);
+
+    input.emitPointerUp(pointer({ x: 31, y: 31 }));
     expect(togglePause).toHaveBeenCalledTimes(1);
   });
 
