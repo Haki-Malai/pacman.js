@@ -1,7 +1,8 @@
-import { SPEED, SPRITE_SIZE, TILE_SIZE } from '../../config/constants';
+import { GHOST_SCARED_DURATION_MS, SPEED, SPRITE_SIZE, TILE_SIZE } from '../../config/constants';
 import { GhostEntity, GhostKey } from '../../game/domain/entities/GhostEntity';
 import { PacmanEntity } from '../../game/domain/entities/PacmanEntity';
 import { GhostDecisionService } from '../../game/domain/services/GhostDecisionService';
+import { clearGhostScaredWindow, setGhostScaredWindow } from '../../game/domain/services/GhostScaredStateService';
 import { GhostJailService, getObjectNumberProperty } from '../../game/domain/services/GhostJailService';
 import { MovementRules } from '../../game/domain/services/MovementRules';
 import { PortalService } from '../../game/domain/services/PortalService';
@@ -146,7 +147,6 @@ export class MechanicsDomainHarness {
     this.ghostPacmanCollisionSystem = new GhostPacmanCollisionSystem(
       this.world,
       this.movementRules,
-      this.scheduler,
       SPEED.ghost,
     );
     this.animationSystem = new AnimationSystem(this.world, SPEED.ghost);
@@ -174,11 +174,19 @@ export class MechanicsDomainHarness {
     if (typeof ghostIndex === 'number') {
       const ghost = this.world.ghosts[ghostIndex];
       if (ghost) {
-        ghost.state.scared = scared;
+        if (scared) {
+          setGhostScaredWindow(this.world, ghost, GHOST_SCARED_DURATION_MS);
+        } else {
+          clearGhostScaredWindow(this.world, ghost);
+        }
       }
     } else {
       this.world.ghosts.forEach((ghost) => {
-        ghost.state.scared = scared;
+        if (scared) {
+          setGhostScaredWindow(this.world, ghost, GHOST_SCARED_DURATION_MS);
+        } else {
+          clearGhostScaredWindow(this.world, ghost);
+        }
       });
     }
 

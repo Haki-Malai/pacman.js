@@ -1,5 +1,6 @@
-import { COLLECTIBLE_CONFIG } from '../../config/constants';
+import { COLLECTIBLE_CONFIG, GHOST_SCARED_DURATION_MS } from '../../config/constants';
 import { addScore } from '../../state/gameState';
+import { setActiveGhostsScaredWindow } from '../domain/services/GhostScaredStateService';
 import { buildPointLayout } from '../domain/services/PointLayoutService';
 import { TilePosition } from '../domain/valueObjects/TilePosition';
 import { WorldState } from '../domain/world/WorldState';
@@ -86,6 +87,9 @@ export class CollectibleSystem {
 
     const scoreDelta = point.kind === 'power' ? COLLECTIBLE_CONFIG[1].score : COLLECTIBLE_CONFIG[0].score;
     addScore(scoreDelta);
+    if (point.kind === 'power') {
+      this.triggerScaredGhostWindow();
+    }
     this.triggerPacmanEatAnimation();
 
     const baseSize = point.kind === 'power' ? POWER_POINT_SIZE : BASE_POINT_SIZE;
@@ -105,6 +109,11 @@ export class CollectibleSystem {
     playback.frame = 0;
     playback.elapsedMs = 0;
     playback.sequenceIndex = 0;
+  }
+
+  private triggerScaredGhostWindow(): void {
+    setActiveGhostsScaredWindow(this.world, GHOST_SCARED_DURATION_MS);
+    this.world.ghostEatChainCount = 0;
   }
 
   private isPacmanCenteredOnPoint(point: CollectiblePoint): boolean {

@@ -38,3 +38,13 @@ When a collectible is consumed, the runtime SHALL increment score by collectible
 - **WHEN** Pac-Man consumes a base or power collectible at a centered overlap
 - **THEN** score increases by configured value, Pac-Man eat playback starts, and the eat effect appears then expires after its configured duration
 
+### Requirement: Power-point consumption starts deterministic scared ghost window
+When Pac-Man consumes a power point, the runtime SHALL start scared mode for all active ghosts for a fixed-duration window, and SHALL reset the ghost eat chain for the new scared session.
+
+#### Scenario: Power-point consumption applies scared state to active ghosts
+- **WHEN** Pac-Man consumes a power point at centered overlap
+- **THEN** each active ghost enters scared state with a fresh scared timer and warning state reset
+
+#### Scenario: Mid-window power-point consumption refreshes scared session
+- **WHEN** Pac-Man consumes another power point while one or more ghosts are already scared
+- **THEN** scared timers are refreshed to full duration and ghost eat chain count resets for the new session

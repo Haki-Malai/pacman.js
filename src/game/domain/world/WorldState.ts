@@ -59,9 +59,10 @@ export interface AnimationPlayback {
   forward: 1 | -1;
 }
 
-export interface GhostScaredRecovery {
+export interface GhostScaredWarningVisualState {
   elapsedMs: number;
-  durationMs: number;
+  nextToggleAtMs: number;
+  showBaseColor: boolean;
 }
 
 export interface PacmanAnimationPlayback {
@@ -98,7 +99,8 @@ export class WorldState {
   pacmanPreviousTile: TilePosition;
   ghosts: GhostEntity[];
   ghostPreviousTiles = new Map<GhostEntity, TilePosition>();
-  ghostScaredRecovery = new Map<GhostEntity, GhostScaredRecovery>();
+  ghostScaredTimers = new Map<GhostEntity, number>();
+  ghostScaredWarnings = new Map<GhostEntity, GhostScaredWarningVisualState>();
   ghostJailBounds: GhostJailBounds;
   readonly ghostJailReturnTile: TilePosition;
   ghostEatChainCount = 0;

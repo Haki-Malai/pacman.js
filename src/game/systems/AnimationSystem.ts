@@ -1,5 +1,6 @@
-import { GHOST_SCARED_RECOVERY_CROSSFADE_MS } from '../../config/constants';
+import { GHOST_SCARED_WARNING_DURATION_MS, PACMAN_DEATH_RECOVERY } from '../../config/constants';
 import { GhostEntity } from '../domain/entities/GhostEntity';
+import { clearGhostScaredWindow } from '../domain/services/GhostScaredStateService';
 import {
   AnimationKey,
   AnimationPlayback,
@@ -79,22 +80,17 @@ export class AnimationSystem {
   }
 
   private updateGhostAnimationState(ghost: GhostEntity, deltaMs: number): void {
+    this.updateGhostScaredTimer(ghost, deltaMs);
+
     if (ghost.state.scared && ghost.state.animation !== 'scared') {
       ghost.state.animation = 'scared';
       ghost.speed = 0.5;
-      this.world.ghostScaredRecovery.delete(ghost);
       this.world.ghostAnimations.set(ghost, this.createAnimationPlayback('scaredIdle'));
     } else if (!ghost.state.scared && ghost.state.animation === 'scared') {
       ghost.state.animation = 'default';
       ghost.speed = this.defaultGhostSpeed;
       this.world.ghostAnimations.set(ghost, this.createAnimationPlayback(`${ghost.key}Idle` as AnimationKey));
-      this.world.ghostScaredRecovery.set(ghost, {
-        elapsedMs: 0,
-        durationMs: GHOST_SCARED_RECOVERY_CROSSFADE_MS,
-      });
     }
-
-    this.updateGhostScaredRecovery(ghost, deltaMs);
 
     const playback = this.world.ghostAnimations.get(ghost);
     if (!playback) {
@@ -129,17 +125,86 @@ export class AnimationSystem {
     }
   }
 
-  private updateGhostScaredRecovery(ghost: GhostEntity, deltaMs: number): void {
-    const recovery = this.world.ghostScaredRecovery.get(ghost);
-    if (!recovery) {
+  private updateGhostScaredTimer(ghost: GhostEntity, deltaMs: number): void {
+    const remainingBefore = this.world.ghostScaredTimers.get(ghost) ?? 0;
+    if (remainingBefore <= 0) {
+      this.world.ghostScaredWarnings.delete(ghost);
       return;
     }
 
-    const safeDelta = Number.isFinite(deltaMs) && deltaMs > 0 ? deltaMs : 0;
-    recovery.elapsedMs = Math.min(recovery.durationMs, recovery.elapsedMs + safeDelta);
-    if (recovery.elapsedMs >= recovery.durationMs) {
-      this.world.ghostScaredRecovery.delete(ghost);
+    if (!ghost.state.scared) {
+      ghost.state.scared = true;
     }
+
+    const safeDelta = Number.isFinite(deltaMs) && deltaMs > 0 ? deltaMs : 0;
+    const remainingAfter = Math.max(0, remainingBefore - safeDelta);
+
+    if (remainingAfter <= 0) {
+      clearGhostScaredWindow(this.world, ghost);
+      return;
+    }
+
+    this.world.ghostScaredTimers.set(ghost, remainingAfter);
+    this.updateGhostWarningState(ghost, remainingBefore, remainingAfter);
+  }
+
+  private updateGhostWarningState(ghost: GhostEntity, remainingBefore: number, remainingAfter: number): void {
+    if (remainingAfter > GHOST_SCARED_WARNING_DURATION_MS) {
+      this.world.ghostScaredWarnings.delete(ghost);
+      return;
+    }
+
+    const warningElapsedBeforeTick = Math.max(0, GHOST_SCARED_WARNING_DURATION_MS - remainingBefore);
+    const warningElapsedAfterTick = Math.max(0, GHOST_SCARED_WARNING_DURATION_MS - remainingAfter);
+    const warningDelta = Math.max(0, warningElapsedAfterTick - warningElapsedBeforeTick);
+
+    let warning = this.world.ghostScaredWarnings.get(ghost);
+    if (!warning) {
+      warning = {
+        elapsedMs: warningElapsedBeforeTick,
+        nextToggleAtMs: this.resolveNextGhostWarningToggleAt(warningElapsedBeforeTick),
+        showBaseColor: false,
+      };
+    }
+
+    const elapsedBefore = warning.elapsedMs;
+    warning.elapsedMs = Math.min(GHOST_SCARED_WARNING_DURATION_MS, warning.elapsedMs + warningDelta);
+
+    let nextToggleAtMs = warning.nextToggleAtMs;
+    if (!Number.isFinite(nextToggleAtMs) || nextToggleAtMs <= 0) {
+      nextToggleAtMs = this.resolveNextGhostWarningToggleAt(elapsedBefore);
+    }
+
+    while (nextToggleAtMs > 0 && warning.elapsedMs >= nextToggleAtMs) {
+      warning.showBaseColor = !warning.showBaseColor;
+      nextToggleAtMs = this.resolveNextGhostWarningToggleAt(nextToggleAtMs);
+    }
+
+    warning.nextToggleAtMs = nextToggleAtMs;
+    this.world.ghostScaredWarnings.set(ghost, warning);
+  }
+
+  private resolveNextGhostWarningToggleAt(fromElapsedMs: number): number {
+    if (fromElapsedMs >= GHOST_SCARED_WARNING_DURATION_MS) {
+      return 0;
+    }
+
+    const intervalMs = this.resolveGhostWarningBlinkInterval(fromElapsedMs);
+    const nextToggleAtMs = fromElapsedMs + intervalMs;
+    return nextToggleAtMs >= GHOST_SCARED_WARNING_DURATION_MS ? GHOST_SCARED_WARNING_DURATION_MS : nextToggleAtMs;
+  }
+
+  private resolveGhostWarningBlinkInterval(elapsedMs: number): number {
+    if (GHOST_SCARED_WARNING_DURATION_MS <= 0) {
+      return PACMAN_DEATH_RECOVERY.blinkStartIntervalMs;
+    }
+
+    const progress = Math.max(0, Math.min(1, elapsedMs / GHOST_SCARED_WARNING_DURATION_MS));
+    const interval =
+      PACMAN_DEATH_RECOVERY.blinkStartIntervalMs +
+      (PACMAN_DEATH_RECOVERY.blinkEndIntervalMs - PACMAN_DEATH_RECOVERY.blinkStartIntervalMs) * progress;
+
+    return Math.max(1, Math.round(interval));
   }
 
   private createAnimationPlayback(key: AnimationKey): AnimationPlayback {

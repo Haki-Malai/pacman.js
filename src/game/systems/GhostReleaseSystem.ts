@@ -20,7 +20,7 @@ const MIN_RELEASE_TRANSITION_MS = 120;
 type ReleaseDirection = 'left' | 'right';
 
 export class GhostReleaseSystem {
-  private ghostReleaseTimers: TimerHandle[] = [];
+  private ghostReleaseTimers = new Map<GhostEntity, TimerHandle>();
 
   constructor(
     private readonly world: WorldState,
@@ -32,17 +32,18 @@ export class GhostReleaseSystem {
 
   start(): void {
     this.clearReleaseTimers();
-
-    this.ghostReleaseTimers = this.world.ghosts.map((ghost, ghostIndex) => {
+    this.world.ghosts.forEach((ghost, ghostIndex) => {
       const delay = GHOST_JAIL_RELEASE_DELAY_MS + ghostIndex * GHOST_JAIL_RELEASE_INTERVAL_MS;
-      return this.scheduler.delayedCall(delay, () => {
-        this.releaseGhost(ghost, ghostIndex);
-      });
+      this.queueGhostRelease(ghost, delay);
     });
   }
 
   update(): void {
     this.world.ghosts.forEach((ghost) => {
+      if (this.shouldQueueRelease(ghost)) {
+        this.queueGhostRelease(ghost);
+      }
+
       if (!ghost.state.free && !this.world.ghostsExitingJail.has(ghost)) {
         this.jailService.moveGhostInJail(
           ghost,
@@ -60,8 +61,31 @@ export class GhostReleaseSystem {
     this.clearReleaseTimers();
   }
 
+  queueGhostRelease(ghost: GhostEntity, delayMs: number = GHOST_JAIL_RELEASE_DELAY_MS): void {
+    if (!ghost.active || ghost.state.free) {
+      return;
+    }
+
+    ghost.state.soonFree = true;
+
+    const existingTimer = this.ghostReleaseTimers.get(ghost);
+    if (existingTimer) {
+      existingTimer.cancel();
+      this.ghostReleaseTimers.delete(ghost);
+    }
+
+    const ghostIndex = Math.max(0, this.world.ghosts.indexOf(ghost));
+    const queuedOffsetMs =
+      delayMs === GHOST_JAIL_RELEASE_DELAY_MS ? this.resolveQueuedReleaseOffsetMs(ghost) : 0;
+    const handle = this.scheduler.delayedCall(delayMs + queuedOffsetMs, () => {
+      this.ghostReleaseTimers.delete(ghost);
+      this.releaseGhost(ghost, ghostIndex);
+    });
+    this.ghostReleaseTimers.set(ghost, handle);
+  }
+
   private releaseGhost(ghost: GhostEntity, ghostIndex: number): void {
-    if (!ghost.active) {
+    if (!ghost.active || ghost.state.free || !ghost.state.soonFree) {
       return;
     }
 
@@ -179,7 +203,21 @@ export class GhostReleaseSystem {
     this.ghostReleaseTimers.forEach((timer) => {
       timer.cancel();
     });
-    this.ghostReleaseTimers = [];
+    this.ghostReleaseTimers.clear();
+  }
+
+  private shouldQueueRelease(ghost: GhostEntity): boolean {
+    return !ghost.state.free && ghost.state.soonFree && !this.world.ghostsExitingJail.has(ghost) && !this.ghostReleaseTimers.has(ghost);
+  }
+
+  private resolveQueuedReleaseOffsetMs(ghost: GhostEntity): number {
+    let queuedCount = 0;
+    this.ghostReleaseTimers.forEach((_handle, queuedGhost) => {
+      if (queuedGhost !== ghost) {
+        queuedCount += 1;
+      }
+    });
+    return queuedCount * GHOST_JAIL_RELEASE_INTERVAL_MS;
   }
 
   private resolveReleaseLaneX(ghost: GhostEntity, ghostIndex: number): number {

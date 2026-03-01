@@ -1,9 +1,11 @@
 import {
   COARSE_POINTER_MEDIA_QUERY,
+  GHOST_SCARED_DURATION_MS,
   MOBILE_SWIPE_AXIS_LOCK_RATIO,
   MOBILE_SWIPE_THRESHOLD_PX,
   MOBILE_TAP_MAX_DELTA_PX,
 } from '../../config/constants';
+import { clearAllGhostScaredWindow, setActiveGhostsScaredWindow } from '../domain/services/GhostScaredStateService';
 import type { Direction } from '../domain/valueObjects/Direction';
 import { WorldState } from '../domain/world/WorldState';
 import { BrowserInputAdapter, PointerState } from '../infrastructure/adapters/BrowserInputAdapter';
@@ -65,9 +67,13 @@ export class InputSystem {
     }
 
     if (event.code === 'KeyH') {
-      this.world.ghosts.forEach((ghost) => {
-        ghost.state.scared = !ghost.state.scared;
-      });
+      const shouldEnableScared = this.world.ghosts.some((ghost) => ghost.active && !ghost.state.scared);
+      if (shouldEnableScared) {
+        setActiveGhostsScaredWindow(this.world, GHOST_SCARED_DURATION_MS);
+        this.world.ghostEatChainCount = 0;
+      } else {
+        clearAllGhostScaredWindow(this.world);
+      }
       return;
     }
 
