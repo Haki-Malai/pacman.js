@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS,
   GHOST_JAIL_RELEASE_DELAY_MS,
   GHOST_JAIL_RELEASE_INTERVAL_MS,
-  GHOST_JAIL_RELEASE_TWEEN_MS,
 } from '../../config/constants';
 import { GhostEntity } from '../../game/domain/entities/GhostEntity';
 import { GhostJailService } from '../../game/domain/services/GhostJailService';
@@ -175,7 +173,7 @@ describe('ghost release system coverage', () => {
     }
   });
 
-  it('covers inactive branches before release and during tween completion', () => {
+  it('covers inactive branches before release and during release cleanup', () => {
     const harness = new MechanicsDomainHarness({ seed: 808, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
 
     try {
@@ -200,7 +198,7 @@ describe('ghost release system coverage', () => {
       expect(harness.world.ghostsExitingJail.has(ghost)).toBe(true);
 
       ghost.active = false;
-      harness.scheduler.update(GHOST_JAIL_RELEASE_TWEEN_MS);
+      harness.ghostReleaseSystem.update();
       expect(harness.world.ghostsExitingJail.has(ghost)).toBe(false);
       expect(ghost.state.free).toBe(false);
     } finally {
@@ -212,132 +210,115 @@ describe('ghost release system coverage', () => {
     const harness = new MechanicsDomainHarness({ seed: 1818, fixture: 'default-map', ghostCount: 3, autoStartSystems: false });
 
     try {
-      const findReleaseTileSpy = vi.spyOn(harness.jailService, 'findReleaseTile');
+      const releaseGhostSpy = vi.spyOn(
+        harness.ghostReleaseSystem as unknown as { releaseGhost: (ghost: GhostEntity, ghostIndex: number) => void },
+        'releaseGhost',
+      );
 
       harness.ghostReleaseSystem.start();
 
       harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS - 1);
-      expect(findReleaseTileSpy).not.toHaveBeenCalled();
+      expect(releaseGhostSpy).not.toHaveBeenCalled();
 
       harness.scheduler.update(1);
-      expect(findReleaseTileSpy).toHaveBeenCalledTimes(1);
+      expect(releaseGhostSpy).toHaveBeenCalledTimes(1);
 
       harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS - 1);
-      expect(findReleaseTileSpy).toHaveBeenCalledTimes(1);
+      expect(releaseGhostSpy).toHaveBeenCalledTimes(1);
 
       harness.scheduler.update(1);
-      expect(findReleaseTileSpy).toHaveBeenCalledTimes(2);
+      expect(releaseGhostSpy).toHaveBeenCalledTimes(2);
 
       harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
-      expect(findReleaseTileSpy).toHaveBeenCalledTimes(3);
+      expect(releaseGhostSpy).toHaveBeenCalledTimes(3);
     } finally {
       harness.destroy();
     }
   });
 
-  it('aligns ghosts to the release lane before starting the upward exit tween', () => {
+  it('moves through side staging then crosses the jail gate before becoming free', () => {
     const harness = new MechanicsDomainHarness({ seed: 1919, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
 
     try {
       const ghost = harness.world.ghosts[0];
       if (!ghost) {
-        throw new Error('expected one ghost for release alignment coverage');
+        throw new Error('expected one ghost for phased release coverage');
       }
 
-      const tweenSpy = vi.spyOn(harness.scheduler, 'addTween');
-      const laneCenterY = harness.world.ghostJailBounds.y * harness.world.tileSize + harness.world.tileSize / 2;
-      const releaseCenterY = (harness.world.ghostJailBounds.y - 1) * harness.world.tileSize + harness.world.tileSize / 2;
-
-      ghost.x += 4;
-
       harness.ghostReleaseSystem.start();
-      harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS - 1);
-      expect(tweenSpy).not.toHaveBeenCalled();
+      harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS);
+      expect(harness.world.ghostsExitingJail.has(ghost)).toBe(true);
 
-      harness.scheduler.update(1);
-      expect(tweenSpy).toHaveBeenCalledTimes(1);
-      expect(tweenSpy.mock.calls[0]?.[0]?.to).toEqual(
-        expect.objectContaining({
-          y: laneCenterY,
-        }),
-      );
+      const sideTargetX = harness.world.ghostJailBounds.minX;
+      let reachedSideTarget = false;
+      for (let tick = 0; tick < 800 && !ghost.state.free; tick += 1) {
+        harness.ghostReleaseSystem.update();
+        if (ghost.tile.x === sideTargetX && ghost.moved.x === 0) {
+          reachedSideTarget = true;
+        }
+      }
 
-      harness.scheduler.update(GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS);
-      expect(tweenSpy).toHaveBeenCalledTimes(2);
-      expect(tweenSpy.mock.calls[1]?.[0]?.to).toEqual(
-        expect.objectContaining({
-          y: releaseCenterY,
-        }),
-      );
-
-      harness.scheduler.update(GHOST_JAIL_RELEASE_TWEEN_MS);
+      expect(reachedSideTarget).toBe(true);
       expect(ghost.state.free).toBe(true);
+      expect(ghost.tile.y).toBe(harness.world.ghostJailBounds.y - 1);
       expect(harness.world.ghostsExitingJail.has(ghost)).toBe(false);
     } finally {
       harness.destroy();
     }
   });
 
-  it('covers fallback lane indexing and preferred-direction split when ghost tiles are invalid', () => {
-    const harness = new MechanicsDomainHarness({ seed: 2020, fixture: 'default-map', ghostCount: 5, autoStartSystems: false });
+  it('alternates release-side direction deterministically (left first, then right)', () => {
+    const harness = new MechanicsDomainHarness({ seed: 2020, fixture: 'default-map', ghostCount: 2, autoStartSystems: false });
 
     try {
-      const [firstGhost, secondGhost, thirdGhost, fourthGhost, fifthGhost] = harness.world.ghosts;
-      if (!firstGhost || !secondGhost || !thirdGhost || !fourthGhost || !fifthGhost) {
-        throw new Error('expected five ghosts for fallback lane test');
+      const [firstGhost, secondGhost] = harness.world.ghosts;
+      if (!firstGhost || !secondGhost) {
+        throw new Error('expected two ghosts for side alternation test');
       }
 
-      firstGhost.tile.x = Number.NaN;
-      secondGhost.tile.x = Number.NaN;
-      thirdGhost.tile.x = Number.NaN;
-      fourthGhost.tile.x = Number.NaN;
-      fifthGhost.tile.x = Number.NaN;
-
-      const findReleaseTileSpy = vi.spyOn(harness.jailService, 'findReleaseTile');
+      const centerX =
+        harness.world.ghostJailBounds.minX +
+        Math.floor((harness.world.ghostJailBounds.maxX - harness.world.ghostJailBounds.minX) / 2);
+      harness.movementRules.setEntityTile(firstGhost, { x: centerX, y: harness.world.ghostJailBounds.y });
+      harness.movementRules.setEntityTile(secondGhost, { x: centerX, y: harness.world.ghostJailBounds.y });
 
       harness.ghostReleaseSystem.start();
       harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS);
-      harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
-      harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
-      harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
-      harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
+      harness.ghostReleaseSystem.update();
+      expect(firstGhost.direction).toBe('left');
 
-      const firstCall = findReleaseTileSpy.mock.calls[0]?.[0];
-      const fifthCall = findReleaseTileSpy.mock.calls[4]?.[0];
+      for (let tick = 0; tick < 800 && !firstGhost.state.free; tick += 1) {
+        harness.ghostReleaseSystem.update();
+      }
+      expect(firstGhost.state.free).toBe(true);
 
-      expect(firstCall?.currentTile.x).toBe(harness.world.ghostJailBounds.minX);
-      expect(firstCall?.preferDirection).toBe('left');
-
-      expect(fifthCall?.currentTile.x).toBe(harness.world.ghostJailBounds.minX + 4);
-      expect(fifthCall?.preferDirection).toBe('right');
+      harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
+      harness.ghostReleaseSystem.update();
+      expect(secondGhost.direction).toBe('right');
     } finally {
       harness.destroy();
     }
   });
 
-  it('covers alignment completion cleanup when a ghost deactivates before the exit tween starts', () => {
+  it('cleans up exiting state when a ghost deactivates mid-release phase', () => {
     const harness = new MechanicsDomainHarness({ seed: 2121, fixture: 'default-map', ghostCount: 1, autoStartSystems: false });
 
     try {
       const ghost = harness.world.ghosts[0];
       if (!ghost) {
-        throw new Error('expected one ghost for alignment deactivation test');
+        throw new Error('expected one ghost for deactivation cleanup test');
       }
 
-      ghost.x += 4;
-      const tweenSpy = vi.spyOn(harness.scheduler, 'addTween');
-
       harness.ghostReleaseSystem.start();
-      harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS - 1);
-      harness.scheduler.update(1);
-
-      expect(tweenSpy).toHaveBeenCalledTimes(1);
+      harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS);
+      harness.ghostReleaseSystem.update();
+      expect(harness.world.ghostsExitingJail.has(ghost)).toBe(true);
       ghost.active = false;
 
-      harness.scheduler.update(GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS);
+      harness.ghostReleaseSystem.update();
 
-      expect(tweenSpy).toHaveBeenCalledTimes(1);
       expect(harness.world.ghostsExitingJail.has(ghost)).toBe(false);
+      expect(ghost.state.free).toBe(false);
     } finally {
       harness.destroy();
     }
@@ -363,7 +344,13 @@ describe('ghost release system coverage', () => {
         height: 3,
       },
       collisionGrid: {
-        getTilesAt: vi.fn(),
+        getTilesAt: vi.fn(() => ({
+          current: openTile(),
+          up: openTile(),
+          down: openTile(),
+          left: openTile(),
+          right: openTile(),
+        })),
       },
       tileSize: 16,
     } as unknown as WorldState;
@@ -371,32 +358,44 @@ describe('ghost release system coverage', () => {
     ghost.x = 24;
     ghost.y = 24;
 
+    const canMoveMock = vi.fn(() => true);
+    const advanceEntityMock = vi.fn((entity: GhostEntity, direction: 'up' | 'down' | 'left' | 'right') => {
+      if (direction === 'left') {
+        entity.tile.x -= 1;
+      } else if (direction === 'right') {
+        entity.tile.x += 1;
+      } else if (direction === 'up') {
+        entity.tile.y -= 1;
+      } else {
+        entity.tile.y += 1;
+      }
+      entity.moved = { x: 0, y: 0 };
+    });
+    const syncEntityPositionMock = vi.fn();
     const setEntityTileMock = vi.fn();
     const movementRules = {
+      canMove: canMoveMock,
+      advanceEntity: advanceEntityMock,
+      syncEntityPosition: syncEntityPositionMock,
       setEntityTile: setEntityTileMock,
     } as unknown as MovementRules;
 
-    const findReleaseTileMock = vi.fn(() => ({ x: 1, y: 1 }));
     const jailService = {
       moveGhostInJail: vi.fn(),
-      findReleaseTile: findReleaseTileMock,
     } as unknown as GhostJailService;
 
     const scheduler = new TimerSchedulerAdapter();
-    const addTweenSpy = vi.spyOn(scheduler, 'addTween');
     const system = new GhostReleaseSystem(world, movementRules, jailService, scheduler, new SeededRandom(11));
 
     system.start();
     scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS);
-    scheduler.update(1);
+    for (let tick = 0; tick < 8; tick += 1) {
+      system.update();
+    }
 
-    expect(findReleaseTileMock).toHaveBeenCalled();
-    expect(addTweenSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        durationMs: 1,
-      }),
-    );
-    expect(setEntityTileMock).toHaveBeenCalledWith(ghost, { x: 1, y: 1 });
+    expect(canMoveMock).toHaveBeenCalled();
+    expect(advanceEntityMock).toHaveBeenCalled();
+    expect(setEntityTileMock).toHaveBeenCalledWith(ghost, { x: 0, y: 0 });
     system.destroy();
   });
 });

@@ -63,6 +63,19 @@ describe('movement rules coverage', () => {
         DEFAULT_TILE_SIZE,
         'ghost',
       ),
+    ).toBe(false);
+    expect(
+      canMove(
+        'down',
+        0,
+        0,
+        tiles({
+          current: openTile({ down: true, penGate: true }),
+          down: openTile({ up: false }),
+        }),
+        DEFAULT_TILE_SIZE,
+        'ghostRelease',
+      ),
     ).toBe(true);
 
     const rules = new MovementRules(DEFAULT_TILE_SIZE);

@@ -4,18 +4,22 @@
 TBD - created by archiving change merge-pr3-collectibles-ghost-release. Update Purpose after archive.
 ## Requirements
 ### Requirement: Ghost release scheduling is staged with delay and interval cadence
-The runtime SHALL schedule ghost release using an initial jail delay and per-ghost interval spacing so releases are staggered instead of simultaneous.
+The runtime SHALL schedule ghost release using an initial jail delay and per-ghost interval spacing so releases remain staggered instead of simultaneous.
 
 #### Scenario: Release timers are staggered
 - **WHEN** ghost release scheduling starts with multiple jailed ghosts
 - **THEN** the first release occurs after base delay and each subsequent release occurs after one additional configured interval
 
 ### Requirement: Ghosts align to release lane with deterministic tie-breaking
-Before upward exit, releasing ghosts MUST align to a valid release lane tile, and tie-breaking MUST be deterministic with optional preferred direction support.
+Before crossing the jail upper gate, a releasing ghost MUST follow a deterministic side-staged path: move to the side-center jail tile, then route to a collision-valid gate column, and only then cross upward out of jail.
 
-#### Scenario: Alignment and preferred-direction resolution are deterministic
-- **WHEN** a ghost begins release while off-lane or with ambiguous lane candidates
-- **THEN** the ghost aligns to a deterministic lane choice, respects preferred direction when provided, and only then starts the exit tween
+#### Scenario: Side staging alternates deterministically by release order
+- **WHEN** consecutive ghosts begin release in the same session
+- **THEN** side staging alternates left then right using jail `minX`/`maxX` center targets before gate crossing
+
+#### Scenario: Gate-column selection is deterministic and collision-safe
+- **WHEN** the preferred-side gate column is blocked
+- **THEN** release picks the nearest deterministic collision-valid gate column by scanning from preferred side toward center
 
 ### Requirement: Post-portal Pac-Man visibility blink is time-bounded and deterministic
 After successful portal teleport, Pac-Man visibility SHALL blink for a fixed duration using deterministic interval phase calculation, then return to normal visibility. That same blink window SHALL act as a collision shield for non-scared ghost collisions while still allowing scared ghost collisions to resolve as ghost-hit. The production default map SHALL expose deterministic geometry-derived portal endpoint pairs so portal behavior is reachable through authored boundary doors during normal runtime play. Portal teleport SHALL trigger only when an entity moves in the endpoint's outward direction and reaches outward movement offset greater than or equal to half tile size from center; centered endpoint occupancy alone SHALL NOT trigger teleport. While Pac-Man is centered on a portal endpoint, buffered turn input that targets that endpoint's outward direction SHALL be applied even when normal collision checks for that turn are blocked.
@@ -69,4 +73,26 @@ During the final warning window of scared mode, the runtime SHALL alternate ghos
 #### Scenario: Warning alternation cadence and termination are deterministic
 - **WHEN** update ticks advance through the warning window
 - **THEN** visual alternation uses configured deterministic cadence progression and ends when scared mode expires
+
+### Requirement: Jail upper gate traversal is single-pass per release cycle
+Ghost movement SHALL treat the jail upper gate as locked during normal/free roaming, and SHALL permit traversal only during the dedicated release crossing phase for that release cycle.
+
+#### Scenario: Free ghost cannot re-enter or recross jail gate
+- **WHEN** a ghost has completed release and is in free movement state
+- **THEN** movement across pen-gate edges is blocked for that ghost during normal movement updates
+
+#### Scenario: Re-jail then re-release grants one new gate pass
+- **WHEN** a ghost returns to jail and later starts a new release cycle
+- **THEN** the ghost is allowed exactly one pen-gate crossing during that new release cycle
+
+### Requirement: Release movement preserves speed and collision validity
+Release path movement SHALL use normal ghost speed and collision-validated stepping, so ghosts do not overlap blocked wall space during release transitions.
+
+#### Scenario: Release uses unchanged ghost speed
+- **WHEN** a ghost moves through side staging and gate crossing phases
+- **THEN** per-tick displacement uses that ghost's configured speed without release-specific speed boosts
+
+#### Scenario: Release path does not overlap blocked walls
+- **WHEN** release movement advances toward side center and gate crossing targets
+- **THEN** movement only advances through collision-valid edges and does not tween through blocked wall tiles
 

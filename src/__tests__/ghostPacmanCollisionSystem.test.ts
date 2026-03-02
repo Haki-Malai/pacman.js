@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS,
-  GHOST_JAIL_RELEASE_DELAY_MS,
-  GHOST_JAIL_RELEASE_TWEEN_MS,
   PACMAN_DEATH_RECOVERY,
   PACMAN_PORTAL_BLINK,
 } from '../config/constants';
@@ -107,14 +104,14 @@ describe('GhostPacmanCollisionSystem', () => {
       expect(ghost.state.soonFree).toBe(true);
 
       harness.ghostReleaseSystem.update();
-      harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS - 1);
-      expect(ghost.state.free).toBe(false);
+      harness.movementRules.setEntityTile(harness.world.pacman, { x: 1, y: 1 });
+      let sawExitingPhase = false;
+      for (let tick = 0; tick < 900 && !ghost.state.free; tick += 1) {
+        harness.stepTick();
+        sawExitingPhase ||= harness.world.ghostsExitingJail.has(ghost);
+      }
 
-      harness.scheduler.update(1);
-      expect(harness.world.ghostsExitingJail.has(ghost)).toBe(true);
-
-      harness.scheduler.update(GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS + 50);
-      harness.scheduler.update(GHOST_JAIL_RELEASE_TWEEN_MS + 50);
+      expect(sawExitingPhase).toBe(true);
       expect(ghost.state.free).toBe(true);
       expect(ghost.state.soonFree).toBe(false);
     } finally {

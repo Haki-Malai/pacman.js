@@ -91,7 +91,7 @@ describe('canMove', () => {
     expect(canMove('left', 0, -4, collisionTiles, tileSize)).toBe(true);
   });
 
-  it('allows ghosts through pen-gate edges but blocks pacman', () => {
+  it('allows only release ghosts through pen-gate edges but blocks pacman and free ghosts', () => {
     const collisionTiles: CollisionTiles = {
       current: tile({ down: true, penGate: true }),
       down: tile(),
@@ -101,7 +101,8 @@ describe('canMove', () => {
     };
 
     expect(canMove('down', 0, 0, collisionTiles, tileSize, 'pacman')).toBe(false);
-    expect(canMove('down', 0, 0, collisionTiles, tileSize, 'ghost')).toBe(true);
+    expect(canMove('down', 0, 0, collisionTiles, tileSize, 'ghost')).toBe(false);
+    expect(canMove('down', 0, 0, collisionTiles, tileSize, 'ghostRelease')).toBe(true);
   });
 
   it('blocks center movement into out-of-bounds neighbors on both axes', () => {
