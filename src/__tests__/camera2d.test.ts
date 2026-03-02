@@ -57,4 +57,43 @@ describe('Camera2D', () => {
     expect(camera.x).toBe(20);
     expect(camera.y).toBe(20);
   });
+
+  it('centers camera when viewport is larger than world on both axes', () => {
+    const camera = new Camera2D();
+    const target = { x: 50, y: 30 };
+
+    camera.setBounds(100, 60);
+    camera.setViewport(200, 160);
+    camera.setZoom(1);
+    camera.startFollow(target, 1, 1);
+
+    camera.snapToFollowTarget();
+    expect(camera.x).toBe(-50);
+    expect(camera.y).toBe(-50);
+
+    target.x = 500;
+    target.y = 500;
+    camera.update();
+    expect(camera.x).toBe(-50);
+    expect(camera.y).toBe(-50);
+  });
+
+  it('centers only undersized axes and clamps the others', () => {
+    const camera = new Camera2D();
+    const target = { x: 500, y: 500 };
+
+    camera.setBounds(100, 200);
+    camera.setViewport(200, 100);
+    camera.setZoom(1);
+    camera.startFollow(target, 1, 1);
+
+    camera.update();
+    expect(camera.x).toBe(-50);
+    expect(camera.y).toBe(100);
+
+    target.y = -500;
+    camera.update();
+    expect(camera.x).toBe(-50);
+    expect(camera.y).toBe(0);
+  });
 });
