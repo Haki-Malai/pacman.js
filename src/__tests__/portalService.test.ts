@@ -36,14 +36,14 @@ describe('PortalService', () => {
     ]);
 
     const portals = new PortalService(grid);
-    const entity = { tile: { x: 0, y: 1 }, moved: { x: 0, y: 0 }, direction: 'right' };
+    const entity = { tile: { x: 0, y: 1 }, moved: { x: 0, y: 0 }, direction: 'left' };
 
     const firstTeleport = portals.tryTeleport(entity, grid, 10);
     const secondTeleportSameTick = portals.tryTeleport(entity, grid, 10);
 
     expect(firstTeleport).toBe(true);
     expect(entity.tile).toEqual({ x: 2, y: 1 });
-    expect(entity.direction).toBe('right');
+    expect(entity.direction).toBe('left');
     expect(secondTeleportSameTick).toBe(false);
   });
 
@@ -62,6 +62,51 @@ describe('PortalService', () => {
 
     expect(moved).toBe(false);
     expect(entity.tile).toEqual({ x: 0, y: 1 });
+  });
+
+  it('does not teleport when centered portal direction is not outward', () => {
+    const grid = new CollisionGrid([
+      [openTile(), openTile(), openTile()],
+      [
+        { ...openTile(), portal: true },
+        openTile(),
+        { ...openTile(), portal: true },
+      ],
+      [openTile(), openTile(), openTile()],
+    ]);
+
+    const portals = new PortalService(grid);
+    const entity = { tile: { x: 0, y: 1 }, moved: { x: 0, y: 0 }, direction: 'right' };
+
+    const moved = portals.tryTeleport(entity, grid, 1);
+
+    expect(moved).toBe(false);
+    expect(entity.tile).toEqual({ x: 0, y: 1 });
+  });
+
+  it('teleports while offset when movement is aligned with outward direction', () => {
+    const grid = new CollisionGrid([
+      [openTile(), openTile(), openTile()],
+      [
+        { ...openTile(), portal: true },
+        openTile(),
+        { ...openTile(), portal: true },
+      ],
+      [openTile(), openTile(), openTile()],
+    ]);
+
+    const portals = new PortalService(grid);
+    const entity = {
+      tile: { x: 0, y: 1 },
+      moved: { x: -3, y: 0 },
+      direction: 'left',
+    };
+
+    const moved = portals.tryTeleport(entity, grid, 1);
+
+    expect(moved).toBe(true);
+    expect(entity.tile).toEqual({ x: 2, y: 1 });
+    expect(entity.moved).toEqual({ x: 0, y: 0 });
   });
 
   it('uses explicit portal pairs when multiple production endpoints exist', () => {

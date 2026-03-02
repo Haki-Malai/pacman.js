@@ -6,10 +6,18 @@ This is a pacman game i am currently working on for fun. I have developed it aga
 - `pnpm dev` to launch the Vite dev server (serves from `public/assets` and `src/`).
 - `pnpm build` to produce the deployable bundle in `dist/`.
 - `pnpm preview` to serve the built bundle locally.
+- `pnpm run map:demo:convert` to generate `public/assets/mazes/default/demo.json` from `demo.tmx` + `tileset.tsx`.
 - `pnpm typecheck` to run the strict TypeScript compiler with `--noEmit`.
 - `pnpm lint` to run ESLint against the TypeScript sources (including Tailwind utility class validation).
 - `pnpm format` / `pnpm format:check` to run Prettier (Tailwind utility classes are auto-sorted).
 - `pnpm test` to execute the Vitest suite.
+
+## Demo map runtime selection
+- Set `VITE_GAME_ENV=DEMO` to run with `public/assets/mazes/default/demo.json`.
+- Any other `VITE_GAME_ENV` value (or missing env) keeps default runtime map loading (`public/assets/mazes/default/maze.json`).
+- Regenerate demo JSON after Tiled edits:
+  - `pnpm run map:demo:convert`
+  - then run `pnpm run test` to validate parser/runtime contracts.
 
 ## Project layout
 - `src/main.ts` boots the custom Canvas2D game runtime.

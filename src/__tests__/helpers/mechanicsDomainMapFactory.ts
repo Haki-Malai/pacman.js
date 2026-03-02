@@ -6,7 +6,7 @@ import { WorldMapData } from '../../game/domain/world/WorldState';
 import { parseTiledMap, TiledMap } from '../../game/infrastructure/map/TiledParser';
 import { createBlockedPortalGrid, createPenGateGrid, createPortalPairGrid, openTile } from '../fixtures/collisionFixtures';
 
-export type HarnessFixture = 'default-map' | 'portal-pair-grid' | 'portal-blocked-grid' | 'pen-gate-grid';
+export type HarnessFixture = 'default-map' | 'demo-map' | 'portal-pair-grid' | 'portal-blocked-grid' | 'pen-gate-grid';
 
 function clamp(value: number, min: number, max: number): number {
   if (value < min) {
@@ -21,6 +21,12 @@ function clamp(value: number, min: number, max: number): number {
 function loadDefaultMap(): WorldMapData {
   const mazePath = path.resolve(process.cwd(), 'public/assets/mazes/default/maze.json');
   const tiled = JSON.parse(fs.readFileSync(mazePath, 'utf8')) as TiledMap;
+  return parseTiledMap(tiled);
+}
+
+function loadDemoMap(): WorldMapData {
+  const demoPath = path.resolve(process.cwd(), 'public/assets/mazes/default/demo.json');
+  const tiled = JSON.parse(fs.readFileSync(demoPath, 'utf8')) as TiledMap;
   return parseTiledMap(tiled);
 }
 
@@ -108,6 +114,10 @@ function makeFallbackMap(tileSize = TILE_SIZE): WorldMapData {
 export function createHarnessMap(fixture: HarnessFixture): WorldMapData {
   if (fixture === 'default-map') {
     return loadDefaultMap();
+  }
+
+  if (fixture === 'demo-map') {
+    return loadDemoMap();
   }
 
   if (fixture === 'portal-pair-grid') {

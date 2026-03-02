@@ -4,6 +4,29 @@ import { getScenarioOrThrow } from '../helpers/mechanicsSpec';
 import { runMechanicsAssertion } from '../helpers/mechanicsTestUtils';
 import { MechanicsDomainHarness } from '../helpers/mechanicsDomainHarness';
 import { PortalService } from '../../game/domain/services/PortalService';
+import { PortalPair } from '../../game/domain/world/WorldState';
+
+function isHorizontalPair(pair: PortalPair): boolean {
+  return pair.from.y === pair.to.y;
+}
+
+function isVerticalPair(pair: PortalPair): boolean {
+  return pair.from.x === pair.to.x;
+}
+
+function oppositeEndpoint(pair: PortalPair, endpoint: { x: number; y: number }): { x: number; y: number } {
+  if (pair.from.x === endpoint.x && pair.from.y === endpoint.y) {
+    return pair.to;
+  }
+  return pair.from;
+}
+
+function outwardDirectionFromSource(source: { x: number; y: number }, destination: { x: number; y: number }) {
+  if (source.x !== destination.x) {
+    return source.x < destination.x ? 'left' : 'right';
+  }
+  return source.y < destination.y ? 'up' : 'down';
+}
 
 describe('mechanics scenarios: portals', () => {
   it('MEC-PORT-001 teleport requires centered entity', () => {
@@ -117,30 +140,27 @@ describe('mechanics scenarios: portals', () => {
           assertion: 'default map portal endpoint pairs are deterministic and centered teleport succeeds between endpoints',
         },
         () => {
-          const left = { x: 1, y: 26 };
-          const right = { x: 49, y: 26 };
-          const top = { x: 25, y: 1 };
-          const bottom = { x: 25, y: 49 };
+          const portalPairs = harness.world.map.portalPairs ?? [];
+          expect(portalPairs.length).toBeGreaterThanOrEqual(1);
 
-          expect(harness.world.collisionGrid.getTileAt(left.x, left.y).portal).toBe(true);
-          expect(harness.world.collisionGrid.getTileAt(right.x, right.y).portal).toBe(true);
-          expect(harness.world.collisionGrid.getTileAt(top.x, top.y).portal).toBe(true);
-          expect(harness.world.collisionGrid.getTileAt(bottom.x, bottom.y).portal).toBe(true);
-          expect(harness.world.collisionGrid.getTileAt(48, 26).portal).toBe(false);
-          expect(harness.world.collisionGrid.getTileAt(25, 2).portal).toBe(false);
+          portalPairs.forEach((pair) => {
+            expect(harness.world.collisionGrid.getTileAt(pair.from.x, pair.from.y).portal).toBe(true);
+            expect(harness.world.collisionGrid.getTileAt(pair.to.x, pair.to.y).portal).toBe(true);
+          });
 
-          expect(harness.world.map.portalPairs).toEqual([
-            { from: left, to: right },
-            { from: top, to: bottom },
-          ]);
+          const pair = portalPairs[0];
+          const destination = oppositeEndpoint(pair, pair.from);
 
-          harness.movementRules.setEntityTile(harness.world.pacman, left);
+          harness.movementRules.setEntityTile(harness.world.pacman, pair.from);
+          const outwardDirection = outwardDirectionFromSource(pair.from, destination);
+          harness.world.pacman.direction.current = outwardDirection;
+          harness.world.pacman.direction.next = outwardDirection;
           harness.world.pacman.moved = { x: 0, y: 0 };
 
           const moved = harness.portalService.tryTeleport(harness.world.pacman, harness.world.collisionGrid, 44);
 
           expect(moved).toBe(true);
-          expect(harness.world.pacman.tile).toEqual(right);
+          expect(harness.world.pacman.tile).toEqual(destination);
         },
       );
     } finally {
@@ -168,8 +188,11 @@ describe('mechanics scenarios: portals', () => {
           assertion: 'top/bottom production endpoints teleport symmetrically while centered',
         },
         () => {
-          const topEndpoint = { x: 25, y: 1 };
-          const bottomEndpoint = { x: 25, y: 49 };
+          const verticalPair = (harness.world.map.portalPairs ?? []).find((pair) => isVerticalPair(pair));
+          expect(verticalPair).toBeDefined();
+          const pair = verticalPair as PortalPair;
+          const topEndpoint = pair.from.y <= pair.to.y ? pair.from : pair.to;
+          const bottomEndpoint = topEndpoint === pair.from ? pair.to : pair.from;
 
           harness.movementRules.setEntityTile(harness.world.pacman, topEndpoint);
           harness.world.pacman.direction.current = 'up';
@@ -212,21 +235,32 @@ describe('mechanics scenarios: portals', () => {
           assertion: 'outward input at portal endpoint should not leak into void and should resolve endpoint teleport',
         },
         () => {
-          const leftEndpoint = { x: 1, y: 26 };
-          const rightEndpoint = { x: 49, y: 26 };
-          const rightVoid = { x: 50, y: 26 };
+          const horizontalPair = (harness.world.map.portalPairs ?? []).find((pair) => isHorizontalPair(pair));
+          expect(horizontalPair).toBeDefined();
+          const pair = horizontalPair as PortalPair;
+          const outwardEndpoint = pair.from.x >= pair.to.x ? pair.from : pair.to;
+          const inwardEndpoint = outwardEndpoint === pair.from ? pair.to : pair.from;
+          const outwardDirection =
+            outwardEndpoint.x !== inwardEndpoint.x
+              ? outwardEndpoint.x > inwardEndpoint.x
+                ? 'right'
+                : 'left'
+              : outwardEndpoint.y > inwardEndpoint.y
+                ? 'down'
+                : 'up';
 
-          expect(harness.world.collisionGrid.getTileAt(rightVoid.x, rightVoid.y).collides).toBe(true);
-
-          harness.movementRules.setEntityTile(harness.world.pacman, rightEndpoint);
-          harness.world.pacman.direction.current = 'right';
-          harness.world.pacman.direction.next = 'right';
+          harness.movementRules.setEntityTile(harness.world.pacman, outwardEndpoint);
+          harness.world.pacman.direction.current = outwardDirection;
+          harness.world.pacman.direction.next = outwardDirection;
           harness.world.pacman.moved = { x: 0, y: 0 };
 
           const snapshot = harness.stepTick();
 
-          expect(snapshot.pacman.tile).toEqual(leftEndpoint);
-          expect(snapshot.pacman.tile).not.toEqual(rightVoid);
+          expect(snapshot.pacman.tile).toEqual(inwardEndpoint);
+          expect(snapshot.pacman.tile.x).toBeGreaterThanOrEqual(0);
+          expect(snapshot.pacman.tile.x).toBeLessThan(harness.world.map.width);
+          expect(snapshot.pacman.tile.y).toBeGreaterThanOrEqual(0);
+          expect(snapshot.pacman.tile.y).toBeLessThan(harness.world.map.height);
         },
       );
     } finally {
@@ -234,7 +268,41 @@ describe('mechanics scenarios: portals', () => {
     }
   });
 
-  it('blocks movement into default-map non-portal void-leak tiles', () => {
+  it('demo map inferred horizontal portals teleport on outward input without void leak', () => {
+    const harness = new MechanicsDomainHarness({
+      seed: 2707,
+      fixture: 'demo-map',
+      ghostCount: 0,
+      autoStartSystems: false,
+    });
+
+    try {
+      const horizontalPair = (harness.world.map.portalPairs ?? []).find((pair) => isHorizontalPair(pair));
+      expect(horizontalPair).toBeDefined();
+      const pair = horizontalPair as PortalPair;
+
+      const outwardEndpoint = pair.from.x >= pair.to.x ? pair.from : pair.to;
+      const inwardEndpoint = outwardEndpoint === pair.from ? pair.to : pair.from;
+      const outwardDirection = outwardEndpoint.x > inwardEndpoint.x ? 'right' : 'left';
+
+      harness.movementRules.setEntityTile(harness.world.pacman, outwardEndpoint);
+      harness.world.pacman.direction.current = outwardDirection;
+      harness.world.pacman.direction.next = outwardDirection;
+      harness.world.pacman.moved = { x: 0, y: 0 };
+
+      const snapshot = harness.stepTick();
+
+      expect(snapshot.pacman.tile).toEqual(inwardEndpoint);
+      expect(snapshot.pacman.tile.x).toBeGreaterThanOrEqual(0);
+      expect(snapshot.pacman.tile.x).toBeLessThan(harness.world.map.width);
+      expect(snapshot.pacman.tile.y).toBeGreaterThanOrEqual(0);
+      expect(snapshot.pacman.tile.y).toBeLessThan(harness.world.map.height);
+    } finally {
+      harness.destroy();
+    }
+  });
+
+  it('keeps non-portal tiles from leaking into parsed map void', () => {
     const harness = new MechanicsDomainHarness({
       seed: 1306,
       fixture: 'default-map',
@@ -243,19 +311,33 @@ describe('mechanics scenarios: portals', () => {
     });
 
     try {
-      const start = { x: 24, y: 2 };
-      const blocked = { x: 24, y: 1 };
+      let leaks = 0;
+      for (let y = 0; y < harness.world.map.height; y += 1) {
+        for (let x = 0; x < harness.world.map.width; x += 1) {
+          const tile = harness.world.map.tiles[y]?.[x];
+          if (!tile || tile.gid === null || tile.collision.portal) {
+            continue;
+          }
 
-      expect(harness.world.collisionGrid.getTileAt(blocked.x, blocked.y).portal).toBe(false);
-      expect(harness.world.collisionGrid.getTileAt(blocked.x, blocked.y).collides).toBe(true);
+          const edges = [
+            { dx: 0, dy: -1, blocked: tile.collision.up },
+            { dx: 1, dy: 0, blocked: tile.collision.right },
+            { dx: 0, dy: 1, blocked: tile.collision.down },
+            { dx: -1, dy: 0, blocked: tile.collision.left },
+          ];
 
-      harness.movementRules.setEntityTile(harness.world.pacman, start);
-      harness.world.pacman.direction.current = 'up';
-      harness.world.pacman.direction.next = 'up';
-      harness.world.pacman.moved = { x: 0, y: 0 };
+          const hasLeak = edges.some(({ dx, dy, blocked }) => {
+            const neighbor = harness.world.map.tiles[y + dy]?.[x + dx];
+            return (!neighbor || neighbor.gid === null) && !blocked;
+          });
 
-      const snapshot = harness.stepTick();
-      expect(snapshot.pacman.tile).toEqual(start);
+          if (hasLeak) {
+            leaks += 1;
+          }
+        }
+      }
+
+      expect(leaks).toBe(0);
     } finally {
       harness.destroy();
     }

@@ -28,6 +28,7 @@ import { InputSystem } from '../systems/InputSystem';
 import { PacmanMovementSystem } from '../systems/PacmanMovementSystem';
 import { PauseOverlaySystem } from '../systems/PauseOverlaySystem';
 import { RenderSystem } from '../systems/RenderSystem';
+import { MapVariant, resolveMapPathsForVariant } from './mapRuntimeConfig';
 import { ComposedGame, RuntimeControl } from './contracts';
 
 const GHOST_KEYS: GhostKey[] = ['inky', 'clyde', 'pinky', 'blinky'];
@@ -44,6 +45,7 @@ function clamp(value: number, min: number, max: number): number {
 
 export interface GameCompositionOptions {
   mountId?: string;
+  mapVariant?: MapVariant;
   rng?: (() => number) | { next(): number; int(maxExclusive: number): number };
 }
 
@@ -71,10 +73,11 @@ export class GameCompositionRoot {
     const assets = new AssetCatalog();
 
     const rng = toRandomSource(this.options.rng ?? Math.random);
-
-    const map = await mapRepository.loadMap('assets/mazes/default/maze.json');
+    const mapVariant = this.options.mapVariant ?? 'default';
+    const { mapJsonPath, tileBasePath } = resolveMapPathsForVariant(mapVariant);
+    const map = await this.loadMapForVariant(mapRepository, mapVariant, mapJsonPath);
     const tileSize = map.tileWidth || TILE_SIZE;
-    await assets.loadForMap(map, 'assets/mazes/default');
+    await assets.loadForMap(map, tileBasePath);
 
     const collisionGrid = new CollisionGrid(map.tiles.map((row) => row.map((tile) => ({ ...tile.collision }))));
     const movementRules = new MovementRules(tileSize);
@@ -182,5 +185,24 @@ export class GameCompositionRoot {
         mount.replaceChildren();
       },
     };
+  }
+
+  private async loadMapForVariant(
+    mapRepository: TiledMapRepository,
+    mapVariant: MapVariant,
+    mapJsonPath: string,
+  ) {
+    try {
+      return await mapRepository.loadMap(mapJsonPath);
+    } catch (error) {
+      if (mapVariant === 'demo') {
+        throw new Error(
+          `DEMO map startup failed while loading "${mapJsonPath}": ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+      throw error;
+    }
   }
 }

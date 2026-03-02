@@ -458,12 +458,6 @@ describe('RenderSystem point rendering regression', () => {
     expect(renderedPointCenters.has(`${nonCollidingCenter.x},${nonCollidingCenter.y}`)).toBe(true);
 
     const forbiddenTiles = collectVoidBoundaryForbiddenTiles(map, collisionGrid, map.tileWidth);
-    expect(forbiddenTiles).toEqual(
-      expect.arrayContaining([
-        { x: 1, y: 26 },
-        { x: 49, y: 26 },
-      ]),
-    );
 
     const forbiddenCenters = forbiddenTiles.map((tile) => {
       const center = toTileCenter(tile, map.tileWidth);

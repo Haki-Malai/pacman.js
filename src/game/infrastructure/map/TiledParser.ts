@@ -69,6 +69,20 @@ export interface ParsedGid {
   flipped: boolean;
 }
 
+interface TrimBounds {
+  minX: number;
+  minY: number;
+  width: number;
+  height: number;
+}
+
+type PortalSide = 'left' | 'right' | 'top' | 'bottom';
+
+interface PortalCandidate {
+  tile: { x: number; y: number };
+  side: PortalSide;
+}
+
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
@@ -86,16 +100,12 @@ export function parseGid(rawGid: number): ParsedGid {
     flipped = true;
   } else if (flippedHorizontal && flippedVertical && !flippedAntiDiagonal) {
     rotation = Math.PI;
-    flipped = false;
   } else if (flippedHorizontal && !flippedVertical && flippedAntiDiagonal) {
     rotation = Math.PI / 2;
-    flipped = false;
   } else if (flippedHorizontal && !flippedVertical && !flippedAntiDiagonal) {
-    rotation = 0;
     flipped = true;
   } else if (!flippedHorizontal && flippedVertical && flippedAntiDiagonal) {
     rotation = (3 * Math.PI) / 2;
-    flipped = false;
   } else if (!flippedHorizontal && flippedVertical && !flippedAntiDiagonal) {
     rotation = Math.PI;
     flipped = true;
@@ -115,7 +125,7 @@ export function parseGid(rawGid: number): ParsedGid {
 }
 
 export function readCollisionTileFromProperties(properties: Record<string, unknown>): CollisionTile {
-  const read = (key: string): unknown => properties[key];
+  const read = (name: string): unknown => properties[name];
   const toBool = (value: unknown): boolean => Boolean(value);
 
   return {
@@ -140,13 +150,12 @@ export function orientCollisionTile(base: CollisionTile, rotation: number, flipX
   if (flipX) {
     [edges.left, edges.right] = [edges.right, edges.left];
   }
-
   if (flipY) {
     [edges.up, edges.down] = [edges.down, edges.up];
   }
 
-  const rotationSteps = ((Math.round(rotation / (Math.PI / 2)) % 4) + 4) % 4;
-  for (let i = 0; i < rotationSteps; i += 1) {
+  const steps = ((Math.round(rotation / (Math.PI / 2)) % 4) + 4) % 4;
+  for (let i = 0; i < steps; i += 1) {
     edges = {
       up: edges.left,
       right: edges.up,
@@ -155,12 +164,7 @@ export function orientCollisionTile(base: CollisionTile, rotation: number, flipX
     };
   }
 
-  return {
-    collides: base.collides,
-    penGate: base.penGate,
-    portal: base.portal,
-    ...edges,
-  };
+  return { collides: base.collides, penGate: base.penGate, portal: base.portal, ...edges };
 }
 
 const getTilesetForGid = (gid: number, tilesets: TiledTileset[]): TiledTileset | undefined => {
@@ -180,14 +184,11 @@ const toPropertyRecord = (properties?: TiledProperty[]): Record<string, unknown>
   if (!Array.isArray(properties)) {
     return record;
   }
-
   properties.forEach((property) => {
-    if (!property || typeof property.name !== 'string') {
-      return;
+    if (property && typeof property.name === 'string') {
+      record[property.name] = property.value;
     }
-    record[property.name] = property.value;
   });
-
   return record;
 };
 
@@ -200,20 +201,10 @@ const toWorldObject = (object: TiledObject): WorldObject => ({
   y: object.y,
   width: object.width,
   height: object.height,
-  properties: object.properties?.map((property): WorldProperty => ({
-    name: property.name,
-    type: property.type,
-    value: property.value,
-  })),
+  properties: object.properties?.map(
+    (property): WorldProperty => ({ name: property.name, type: property.type, value: property.value }),
+  ),
 });
-
-const PORTAL_RESOLVE_MAX_RADIUS = 4;
-
-interface ResolvedPortalEndpoint {
-  tile: { x: number; y: number };
-  pairId?: string;
-  order: number;
-}
 
 function createBlockingCollisionTile(): CollisionTile {
   return {
@@ -227,207 +218,288 @@ function createBlockingCollisionTile(): CollisionTile {
   };
 }
 
-function isWalkablePortalTile(tile: WorldTile | undefined): tile is WorldTile {
+function isVoidTile(tile: WorldTile | undefined): boolean {
+  return !tile || tile.gid === null;
+}
+
+function isFullyBlockingTile(tile: WorldTile | undefined): boolean {
   if (!tile) {
+    return true;
+  }
+  const collision = tile.collision;
+  return collision.collides && collision.up && collision.right && collision.down && collision.left;
+}
+
+function canBePortalCandidate(tile: WorldTile | undefined): tile is WorldTile {
+  if (!tile || tile.gid === null) {
     return false;
   }
-
-  return tile.gid !== null && !tile.collision.collides && !tile.collision.penGate;
+  if (tile.collision.penGate) {
+    return false;
+  }
+  return !isFullyBlockingTile(tile);
 }
 
-function clampToGrid(value: number, maxExclusive: number): number {
-  if (maxExclusive <= 0) {
-    return 0;
+function computeTrimBounds(tiles: WorldTile[][]): TrimBounds {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (let y = 0; y < tiles.length; y += 1) {
+    for (let x = 0; x < (tiles[y]?.length ?? 0); x += 1) {
+      if (tiles[y]?.[x]?.gid === null) {
+        continue;
+      }
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
   }
 
-  if (value < 0) {
-    return 0;
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    return { minX: 0, minY: 0, width: tiles[0]?.length ?? 0, height: tiles.length };
   }
 
-  if (value >= maxExclusive) {
-    return maxExclusive - 1;
-  }
-
-  return value;
+  return {
+    minX,
+    minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1,
+  };
 }
 
-function resolvePortalTileFromObject(params: {
-  objectX: number;
-  objectY: number;
-  tileWidth: number;
-  tileHeight: number;
-  width: number;
-  height: number;
-  tiles: WorldTile[][];
-}): { x: number; y: number } | null {
-  if (
-    !Number.isFinite(params.objectX) ||
-    !Number.isFinite(params.objectY) ||
-    !Number.isFinite(params.tileWidth) ||
-    !Number.isFinite(params.tileHeight) ||
-    params.tileWidth <= 0 ||
-    params.tileHeight <= 0
-  ) {
+function trimTiles(tiles: WorldTile[][], bounds: TrimBounds): WorldTile[][] {
+  const trimmed: WorldTile[][] = [];
+  for (let y = 0; y < bounds.height; y += 1) {
+    const row: WorldTile[] = [];
+    for (let x = 0; x < bounds.width; x += 1) {
+      const source = tiles[bounds.minY + y]?.[bounds.minX + x];
+      if (!source) {
+        row.push({
+          x,
+          y,
+          rawGid: 0,
+          gid: null,
+          localId: null,
+          imagePath: '(empty)',
+          rotation: 0,
+          flipX: false,
+          flipY: false,
+          collision: createBlockingCollisionTile(),
+        });
+        continue;
+      }
+      row.push({ ...source, x, y });
+    }
+    trimmed.push(row);
+  }
+  return trimmed;
+}
+
+function rebaseWorldObject(object: WorldObject, bounds: TrimBounds, tileWidth: number, tileHeight: number): WorldObject {
+  const offsetX = bounds.minX * tileWidth;
+  const offsetY = bounds.minY * tileHeight;
+
+  const properties = object.properties?.map((property) => {
+    const shouldShiftX = property.name === 'gridX' || property.name === 'startX' || property.name === 'endX';
+    const shouldShiftY = property.name === 'gridY';
+    if (!shouldShiftX && !shouldShiftY) {
+      return property;
+    }
+    if (typeof property.value !== 'number') {
+      return property;
+    }
+    return {
+      ...property,
+      value: shouldShiftX ? property.value - bounds.minX : property.value - bounds.minY,
+    };
+  });
+
+  return {
+    ...object,
+    x: typeof object.x === 'number' ? object.x - offsetX : object.x,
+    y: typeof object.y === 'number' ? object.y - offsetY : object.y,
+    properties,
+  };
+}
+
+function findInteriorPortalCandidates(tiles: WorldTile[][]): PortalCandidate[] {
+  const candidates: PortalCandidate[] = [];
+  const height = tiles.length;
+  const width = tiles[0]?.length ?? 0;
+
+  if (height < 3 || width < 3) {
+    return candidates;
+  }
+
+  for (let y = 0; y < height; y += 1) {
+    const leftCandidate = tiles[y]?.[1];
+    const leftOuter = tiles[y]?.[0];
+    if (canBePortalCandidate(leftCandidate) && leftOuter && leftOuter.gid !== null && !leftOuter.collision.left) {
+      candidates.push({ tile: { x: 1, y }, side: 'left' });
+    }
+
+    const rightCandidate = tiles[y]?.[width - 2];
+    const rightOuter = tiles[y]?.[width - 1];
+    if (
+      canBePortalCandidate(rightCandidate) &&
+      rightOuter &&
+      rightOuter.gid !== null &&
+      !rightOuter.collision.right
+    ) {
+      candidates.push({ tile: { x: width - 2, y }, side: 'right' });
+    }
+  }
+
+  for (let x = 0; x < width; x += 1) {
+    const topCandidate = tiles[1]?.[x];
+    const topOuter = tiles[0]?.[x];
+    if (canBePortalCandidate(topCandidate) && topOuter && topOuter.gid !== null && !topOuter.collision.up) {
+      candidates.push({ tile: { x, y: 1 }, side: 'top' });
+    }
+
+    const bottomCandidate = tiles[height - 2]?.[x];
+    const bottomOuter = tiles[height - 1]?.[x];
+    if (
+      canBePortalCandidate(bottomCandidate) &&
+      bottomOuter &&
+      bottomOuter.gid !== null &&
+      !bottomOuter.collision.down
+    ) {
+      candidates.push({ tile: { x, y: height - 2 }, side: 'bottom' });
+    }
+  }
+
+  return candidates;
+}
+
+function findBoundaryPortalCandidates(tiles: WorldTile[][]): PortalCandidate[] {
+  const candidates: PortalCandidate[] = [];
+  for (let y = 0; y < tiles.length; y += 1) {
+    for (let x = 0; x < (tiles[y]?.length ?? 0); x += 1) {
+      const tile = tiles[y]?.[x];
+      if (!tile || tile.gid === null || tile.collision.collides || tile.collision.penGate) {
+        continue;
+      }
+
+      const upNeighbor = tiles[y - 1]?.[x];
+      const downNeighbor = tiles[y + 1]?.[x];
+      const leftNeighbor = tiles[y]?.[x - 1];
+      const rightNeighbor = tiles[y]?.[x + 1];
+
+      if (isVoidTile(leftNeighbor) && !tile.collision.left) {
+        candidates.push({ tile: { x, y }, side: 'left' });
+      }
+      if (isVoidTile(rightNeighbor) && !tile.collision.right) {
+        candidates.push({ tile: { x, y }, side: 'right' });
+      }
+      if (isVoidTile(upNeighbor) && !tile.collision.up) {
+        candidates.push({ tile: { x, y }, side: 'top' });
+      }
+      if (isVoidTile(downNeighbor) && !tile.collision.down) {
+        candidates.push({ tile: { x, y }, side: 'bottom' });
+      }
+    }
+  }
+  return candidates;
+}
+
+function clearPortalFlags(tiles: WorldTile[][]): void {
+  for (let y = 0; y < tiles.length; y += 1) {
+    for (let x = 0; x < (tiles[y]?.length ?? 0); x += 1) {
+      const tile = tiles[y]?.[x];
+      if (!tile || tile.gid === null) {
+        continue;
+      }
+      tile.collision.portal = false;
+    }
+  }
+}
+
+function preferWalkableCandidates(candidates: PortalCandidate[], tiles: WorldTile[][]): PortalCandidate[] {
+  const walkable = candidates.filter((candidate) => {
+    const tile = tiles[candidate.tile.y]?.[candidate.tile.x];
+    return Boolean(tile && !tile.collision.collides);
+  });
+
+  return walkable.length > 0 ? walkable : candidates;
+}
+
+function pickCenteredCandidate(candidates: PortalCandidate[], side: PortalSide, width: number, height: number): PortalCandidate | null {
+  const centerX = (width - 1) / 2;
+  const centerY = (height - 1) / 2;
+  const sideCandidates = candidates.filter((candidate) => candidate.side === side);
+  if (sideCandidates.length === 0) {
     return null;
   }
 
-  const originX = clampToGrid(Math.floor(params.objectX / params.tileWidth), params.width);
-  const originY = clampToGrid(Math.floor(params.objectY / params.tileHeight), params.height);
-
-  for (let distance = 0; distance <= PORTAL_RESOLVE_MAX_RADIUS; distance += 1) {
-    const minY = Math.max(0, originY - distance);
-    const maxY = Math.min(params.height - 1, originY + distance);
-
-    for (let y = minY; y <= maxY; y += 1) {
-      const remainingDistance = distance - Math.abs(y - originY);
-      const minX = Math.max(0, originX - remainingDistance);
-      const maxX = Math.min(params.width - 1, originX + remainingDistance);
-
-      for (let x = minX; x <= maxX; x += 1) {
-        if (Math.abs(x - originX) + Math.abs(y - originY) !== distance) {
-          continue;
-        }
-
-        const tile = params.tiles[y]?.[x];
-        if (isWalkablePortalTile(tile)) {
-          return { x, y };
-        }
-      }
+  sideCandidates.sort((a, b) => {
+    if (side === 'left' || side === 'right') {
+      const distanceDiff = Math.abs(a.tile.y - centerY) - Math.abs(b.tile.y - centerY);
+      if (distanceDiff !== 0) return distanceDiff;
+      if (a.tile.x !== b.tile.x) return side === 'left' ? a.tile.x - b.tile.x : b.tile.x - a.tile.x;
+      return a.tile.y - b.tile.y;
     }
-  }
 
-  return null;
-}
-
-function readObjectStringProperty(object: WorldObject, name: string): string | undefined {
-  const value = object.properties?.find((property) => property.name === name)?.value;
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : undefined;
-}
-
-function compareResolvedEndpoints(a: ResolvedPortalEndpoint, b: ResolvedPortalEndpoint): number {
-  if (a.tile.y !== b.tile.y) {
-    return a.tile.y - b.tile.y;
-  }
-  if (a.tile.x !== b.tile.x) {
+    const distanceDiff = Math.abs(a.tile.x - centerX) - Math.abs(b.tile.x - centerX);
+    if (distanceDiff !== 0) return distanceDiff;
+    if (a.tile.y !== b.tile.y) return side === 'top' ? a.tile.y - b.tile.y : b.tile.y - a.tile.y;
     return a.tile.x - b.tile.x;
-  }
-  return a.order - b.order;
+  });
+
+  return sideCandidates[0] ?? null;
 }
 
-function buildPortalPairs(endpoints: ResolvedPortalEndpoint[]): PortalPair[] {
-  const groupedByPairId = new Map<string, ResolvedPortalEndpoint[]>();
-  const consumedTiles = new Set<string>();
-  const portalPairs: PortalPair[] = [];
-
-  endpoints.forEach((endpoint) => {
-    if (!endpoint.pairId) {
-      return;
-    }
-
-    const group = groupedByPairId.get(endpoint.pairId) ?? [];
-    group.push(endpoint);
-    groupedByPairId.set(endpoint.pairId, group);
-  });
-
-  const pairIds = [...groupedByPairId.keys()].sort((a, b) => a.localeCompare(b));
-  pairIds.forEach((pairId) => {
-    const group = groupedByPairId.get(pairId);
-    if (!group) {
-      return;
-    }
-
-    group.sort(compareResolvedEndpoints);
-    for (let index = 0; index + 1 < group.length; index += 2) {
-      const from = group[index];
-      const to = group[index + 1];
-      portalPairs.push({
-        from: { ...from.tile },
-        to: { ...to.tile },
-      });
-      consumedTiles.add(`${from.tile.x},${from.tile.y}`);
-      consumedTiles.add(`${to.tile.x},${to.tile.y}`);
-    }
-  });
-
-  const fallbackEndpoints = endpoints
-    .filter((endpoint) => !consumedTiles.has(`${endpoint.tile.x},${endpoint.tile.y}`))
-    .sort(compareResolvedEndpoints);
-
-  for (let index = 0; index + 1 < fallbackEndpoints.length; index += 2) {
-    const from = fallbackEndpoints[index];
-    const to = fallbackEndpoints[index + 1];
-    portalPairs.push({
-      from: { ...from.tile },
-      to: { ...to.tile },
-    });
+function inferPortalPairs(tiles: WorldTile[][]): PortalPair[] {
+  if (tiles.length === 0 || (tiles[0]?.length ?? 0) === 0) {
+    return [];
   }
 
-  return portalPairs;
-}
+  clearPortalFlags(tiles);
 
-function applyPortalFlagsFromSpawnObjects(params: {
-  spawnObjects: WorldObject[];
-  tiles: WorldTile[][];
-  tileWidth: number;
-  tileHeight: number;
-  width: number;
-  height: number;
-}): PortalPair[] {
-  const endpointsByTile = new Map<string, ResolvedPortalEndpoint>();
+  const interiorCandidates = findInteriorPortalCandidates(tiles);
+  const boundaryCandidates = findBoundaryPortalCandidates(tiles);
+  const sides: PortalSide[] = ['left', 'right', 'top', 'bottom'];
+  const candidates: PortalCandidate[] = [];
 
-  params.spawnObjects.forEach((object, order) => {
-    if (object.type !== 'portal' || typeof object.x !== 'number' || typeof object.y !== 'number') {
+  sides.forEach((side) => {
+    const interiorForSide = interiorCandidates.filter((candidate) => candidate.side === side);
+    if (interiorForSide.length > 0) {
+      candidates.push(...preferWalkableCandidates(interiorForSide, tiles));
       return;
     }
-
-    const resolvedTile = resolvePortalTileFromObject({
-      objectX: object.x,
-      objectY: object.y,
-      tileWidth: params.tileWidth,
-      tileHeight: params.tileHeight,
-      width: params.width,
-      height: params.height,
-      tiles: params.tiles,
-    });
-
-    if (!resolvedTile) {
-      return;
-    }
-
-    const target = params.tiles[resolvedTile.y]?.[resolvedTile.x];
-    if (!target) {
-      return;
-    }
-
-    const key = `${resolvedTile.x},${resolvedTile.y}`;
-    const pairId = readObjectStringProperty(object, 'pairId');
-    const existing = endpointsByTile.get(key);
-    if (existing) {
-      if (!existing.pairId && pairId) {
-        existing.pairId = pairId;
-      }
-      return;
-    }
-
-    target.collision.portal = true;
-    endpointsByTile.set(key, {
-      tile: resolvedTile,
-      pairId,
-      order,
-    });
+    candidates.push(...boundaryCandidates.filter((candidate) => candidate.side === side));
   });
 
-  const endpoints = [...endpointsByTile.values()].sort(compareResolvedEndpoints);
-  return buildPortalPairs(endpoints);
+  const width = tiles[0]?.length ?? 0;
+  const height = tiles.length;
+
+  const left = pickCenteredCandidate(candidates, 'left', width, height);
+  const right = pickCenteredCandidate(candidates, 'right', width, height);
+  const top = pickCenteredCandidate(candidates, 'top', width, height);
+  const bottom = pickCenteredCandidate(candidates, 'bottom', width, height);
+
+  const pairs: PortalPair[] = [];
+  if (left && right) {
+    pairs.push({ from: { ...left.tile }, to: { ...right.tile } });
+  }
+  if (top && bottom) {
+    pairs.push({ from: { ...top.tile }, to: { ...bottom.tile } });
+  }
+
+  pairs.forEach((pair) => {
+    const from = tiles[pair.from.y]?.[pair.from.x];
+    const to = tiles[pair.to.y]?.[pair.to.x];
+    if (from) from.collision.portal = true;
+    if (to) to.collision.portal = true;
+  });
+
+  return pairs;
 }
 
 function applyVoidLeakBoundaryGuards(tiles: WorldTile[][]): void {
-  const isVoidTile = (tile: WorldTile | undefined): boolean => !tile || tile.gid === null;
   const directions: Array<{ dx: number; dy: number; edge: keyof Pick<CollisionTile, 'up' | 'right' | 'down' | 'left'> }> = [
     { dx: 0, dy: -1, edge: 'up' },
     { dx: 1, dy: 0, edge: 'right' },
@@ -436,13 +508,8 @@ function applyVoidLeakBoundaryGuards(tiles: WorldTile[][]): void {
   ];
 
   for (let y = 0; y < tiles.length; y += 1) {
-    const row = tiles[y];
-    if (!row) {
-      continue;
-    }
-
-    for (let x = 0; x < row.length; x += 1) {
-      const tile = row[x];
+    for (let x = 0; x < (tiles[y]?.length ?? 0); x += 1) {
+      const tile = tiles[y]?.[x];
       if (!tile || tile.gid === null || tile.collision.portal) {
         continue;
       }
@@ -465,14 +532,13 @@ export function parseTiledMap(map: TiledMap): WorldMapData {
     | undefined;
   const fallbackLayer = map.layers.find((layer) => isRecord(layer) && layer.type === 'tilelayer') as TiledTileLayer | undefined;
   const tileLayer = mazeLayer ?? fallbackLayer;
-
   if (!tileLayer || !Array.isArray(tileLayer.data)) {
     throw new Error('Maze tile layer is required in maze.json');
   }
 
   const width = tileLayer.width;
   const height = tileLayer.height;
-  if (typeof width !== 'number' || typeof height !== 'number' || width <= 0 || height <= 0) {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
     throw new Error('Maze layer width/height must be positive numbers');
   }
 
@@ -480,17 +546,14 @@ export function parseTiledMap(map: TiledMap): WorldMapData {
   const imageByGid = new Map<number, string>();
 
   map.tilesets.forEach((tileset) => {
-    const firstgid = tileset.firstgid;
-    if (typeof firstgid !== 'number' || !Array.isArray(tileset.tiles)) {
+    if (!Number.isFinite(tileset.firstgid) || !Array.isArray(tileset.tiles)) {
       return;
     }
-
     tileset.tiles.forEach((tile) => {
-      if (!tile || typeof tile.id !== 'number') {
+      if (!tile || !Number.isFinite(tile.id)) {
         return;
       }
-
-      const gid = firstgid + tile.id;
+      const gid = tileset.firstgid + tile.id;
       const properties = toPropertyRecord(tile.properties);
       collisionByGid.set(gid, readCollisionTileFromProperties(properties));
       if (typeof tile.image === 'string') {
@@ -499,16 +562,14 @@ export function parseTiledMap(map: TiledMap): WorldMapData {
     });
   });
 
-  const tiles: WorldTile[][] = [];
+  const rawTiles: WorldTile[][] = [];
   for (let y = 0; y < height; y += 1) {
     const row: WorldTile[] = [];
-
     for (let x = 0; x < width; x += 1) {
       const index = y * width + x;
       const rawGid = tileLayer.data[index] ?? 0;
-      const gidData = parseGid(rawGid);
-
-      if (gidData.gid <= 0) {
+      const parsed = parseGid(rawGid);
+      if (parsed.gid <= 0) {
         row.push({
           x,
           y,
@@ -524,58 +585,63 @@ export function parseTiledMap(map: TiledMap): WorldMapData {
         continue;
       }
 
-      const tileset = getTilesetForGid(gidData.gid, map.tilesets);
-      const localId = tileset ? gidData.gid - tileset.firstgid : gidData.gid;
-      const baseCollision = collisionByGid.get(gidData.gid) ?? createEmptyCollisionTile();
-      const flipX = gidData.flipped;
-      const flipY = false;
-      const collision = orientCollisionTile(baseCollision, gidData.rotation, flipX, flipY);
-
+      const tileset = getTilesetForGid(parsed.gid, map.tilesets);
+      const localId = tileset ? parsed.gid - tileset.firstgid : parsed.gid;
+      const baseCollision = collisionByGid.get(parsed.gid) ?? createEmptyCollisionTile();
       row.push({
         x,
         y,
         rawGid,
-        gid: gidData.gid,
+        gid: parsed.gid,
         localId,
-        imagePath: imageByGid.get(gidData.gid) ?? '(unknown)',
-        rotation: gidData.rotation,
-        flipX,
-        flipY,
-        collision,
+        imagePath: imageByGid.get(parsed.gid) ?? '(unknown)',
+        rotation: parsed.rotation,
+        flipX: parsed.flipped,
+        flipY: false,
+        collision: orientCollisionTile(baseCollision, parsed.rotation, parsed.flipped, false),
       });
     }
-
-    tiles.push(row);
+    rawTiles.push(row);
   }
+
+  const trimBounds = computeTrimBounds(rawTiles);
+  const tiles = trimTiles(rawTiles, trimBounds);
 
   const spawnLayer = map.layers.find((layer) => isRecord(layer) && layer.type === 'objectgroup' && layer.name === 'Spawns') as
     | TiledObjectLayer
     | undefined;
+  const dotsLayer = map.layers.find((layer) => isRecord(layer) && layer.type === 'objectgroup' && layer.name === 'Dots') as
+    | TiledObjectLayer
+    | undefined;
 
-  const spawnObjects = (spawnLayer?.objects ?? []).map((object) => toWorldObject(object));
+  const spawnObjects = (spawnLayer?.objects ?? [])
+    .map((object) => toWorldObject(object))
+    .map((object) => rebaseWorldObject(object, trimBounds, map.tilewidth, map.tileheight));
+  const collectibleObjects = (dotsLayer?.objects ?? [])
+    .map((object) => toWorldObject(object))
+    .map((object) => rebaseWorldObject(object, trimBounds, map.tilewidth, map.tileheight));
 
-  const portalPairs = applyPortalFlagsFromSpawnObjects({
-    spawnObjects,
-    tiles,
-    tileWidth: map.tilewidth,
-    tileHeight: map.tileheight,
-    width,
-    height,
-  });
+  const portalPairs = inferPortalPairs(tiles);
   applyVoidLeakBoundaryGuards(tiles);
 
+  const trimmedCollisionByGid = new Map<number, CollisionTile>();
+  collisionByGid.forEach((value, key) => {
+    trimmedCollisionByGid.set(key, { ...value });
+  });
+
   return {
-    width,
-    height,
+    width: trimBounds.width,
+    height: trimBounds.height,
     tileWidth: map.tilewidth,
     tileHeight: map.tileheight,
-    widthInPixels: width * map.tilewidth,
-    heightInPixels: height * map.tileheight,
+    widthInPixels: trimBounds.width * map.tilewidth,
+    heightInPixels: trimBounds.height * map.tileheight,
     tiles,
-    collisionByGid,
+    collisionByGid: trimmedCollisionByGid,
     imageByGid,
     portalPairs,
     spawnObjects,
+    collectibleObjects,
     pacmanSpawn: spawnObjects.find((object) => object.type === 'pacman'),
     ghostHome: spawnObjects.find((object) => object.type === 'ghost-home'),
   };
