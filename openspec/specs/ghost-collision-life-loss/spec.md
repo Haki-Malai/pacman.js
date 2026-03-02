@@ -4,15 +4,19 @@
 TBD - created by archiving change implement-ghost-collision-life-loss. Update Purpose after archive.
 ## Requirements
 ### Requirement: Ghost and Pac-Man contact is detected deterministically in tile space
-The runtime SHALL detect ghost/Pac-Man contact when they overlap on the same tile, and MUST also detect head-on tile-crossing contact when Pac-Man and a ghost swap tiles within one tick.
+The runtime SHALL detect ghost/Pac-Man contact when Pac-Man and an active free ghost have overlapping opaque sprite pixels in world space during a tick. Collision evaluation MUST use current animation frame masks and active render transforms (rotation and flip), and MUST resolve the first matching collision in deterministic ghost iteration order.
 
-#### Scenario: Same-tile contact triggers collision
-- **WHEN** Pac-Man and an active free ghost occupy the same tile during a tick
+#### Scenario: Opaque sprite overlap triggers collision
+- **WHEN** Pac-Man and an active free ghost have at least one overlapping opaque pixel in the same tick
 - **THEN** the collision flow is triggered for that tick
 
-#### Scenario: Tile-crossing contact triggers collision
-- **WHEN** Pac-Man moves from tile A to B while an active free ghost moves from tile B to A in the same tick
+#### Scenario: Adjacent-tile overlap still triggers collision
+- **WHEN** Pac-Man and an active free ghost occupy adjacent tiles but their transformed sprite masks overlap in world space
 - **THEN** the collision flow is triggered for that tick
+
+#### Scenario: Tile swap without pixel overlap does not trigger collision
+- **WHEN** Pac-Man and an active free ghost swap tiles within one tick but no opaque sprite pixels overlap
+- **THEN** no collision flow is triggered for that tick
 
 ### Requirement: Collision currently resolves to Pac-Man life loss
 For this capability version, detected ghost/Pac-Man collision SHALL resolve by scared-state policy: collisions with non-scared ghosts SHALL resolve to Pac-Man hit behavior, and collisions with scared ghosts SHALL resolve to ghost-hit behavior. During active post-portal Pac-Man blink shield, non-scared ghost collisions SHALL be suppressed for that tick, while scared ghost collisions SHALL still resolve to ghost-hit behavior.

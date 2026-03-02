@@ -32,9 +32,9 @@ After successful portal teleport, Pac-Man visibility SHALL blink for a fixed dur
 - **WHEN** Pac-Man collides with an active free scared ghost during active post-portal blink window
 - **THEN** ghost-hit behavior is applied for the colliding ghost
 
-#### Scenario: Production map exposes deterministic geometry-derived portal endpoint pairs
-- **WHEN** the default production maze is parsed into runtime collision data
-- **THEN** runtime prefers one-tile-interior side-door candidates, deterministically picks center-most endpoints per side, and pairs opposite sides of the playable map envelope.
+#### Scenario: Portal endpoints are inferred from center-most outer doors
+- **WHEN** a map is parsed into runtime collision data
+- **THEN** runtime prefers one-tile-interior side-door candidates and deterministically pairs center-most opposite-side endpoints
 
 ### Requirement: Pause state presents overlay and scene treatment while simulation is paused
 When simulation is paused, the runtime SHALL show pause presentation feedback, and SHALL remove that presentation when simulation resumes.
@@ -53,3 +53,4 @@ During the final warning window of scared mode, the runtime SHALL alternate ghos
 #### Scenario: Warning alternation cadence and termination are deterministic
 - **WHEN** update ticks advance through the warning window
 - **THEN** visual alternation uses configured deterministic cadence progression and ends when scared mode expires
+
