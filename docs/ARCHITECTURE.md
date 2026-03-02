@@ -116,7 +116,7 @@ Render order:
 ## Camera Behavior Contract
 - `CameraSystem.start()` configures bounds, zoom, follow target, and viewport, then calls a one-time snap so the first gameplay frame is centered on Pac-Man instead of animating in from `(0, 0)`.
 - After startup, camera movement remains lerp-based via `CAMERA.followLerp` and updates each frame in `CameraSystem.update()`.
-- `Camera2D` clamps camera coordinates to world bounds on both startup snap and regular updates.
+- `Camera2D` applies per-axis bounds policy on both startup snap and regular updates: clamp on axes where the world is larger than the viewport, and center on axes where the viewport is larger than the world.
 - Resize handling updates renderer size and camera viewport dimensions before subsequent follow updates.
 - Regression coverage lives in `src/__tests__/camera2d.test.ts` and `src/__tests__/cameraSystem.test.ts`.
 
