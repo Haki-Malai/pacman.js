@@ -124,22 +124,16 @@ describe('maze.json contract', () => {
     expect(rightPortal).toBeDefined();
     expect(topPortal).toBeDefined();
     expect(bottomPortal).toBeDefined();
-    expect(leftPortal?.x).toBe(8);
-    expect(leftPortal?.y).toBe(408);
     expect(getPropertyValue(leftPortal?.properties, 'pairId')).toBe('horizontal');
-    expect(rightPortal?.x).toBe(808);
-    expect(rightPortal?.y).toBe(408);
     expect(getPropertyValue(rightPortal?.properties, 'pairId')).toBe('horizontal');
-    expect(topPortal?.x).toBe(408);
-    expect(topPortal?.y).toBe(8);
     expect(getPropertyValue(topPortal?.properties, 'pairId')).toBe('vertical');
-    expect(bottomPortal?.x).toBe(408);
-    expect(bottomPortal?.y).toBe(808);
     expect(getPropertyValue(bottomPortal?.properties, 'pairId')).toBe('vertical');
   });
 
-  it('parses deterministic portal endpoint tiles from portal spawn objects', () => {
-    const parsed = parseTiledMap(readMap());
+  it('parses deterministic geometry-driven portal endpoint pairs', () => {
+    const first = parseTiledMap(readMap());
+    const second = parseTiledMap(readMap());
+    const parsed = first;
     const portalTiles: Array<{ x: number; y: number }> = [];
 
     for (let y = 0; y < parsed.height; y += 1) {
@@ -150,68 +144,67 @@ describe('maze.json contract', () => {
       }
     }
 
-    expect(portalTiles).toEqual([
-      { x: 25, y: 1 },
-      { x: 1, y: 26 },
-      { x: 49, y: 26 },
-      { x: 25, y: 49 },
-    ]);
+    expect(first.portalPairs).toEqual(second.portalPairs);
+    expect(parsed.portalPairs?.length).toBeGreaterThanOrEqual(1);
+    expect(portalTiles.length).toBe((parsed.portalPairs?.length ?? 0) * 2);
 
-    expect(parsed.portalPairs).toEqual([
-      {
-        from: { x: 1, y: 26 },
-        to: { x: 49, y: 26 },
-      },
-      {
-        from: { x: 25, y: 1 },
-        to: { x: 25, y: 49 },
-      },
-    ]);
-  });
+    (parsed.portalPairs ?? []).forEach((pair) => {
+      const from = parsed.tiles[pair.from.y]?.[pair.from.x];
+      const to = parsed.tiles[pair.to.y]?.[pair.to.x];
 
-  it('parses boundary void cells as blocking tiles', () => {
-    const parsed = parseTiledMap(readMap());
-    const leftVoid = parsed.tiles[26]?.[0]?.collision;
-    const rightVoid = parsed.tiles[26]?.[50]?.collision;
+      expect(from?.collision.portal).toBe(true);
+      expect(to?.collision.portal).toBe(true);
+      expect(from?.collision.collides).toBe(false);
+      expect(to?.collision.collides).toBe(false);
+      expect(pair.from.x === pair.to.x || pair.from.y === pair.to.y).toBe(true);
 
-    expect(leftVoid).toMatchObject({
-      collides: true,
-      penGate: false,
-      portal: false,
-      up: true,
-      down: true,
-      left: true,
-      right: true,
-    });
-    expect(rightVoid).toMatchObject({
-      collides: true,
-      penGate: false,
-      portal: false,
-      up: true,
-      down: true,
-      left: true,
-      right: true,
+      if (pair.from.y === pair.to.y) {
+        const fromNearOuter = pair.from.x <= 1 || pair.from.x >= parsed.width - 2;
+        const toNearOuter = pair.to.x <= 1 || pair.to.x >= parsed.width - 2;
+        expect(fromNearOuter).toBe(true);
+        expect(toNearOuter).toBe(true);
+        return;
+      }
+
+      const fromNearOuter = pair.from.y <= 1 || pair.from.y >= parsed.height - 2;
+      const toNearOuter = pair.to.y <= 1 || pair.to.y >= parsed.height - 2;
+      expect(fromNearOuter).toBe(true);
+      expect(toNearOuter).toBe(true);
     });
   });
 
-  it('blocks non-portal tiles that expose an open edge directly into map void', () => {
+  it('keeps non-portal boundary-facing tiles hardened against void leak', () => {
     const parsed = parseTiledMap(readMap());
-    const leakBandTile = parsed.tiles[1]?.[24]?.collision;
+    const hasLeakToVoid = (): boolean => {
+      for (let y = 0; y < parsed.height; y += 1) {
+        for (let x = 0; x < parsed.width; x += 1) {
+          const tile = parsed.tiles[y]?.[x];
+          if (!tile || tile.gid === null || tile.collision.portal) {
+            continue;
+          }
 
-    expect(leakBandTile).toMatchObject({
-      collides: true,
-      penGate: false,
-      portal: false,
-      up: true,
-      right: true,
-      down: true,
-      left: true,
-    });
+          const neighbors = [
+            { dx: 0, dy: -1, blocked: tile.collision.up },
+            { dx: 1, dy: 0, blocked: tile.collision.right },
+            { dx: 0, dy: 1, blocked: tile.collision.down },
+            { dx: -1, dy: 0, blocked: tile.collision.left },
+          ];
 
-    const portalEndpoint = parsed.tiles[26]?.[49]?.collision;
-    expect(portalEndpoint?.portal).toBe(true);
-    expect(portalEndpoint?.collides).toBe(false);
-    expect(parsed.tiles[1]?.[25]?.collision.portal).toBe(true);
+          const leaks = neighbors.some(({ dx, dy, blocked }) => {
+            const neighbor = parsed.tiles[y + dy]?.[x + dx];
+            const isVoid = !neighbor || neighbor.gid === null;
+            return isVoid && !blocked;
+          });
+
+          if (leaks) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    expect(hasLeakToVoid()).toBe(false);
   });
 
   it('contains seeded tile collision properties for the migration rules', () => {

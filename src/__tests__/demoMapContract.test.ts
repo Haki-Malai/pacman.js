@@ -1,30 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseTiledMap } from '../game/infrastructure/map/TiledParser';
-
-type TiledProperty = {
-  name: string;
-  type: string;
-  value: unknown;
-};
-
-type TiledObject = {
-  id?: number;
-  name?: string;
-  type: string;
-  x?: number;
-  y?: number;
-  properties?: TiledProperty[];
-};
-
-type TiledMap = {
-  layers: Array<{
-    name: string;
-    type: string;
-    objects?: TiledObject[];
-  }>;
-};
+import { GhostJailService } from '../game/domain/services/GhostJailService';
+import { parseTiledMap, TiledMap } from '../game/infrastructure/map/TiledParser';
+import { PortalPair } from '../game/domain/world/WorldState';
 
 const DEMO_JSON_PATH = path.resolve(process.cwd(), 'public/assets/mazes/default/demo.json');
 
@@ -32,8 +11,12 @@ function readMap(): TiledMap {
   return JSON.parse(fs.readFileSync(DEMO_JSON_PATH, 'utf8')) as TiledMap;
 }
 
-function getPropertyValue(properties: TiledProperty[] | undefined, name: string): unknown {
-  return properties?.find((property) => property.name === name)?.value;
+function hasPair(pairs: PortalPair[] | undefined, a: { x: number; y: number }, b: { x: number; y: number }): boolean {
+  return (pairs ?? []).some((pair) => {
+    const direct = pair.from.x === a.x && pair.from.y === a.y && pair.to.x === b.x && pair.to.y === b.y;
+    const reverse = pair.from.x === b.x && pair.from.y === b.y && pair.to.x === a.x && pair.to.y === a.y;
+    return direct || reverse;
+  });
 }
 
 describe('demo.json contract', () => {
@@ -43,6 +26,7 @@ describe('demo.json contract', () => {
     expect(parsed.width).toBeGreaterThan(0);
     expect(parsed.height).toBeGreaterThan(0);
     expect(parsed.tiles.length).toBe(parsed.height);
+    expect(parsed.tiles[0]?.length).toBe(parsed.width);
   });
 
   it('resolves known image paths for all non-empty tiles', () => {
@@ -56,47 +40,54 @@ describe('demo.json contract', () => {
     });
   });
 
-  it('contains normalized spawn contract for pacman and ghost-home', () => {
-    const map = readMap();
-    const spawnLayer = map.layers.find((layer) => layer.name === 'Spawns' && layer.type === 'objectgroup');
-    const objects = spawnLayer?.objects ?? [];
+  it('keeps parsed map bounds trimmed to playable tile envelope', () => {
+    const parsed = parseTiledMap(readMap());
 
-    const pacmanSpawn = objects.find((object) => object.type === 'pacman');
-    const ghostHome = objects.find((object) => object.type === 'ghost-home');
+    const topHasNonEmpty = parsed.tiles[0]?.some((tile) => tile.gid !== null);
+    const bottomHasNonEmpty = parsed.tiles[parsed.height - 1]?.some((tile) => tile.gid !== null);
+    const leftHasNonEmpty = parsed.tiles.some((row) => row[0]?.gid !== null);
+    const rightHasNonEmpty = parsed.tiles.some((row) => row[parsed.width - 1]?.gid !== null);
 
-    expect(getPropertyValue(pacmanSpawn?.properties, 'gridX')).toBe(25);
-    expect(getPropertyValue(pacmanSpawn?.properties, 'gridY')).toBe(26);
-    expect(getPropertyValue(ghostHome?.properties, 'ghostCount')).toBe(4);
-    expect(getPropertyValue(ghostHome?.properties, 'startX')).toBe(22);
-    expect(getPropertyValue(ghostHome?.properties, 'endX')).toBe(28);
-    expect(getPropertyValue(ghostHome?.properties, 'gridY')).toBe(27);
+    expect(topHasNonEmpty).toBe(true);
+    expect(bottomHasNonEmpty).toBe(true);
+    expect(leftHasNonEmpty).toBe(true);
+    expect(rightHasNonEmpty).toBe(true);
   });
 
-  it('contains deterministic portal pairs from normalized spawn objects', () => {
-    const map = readMap();
-    const spawnLayer = map.layers.find((layer) => layer.name === 'Spawns' && layer.type === 'objectgroup');
-    const objects = spawnLayer?.objects ?? [];
+  it('infers deterministic geometry-driven portal pairs on boundary doors', () => {
+    const first = parseTiledMap(readMap());
+    const second = parseTiledMap(readMap());
 
-    const leftPortal = objects.find((object) => object.name === 'portal-left' && object.type === 'portal');
-    const rightPortal = objects.find((object) => object.name === 'portal-right' && object.type === 'portal');
-    const topPortal = objects.find((object) => object.name === 'portal-top' && object.type === 'portal');
-    const bottomPortal = objects.find((object) => object.name === 'portal-bottom' && object.type === 'portal');
+    expect(first.portalPairs).toEqual(second.portalPairs);
 
-    expect(getPropertyValue(leftPortal?.properties, 'pairId')).toBe('horizontal');
-    expect(getPropertyValue(rightPortal?.properties, 'pairId')).toBe('horizontal');
-    expect(getPropertyValue(topPortal?.properties, 'pairId')).toBe('vertical');
-    expect(getPropertyValue(bottomPortal?.properties, 'pairId')).toBe('vertical');
+    (first.portalPairs ?? []).forEach((pair) => {
+      const from = first.tiles[pair.from.y]?.[pair.from.x];
+      const to = first.tiles[pair.to.y]?.[pair.to.x];
 
-    const parsed = parseTiledMap(map);
-    expect(parsed.portalPairs).toEqual([
-      {
-        from: { x: 1, y: 26 },
-        to: { x: 49, y: 26 },
-      },
-      {
-        from: { x: 25, y: 1 },
-        to: { x: 25, y: 49 },
-      },
-    ]);
+      expect(from?.collision.portal).toBe(true);
+      expect(to?.collision.portal).toBe(true);
+      expect(pair.from.x === pair.to.x || pair.from.y === pair.to.y).toBe(true);
+    });
+
+    expect(hasPair(first.portalPairs, { x: 1, y: 7 }, { x: 11, y: 7 })).toBe(true);
+    expect(hasPair(first.portalPairs, { x: 6, y: 1 }, { x: 6, y: 11 })).toBe(true);
+  });
+
+  it('infers pacman and jail anchors when spawn objects are missing', () => {
+    const parsed = parseTiledMap(readMap());
+    const jailService = new GhostJailService();
+    const fallback = {
+      x: Math.floor(parsed.width / 2),
+      y: Math.floor(parsed.height / 2),
+    };
+
+    expect(parsed.pacmanSpawn).toBeUndefined();
+    expect(parsed.ghostHome).toBeUndefined();
+
+    const pacmanTile = jailService.resolveSpawnTile(parsed.pacmanSpawn, fallback, parsed);
+    const jailBounds = jailService.resolveGhostJailBounds(parsed, pacmanTile);
+
+    expect(jailBounds).toEqual({ minX: 4, maxX: 8, y: 8 });
+    expect(pacmanTile).toEqual({ x: 6, y: 7 });
   });
 });

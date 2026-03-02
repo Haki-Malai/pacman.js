@@ -15,6 +15,7 @@
     "check:mechanics:coverage": "node tests/scripts/check-mechanics-coverage.mjs",
     "test:mechanics:ci": "pnpm run test:mechanics && pnpm run test:mechanics:fuzz && pnpm run test:mechanics:coverage && pnpm run check:mechanics:coverage",
     "spec:check": "node scripts/check-specifications.mjs",
+    "map:demo:convert": "node scripts/convert-demo-map.mjs",
     "test:all": "pnpm run typecheck && pnpm run lint && pnpm run arch:check && pnpm run size:check && pnpm run test && pnpm run test:mechanics:ci && pnpm run spec:check && pnpm run build",
     "triage:mechanics": "node tests/scripts/mechanics-triage.mjs",
     "lint": "eslint . --max-warnings=0",

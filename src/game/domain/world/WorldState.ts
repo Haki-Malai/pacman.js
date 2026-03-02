@@ -52,6 +52,7 @@ export interface WorldMapData {
   imageByGid: Map<number, string>;
   portalPairs?: PortalPair[];
   spawnObjects: WorldObject[];
+  collectibleObjects?: WorldObject[];
   pacmanSpawn?: WorldObject;
   ghostHome?: WorldObject;
 }

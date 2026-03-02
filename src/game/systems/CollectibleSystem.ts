@@ -34,32 +34,33 @@ function tileKey(tile: TilePosition): string {
   return `${tile.x},${tile.y}`;
 }
 
+function getObjectNumberProperty(
+  object: {
+    properties?: Array<{
+      name: string;
+      value: unknown;
+    }>;
+  },
+  name: string,
+): number | undefined {
+  const property = object.properties?.find((entry) => entry.name === name);
+  return typeof property?.value === 'number' ? property.value : undefined;
+}
+
 export class CollectibleSystem {
   private readonly pointsByTile = new Map<string, CollectiblePoint>();
   private readonly eatEffects: EatEffect[] = [];
 
   constructor(private readonly world: WorldState) {
-    const pointLayout = buildPointLayout({
-      map: this.world.map,
-      collisionGrid: this.world.collisionGrid,
-      startTile: this.world.pacman.tile,
-      tileSize: this.world.tileSize,
-    });
-
-    const powerTiles = new Set(pointLayout.powerPoints.map((tile) => tileKey(tile)));
-
-    pointLayout.basePoints.forEach((tile) => {
-      const key = tileKey(tile);
-      const center = this.toPointCenter(tile);
-      const kind: CollectibleKind = powerTiles.has(key) ? 'power' : 'base';
-
-      this.pointsByTile.set(key, {
-        tile,
-        x: center.x,
-        y: center.y,
-        kind,
+    const mapCollectibles = this.buildMapAuthoredCollectibles();
+    if (mapCollectibles.size > 0) {
+      mapCollectibles.forEach((point, key) => {
+        this.pointsByTile.set(key, point);
       });
-    });
+      return;
+    }
+
+    this.buildAlgorithmicCollectibles();
   }
 
   update(deltaMs: number): void {
@@ -138,6 +139,86 @@ export class CollectibleSystem {
         this.eatEffects.splice(i, 1);
       }
     }
+  }
+
+  private buildMapAuthoredCollectibles(): Map<string, CollectiblePoint> {
+    const points = new Map<string, CollectiblePoint>();
+    const objects = this.world.map.collectibleObjects ?? [];
+
+    objects.forEach((object) => {
+      const pointType = getObjectNumberProperty(object, 'pointType');
+      const kind: CollectibleKind | null =
+        pointType === 1 || object.type === 'power-pellet'
+          ? 'power'
+          : pointType === 0 || object.type === 'pellet'
+            ? 'base'
+            : null;
+      if (!kind) {
+        return;
+      }
+
+      const gridX = getObjectNumberProperty(object, 'gridX');
+      const gridY = getObjectNumberProperty(object, 'gridY');
+      const tile = this.resolveCollectibleTile({ gridX, gridY, x: object.x, y: object.y });
+      if (!tile) {
+        return;
+      }
+
+      const key = tileKey(tile);
+      const center = this.toPointCenter(tile);
+      const existing = points.get(key);
+      if (existing?.kind === 'power') {
+        return;
+      }
+
+      points.set(key, {
+        tile,
+        x: center.x,
+        y: center.y,
+        kind,
+      });
+    });
+
+    return points;
+  }
+
+  private buildAlgorithmicCollectibles(): void {
+    const pointLayout = buildPointLayout({
+      map: this.world.map,
+      collisionGrid: this.world.collisionGrid,
+      startTile: this.world.pacman.tile,
+      tileSize: this.world.tileSize,
+    });
+
+    const powerTiles = new Set(pointLayout.powerPoints.map((tile) => tileKey(tile)));
+    pointLayout.basePoints.forEach((tile) => {
+      const key = tileKey(tile);
+      const center = this.toPointCenter(tile);
+      this.pointsByTile.set(key, {
+        tile,
+        x: center.x,
+        y: center.y,
+        kind: powerTiles.has(key) ? 'power' : 'base',
+      });
+    });
+  }
+
+  private resolveCollectibleTile(params: {
+    gridX: number | undefined;
+    gridY: number | undefined;
+    x: number | undefined;
+    y: number | undefined;
+  }): TilePosition | null {
+    if (typeof params.gridX === 'number' && typeof params.gridY === 'number') {
+      return { x: params.gridX, y: params.gridY };
+    }
+    if (typeof params.x === 'number' && typeof params.y === 'number') {
+      return {
+        x: Math.floor(params.x / this.world.tileSize),
+        y: Math.floor(params.y / this.world.tileSize),
+      };
+    }
+    return null;
   }
 
   private toPointCenter(tile: TilePosition): { x: number; y: number } {

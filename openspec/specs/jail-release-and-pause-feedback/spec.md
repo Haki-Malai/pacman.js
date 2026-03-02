@@ -18,7 +18,7 @@ Before upward exit, releasing ghosts MUST align to a valid release lane tile, an
 - **THEN** the ghost aligns to a deterministic lane choice, respects preferred direction when provided, and only then starts the exit tween
 
 ### Requirement: Post-portal Pac-Man visibility blink is time-bounded and deterministic
-After successful portal teleport, Pac-Man visibility SHALL blink for a fixed duration using deterministic interval phase calculation, then return to normal visibility. That same blink window SHALL act as a collision shield for non-scared ghost collisions while still allowing scared ghost collisions to resolve as ghost-hit. The production default map SHALL expose deterministic horizontal and vertical portal endpoint pairs so portal behavior is reachable in both tunnel axes during normal runtime play.
+After successful portal teleport, Pac-Man visibility SHALL blink for a fixed duration using deterministic interval phase calculation, then return to normal visibility. That same blink window SHALL act as a collision shield for non-scared ghost collisions while still allowing scared ghost collisions to resolve as ghost-hit. The production default map SHALL expose deterministic geometry-derived portal endpoint pairs so portal behavior is reachable through authored boundary doors during normal runtime play.
 
 #### Scenario: Blink window starts on teleport and resets on expiry
 - **WHEN** Pac-Man teleports through a portal and subsequent ticks advance
@@ -32,9 +32,9 @@ After successful portal teleport, Pac-Man visibility SHALL blink for a fixed dur
 - **WHEN** Pac-Man collides with an active free scared ghost during active post-portal blink window
 - **THEN** ghost-hit behavior is applied for the colliding ghost
 
-#### Scenario: Production map exposes deterministic portal endpoint pairs
+#### Scenario: Production map exposes deterministic geometry-derived portal endpoint pairs
 - **WHEN** the default production maze is parsed into runtime collision data
-- **THEN** exactly four portal endpoints are present as two deterministic pairs: horizontal `(1,26) <-> (49,26)` and vertical `(25,1) <-> (25,49)`
+- **THEN** runtime prefers one-tile-interior side-door candidates, deterministically picks center-most endpoints per side, and pairs opposite sides of the playable map envelope.
 
 ### Requirement: Pause state presents overlay and scene treatment while simulation is paused
 When simulation is paused, the runtime SHALL show pause presentation feedback, and SHALL remove that presentation when simulation resumes.
@@ -53,4 +53,3 @@ During the final warning window of scared mode, the runtime SHALL alternate ghos
 #### Scenario: Warning alternation cadence and termination are deterministic
 - **WHEN** update ticks advance through the warning window
 - **THEN** visual alternation uses configured deterministic cadence progression and ends when scared mode expires
-
