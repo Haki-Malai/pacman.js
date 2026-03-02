@@ -17,19 +17,26 @@ export class PacmanMovementSystem {
 
     const collisionTiles = this.world.collisionGrid.getTilesAt(this.world.pacman.tile);
     this.movementRules.applyBufferedDirection(this.world.pacman, collisionTiles);
+    this.applyPortalTurnOverride(collisionTiles);
 
-    if (
-      this.movementRules.canMove(
-        this.world.pacman.direction.current,
-        this.world.pacman.moved.y,
-        this.world.pacman.moved.x,
-        collisionTiles,
-      )
-    ) {
+    const canMoveCurrent = this.movementRules.canMove(
+      this.world.pacman.direction.current,
+      this.world.pacman.moved.y,
+      this.world.pacman.moved.x,
+      collisionTiles,
+    );
+    const canAdvanceOutward = this.portalService.canAdvanceOutward(this.world.pacman, this.world.collisionGrid);
+
+    if (canMoveCurrent || canAdvanceOutward) {
       this.movementRules.advanceEntity(this.world.pacman, this.world.pacman.direction.current, SPEED.pacman);
     }
 
-    const teleported = this.portalService.tryTeleport(this.world.pacman, this.world.collisionGrid, this.world.tick);
+    const teleported = this.portalService.tryTeleport(
+      this.world.pacman,
+      this.world.collisionGrid,
+      this.world.tick,
+      this.world.tileSize,
+    );
     if (teleported) {
       this.world.pacman.portalBlinkRemainingMs = PACMAN_PORTAL_BLINK.durationMs;
       this.world.pacman.portalBlinkElapsedMs = 0;
@@ -139,6 +146,35 @@ export class PacmanMovementSystem {
 
     if (this.world.pacman.direction.current === 'down') {
       this.world.pacman.angle = 90;
+    }
+  }
+
+  private applyPortalTurnOverride(collisionTiles: ReturnType<WorldState['collisionGrid']['getTilesAt']>): void {
+    if (this.world.pacman.moved.x !== 0 || this.world.pacman.moved.y !== 0) {
+      return;
+    }
+
+    const currentDirection = this.world.pacman.direction.current;
+    const nextDirection = this.world.pacman.direction.next;
+    if (nextDirection === currentDirection) {
+      return;
+    }
+
+    if (this.movementRules.canMove(nextDirection, this.world.pacman.moved.y, this.world.pacman.moved.x, collisionTiles)) {
+      return;
+    }
+
+    const canTurnIntoPortalOutward = this.portalService.canAdvanceOutward(
+      {
+        tile: this.world.pacman.tile,
+        moved: this.world.pacman.moved,
+        direction: nextDirection,
+      },
+      this.world.collisionGrid,
+    );
+
+    if (canTurnIntoPortalOutward) {
+      this.world.pacman.direction.current = nextDirection;
     }
   }
 }

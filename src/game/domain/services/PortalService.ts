@@ -18,6 +18,11 @@ interface PortalLink {
   outwardDirection?: Direction;
 }
 
+interface ResolvedPortalContext {
+  portalLink: PortalLink;
+  direction: Direction;
+}
+
 export class PortalService {
   private readonly portalPairs = new Map<string, PortalLink>();
   private readonly lastTeleportTick = new WeakMap<object, number>();
@@ -47,28 +52,38 @@ export class PortalService {
     }
   }
 
-  tryTeleport(entity: PortalTrackedEntity, collisionGrid: CollisionGrid, tick: number): boolean {
-    const sourceKey = tileKey(entity.tile);
+  canAdvanceOutward(entity: PortalTrackedEntity, collisionGrid: CollisionGrid): boolean {
+    if (entity.moved.x !== 0 || entity.moved.y !== 0) {
+      return false;
+    }
+
+    const context = this.resolvePortalContext(entity);
+    if (!context) {
+      return false;
+    }
+
+    return !this.isDestinationFullyBlocking(context.portalLink, collisionGrid);
+  }
+
+  tryTeleport(entity: PortalTrackedEntity, collisionGrid: CollisionGrid, tick: number, tileSize = 16): boolean {
     if (this.lastTeleportTick.get(entity) === tick) {
       return false;
     }
 
-    const portalLink = this.portalPairs.get(sourceKey);
-    if (!portalLink) {
+    const context = this.resolvePortalContext(entity);
+    if (!context) {
       return false;
     }
 
-    const direction = this.resolveEntityDirection(entity);
-    if (!this.canTeleportFromPortalTile(entity, portalLink.outwardDirection, direction)) {
+    if (!this.hasReachedOutwardTeleportThreshold(entity.moved, context.direction, tileSize)) {
       return false;
     }
 
-    const destination = portalLink.destination;
-    const targetCollision = collisionGrid.getTileAt(destination.x, destination.y);
-    if (this.isFullyBlocking(targetCollision)) {
+    if (this.isDestinationFullyBlocking(context.portalLink, collisionGrid)) {
       return false;
     }
 
+    const destination = context.portalLink.destination;
     entity.tile = { ...destination };
     entity.moved.x = 0;
     entity.moved.y = 0;
@@ -112,40 +127,48 @@ export class PortalService {
     return undefined;
   }
 
-  private canTeleportFromPortalTile(
-    entity: PortalTrackedEntity,
-    outwardDirection: Direction | undefined,
-    entityDirection: Direction | undefined,
-  ): boolean {
-    const centered = entity.moved.x === 0 && entity.moved.y === 0;
-
-    // Without direction context, keep legacy centered-only behavior.
-    if (!outwardDirection || !entityDirection) {
-      return centered;
+  private resolvePortalContext(entity: PortalTrackedEntity): ResolvedPortalContext | null {
+    const sourceKey = tileKey(entity.tile);
+    const portalLink = this.portalPairs.get(sourceKey);
+    if (!portalLink || !portalLink.outwardDirection) {
+      return null;
     }
 
-    if (entityDirection !== outwardDirection) {
-      return false;
+    const direction = this.resolveEntityDirection(entity);
+    if (!direction || direction !== portalLink.outwardDirection) {
+      return null;
     }
 
-    if (centered) {
-      return true;
-    }
-
-    return this.isMovementAlignedWithDirection(entity.moved, entityDirection);
+    return { portalLink, direction };
   }
 
-  private isMovementAlignedWithDirection(moved: { x: number; y: number }, direction: Direction): boolean {
+  private hasReachedOutwardTeleportThreshold(
+    moved: { x: number; y: number },
+    direction: Direction,
+    tileSize: number,
+  ): boolean {
+    const safeTileSize = Number.isFinite(tileSize) && tileSize > 0 ? tileSize : 16;
+    const threshold = safeTileSize / 2;
+    return this.resolveOutwardOffset(moved, direction) >= threshold;
+  }
+
+  private resolveOutwardOffset(moved: { x: number; y: number }, direction: Direction): number {
     if (direction === 'up') {
-      return moved.y < 0;
+      return -moved.y;
     }
     if (direction === 'down') {
-      return moved.y > 0;
+      return moved.y;
     }
     if (direction === 'left') {
-      return moved.x < 0;
+      return -moved.x;
     }
-    return moved.x > 0;
+    return moved.x;
+  }
+
+  private isDestinationFullyBlocking(portalLink: PortalLink, collisionGrid: CollisionGrid): boolean {
+    const destination = portalLink.destination;
+    const targetCollision = collisionGrid.getTileAt(destination.x, destination.y);
+    return this.isFullyBlocking(targetCollision);
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {

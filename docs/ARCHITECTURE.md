@@ -142,7 +142,9 @@ All game randomness is routed through `RandomSource`.
 
 ## Portals
 Portal behavior is encapsulated in `PortalService`:
-- teleports only at tile center (`moved.x === 0 && moved.y === 0`)
+- requires explicit direction and outward endpoint direction match
+- allows outward bootstrap movement from centered portal endpoints via systems
+- teleports when outward movement offset reaches at least half a tile (`>= tileSize / 2`)
 - prevents same-tick bounce via per-entity tick guard
 - blocks teleport if destination portal tile is fully blocking
 

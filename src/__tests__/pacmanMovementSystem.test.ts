@@ -13,6 +13,7 @@ describe('PacmanMovementSystem portal blink', () => {
     const advanceEntityMock = vi.fn();
     const syncEntityPositionMock = vi.fn();
     const tryTeleportMock = vi.fn(() => true);
+    const canAdvanceOutwardMock = vi.fn(() => false);
 
     const world = {
       pacman: {
@@ -37,6 +38,7 @@ describe('PacmanMovementSystem portal blink', () => {
           right: openTile(),
         })),
       },
+      tileSize: 16,
       tick: 7,
     } as unknown as WorldState;
 
@@ -48,6 +50,7 @@ describe('PacmanMovementSystem portal blink', () => {
     } as unknown as MovementRules;
 
     const portalService = {
+      canAdvanceOutward: canAdvanceOutwardMock,
       tryTeleport: tryTeleportMock,
     } as unknown as PortalService;
 
@@ -95,6 +98,7 @@ describe('PacmanMovementSystem portal blink', () => {
           right: openTile(),
         })),
       },
+      tileSize: 16,
       tick: 11,
     } as unknown as WorldState;
 
@@ -106,6 +110,7 @@ describe('PacmanMovementSystem portal blink', () => {
     } as unknown as MovementRules;
 
     const portalService = {
+      canAdvanceOutward: vi.fn(() => false),
       tryTeleport: vi.fn(() => false),
     } as unknown as PortalService;
 
@@ -121,5 +126,56 @@ describe('PacmanMovementSystem portal blink', () => {
     expect(world.pacman.deathRecoveryElapsedMs).toBe(0);
     expect(world.pacman.deathRecoveryNextToggleAtMs).toBe(0);
     expect(world.pacman.deathRecoveryVisible).toBe(true);
+  });
+
+  it('allows turning into outward portal direction at center before threshold movement', () => {
+    const advanceEntityMock = vi.fn();
+
+    const world = {
+      pacman: {
+        tile: { x: 0, y: 0 },
+        moved: { x: 0, y: 0 },
+        direction: { current: 'up', next: 'left' },
+        angle: 0,
+        flipY: false,
+        portalBlinkRemainingMs: 0,
+        portalBlinkElapsedMs: 0,
+        deathRecoveryRemainingMs: 0,
+        deathRecoveryElapsedMs: 0,
+        deathRecoveryNextToggleAtMs: 0,
+        deathRecoveryVisible: true,
+      },
+      collisionGrid: {
+        getTilesAt: vi.fn(() => ({
+          current: openTile(),
+          up: openTile(),
+          down: openTile(),
+          left: openTile(),
+          right: openTile(),
+        })),
+      },
+      tileSize: 16,
+      tick: 12,
+    } as unknown as WorldState;
+
+    const movementRules = {
+      applyBufferedDirection: vi.fn(),
+      canMove: vi.fn(() => false),
+      advanceEntity: advanceEntityMock,
+      syncEntityPosition: vi.fn(),
+    } as unknown as MovementRules;
+
+    const canAdvanceOutwardMock = vi.fn(() => true);
+    const portalService = {
+      canAdvanceOutward: canAdvanceOutwardMock,
+      tryTeleport: vi.fn(() => false),
+    } as unknown as PortalService;
+
+    const system = new PacmanMovementSystem(world, movementRules, portalService);
+    system.update(16);
+
+    expect(world.pacman.direction.current).toBe('left');
+    expect(advanceEntityMock).toHaveBeenCalledOnce();
+    expect(canAdvanceOutwardMock).toHaveBeenCalledWith(expect.objectContaining({ direction: 'left' }), world.collisionGrid);
   });
 });
