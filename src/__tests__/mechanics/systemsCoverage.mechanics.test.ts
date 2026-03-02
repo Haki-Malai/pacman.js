@@ -26,6 +26,7 @@ describe('pacman movement system coverage', () => {
     const advanceEntityMock = vi.fn();
     const syncEntityPositionMock = vi.fn();
     const tryTeleportMock = vi.fn();
+    const canAdvanceOutwardMock = vi.fn(() => false);
 
     const world = {
       pacman: {
@@ -44,6 +45,7 @@ describe('pacman movement system coverage', () => {
           right: openTile(),
         })),
       },
+      tileSize: 16,
       tick: 3,
     } as unknown as WorldState;
 
@@ -55,26 +57,31 @@ describe('pacman movement system coverage', () => {
     } as unknown as MovementRules;
 
     const portalService = {
+      canAdvanceOutward: canAdvanceOutwardMock,
       tryTeleport: tryTeleportMock,
     } as unknown as PortalService;
 
     const system = new PacmanMovementSystem(world, movementRules, portalService);
 
     world.pacman.direction.current = 'right';
+    world.pacman.direction.next = 'right';
     system.update();
     expect(world.pacman.angle).toBe(0);
     expect(world.pacman.flipY).toBe(false);
 
     world.pacman.direction.current = 'left';
+    world.pacman.direction.next = 'left';
     system.update();
     expect(world.pacman.angle).toBe(180);
     expect(world.pacman.flipY).toBe(true);
 
     world.pacman.direction.current = 'up';
+    world.pacman.direction.next = 'up';
     system.update();
     expect(world.pacman.angle).toBe(-90);
 
     world.pacman.direction.current = 'down';
+    world.pacman.direction.next = 'down';
     canMoveMock.mockReturnValueOnce(false);
     system.update();
     expect(world.pacman.angle).toBe(90);
@@ -105,6 +112,7 @@ describe('pacman movement system coverage', () => {
           right: openTile(),
         })),
       },
+      tileSize: 16,
       tick: 22,
     } as unknown as WorldState;
 
@@ -117,6 +125,7 @@ describe('pacman movement system coverage', () => {
 
     const tryTeleportMock = vi.fn(() => true);
     const portalService = {
+      canAdvanceOutward: vi.fn(() => false),
       tryTeleport: tryTeleportMock,
     } as unknown as PortalService;
 

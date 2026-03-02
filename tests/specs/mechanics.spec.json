@@ -108,12 +108,12 @@
       "id": "MEC-PORT-001",
       "status": "implemented",
       "layer": "domain",
-      "mechanic": "portal-center-only",
+      "mechanic": "portal-outward-half-tile-threshold",
       "seed": 1301,
       "ticks": 1,
       "fixture": "portal-pair-grid",
-      "actions": ["attempt teleport while offset", "attempt teleport while centered"],
-      "expectations": ["offset entity does not teleport", "centered entity teleports"]
+      "actions": ["attempt teleport while centered", "attempt teleport before threshold", "attempt teleport at half-tile threshold"],
+      "expectations": ["centered entity does not teleport", "pre-threshold entity does not teleport", "threshold entity teleports"]
     },
     {
       "id": "MEC-PORT-002",
@@ -143,10 +143,10 @@
       "layer": "infrastructure",
       "mechanic": "production-map-portal-endpoint-pairs",
       "seed": 1304,
-      "ticks": 2,
+      "ticks": 8,
       "fixture": "default-map",
-      "actions": ["parse default map portal endpoints", "attempt centered teleport from resolved endpoints"],
-      "expectations": ["default map exposes deterministic horizontal and vertical portal endpoint pairs", "centered teleport succeeds between production endpoints"]
+      "actions": ["parse default map portal endpoints", "hold outward direction on endpoint", "advance until half-tile threshold"],
+      "expectations": ["default map exposes deterministic horizontal and vertical portal endpoint pairs", "teleport succeeds at half-tile threshold between production endpoints"]
     },
     {
       "id": "MEC-PORT-005",
@@ -154,10 +154,10 @@
       "layer": "systems",
       "mechanic": "portal-endpoint-outward-no-void-leak",
       "seed": 1305,
-      "ticks": 1,
+      "ticks": 8,
       "fixture": "default-map",
-      "actions": ["place pacman at right endpoint", "hold outward direction", "advance one movement tick"],
-      "expectations": ["pacman does not enter void boundary cell", "endpoint teleport still resolves to paired portal tile"]
+      "actions": ["place pacman at right endpoint", "buffer outward turn from perpendicular direction", "advance until half-tile threshold"],
+      "expectations": ["pacman applies buffered outward turn at centered endpoint", "pacman does not enter void boundary cell before threshold", "endpoint teleport resolves to paired portal tile at threshold"]
     },
     {
       "id": "MEC-PORT-006",
@@ -165,10 +165,10 @@
       "layer": "systems",
       "mechanic": "portal-vertical-endpoint-transfer",
       "seed": 1306,
-      "ticks": 2,
+      "ticks": 16,
       "fixture": "default-map",
-      "actions": ["place pacman at top endpoint", "hold outward up direction", "advance movement ticks"],
-      "expectations": ["top endpoint teleports to bottom endpoint", "bottom endpoint teleports back to top endpoint"]
+      "actions": ["place pacman at top endpoint", "hold outward direction on each endpoint", "advance until half-tile threshold each direction"],
+      "expectations": ["top endpoint teleports to bottom endpoint at threshold", "bottom endpoint teleports back to top endpoint at threshold"]
     },
     {
       "id": "MEC-TIME-001",

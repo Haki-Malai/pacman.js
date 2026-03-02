@@ -21,15 +21,18 @@ export class GhostMovementSystem {
 
       const collisionTiles = this.world.collisionGrid.getTilesAt(ghost.tile);
       const canMoveCurrent = this.movementRules.canMove(ghost.direction, ghost.moved.y, ghost.moved.x, collisionTiles, 'ghost');
+      const canAdvanceOutward = this.portalService.canAdvanceOutward(ghost, this.world.collisionGrid);
 
-      if (canMoveCurrent) {
+      if (canMoveCurrent || canAdvanceOutward) {
         if (ghost.moved.x === 0 && ghost.moved.y === 0) {
-          ghost.direction = this.decisions.chooseDirectionAtCenter(
-            ghost.direction,
-            collisionTiles,
-            this.world.tileSize,
-            this.rng,
-          );
+          if (canMoveCurrent) {
+            ghost.direction = this.decisions.chooseDirectionAtCenter(
+              ghost.direction,
+              collisionTiles,
+              this.world.tileSize,
+              this.rng,
+            );
+          }
         }
         this.movementRules.advanceEntity(ghost, ghost.direction, ghost.speed);
       } else if (ghost.moved.x === 0 && ghost.moved.y === 0) {
@@ -43,7 +46,7 @@ export class GhostMovementSystem {
         );
       }
 
-      this.portalService.tryTeleport(ghost, this.world.collisionGrid, this.world.tick);
+      this.portalService.tryTeleport(ghost, this.world.collisionGrid, this.world.tick, this.world.tileSize);
       this.movementRules.syncEntityPosition(ghost);
     });
   }

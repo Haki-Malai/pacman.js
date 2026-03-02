@@ -1,21 +1,4 @@
-# jail-release-and-pause-feedback Specification
-
-## Purpose
-TBD - created by archiving change merge-pr3-collectibles-ghost-release. Update Purpose after archive.
-## Requirements
-### Requirement: Ghost release scheduling is staged with delay and interval cadence
-The runtime SHALL schedule ghost release using an initial jail delay and per-ghost interval spacing so releases are staggered instead of simultaneous.
-
-#### Scenario: Release timers are staggered
-- **WHEN** ghost release scheduling starts with multiple jailed ghosts
-- **THEN** the first release occurs after base delay and each subsequent release occurs after one additional configured interval
-
-### Requirement: Ghosts align to release lane with deterministic tie-breaking
-Before upward exit, releasing ghosts MUST align to a valid release lane tile, and tie-breaking MUST be deterministic with optional preferred direction support.
-
-#### Scenario: Alignment and preferred-direction resolution are deterministic
-- **WHEN** a ghost begins release while off-lane or with ambiguous lane candidates
-- **THEN** the ghost aligns to a deterministic lane choice, respects preferred direction when provided, and only then starts the exit tween
+## MODIFIED Requirements
 
 ### Requirement: Post-portal Pac-Man visibility blink is time-bounded and deterministic
 After successful portal teleport, Pac-Man visibility SHALL blink for a fixed duration using deterministic interval phase calculation, then return to normal visibility. That same blink window SHALL act as a collision shield for non-scared ghost collisions while still allowing scared ghost collisions to resolve as ghost-hit. The production default map SHALL expose deterministic geometry-derived portal endpoint pairs so portal behavior is reachable through authored boundary doors during normal runtime play. Portal teleport SHALL trigger only when an entity moves in the endpoint's outward direction and reaches outward movement offset greater than or equal to half tile size from center; centered endpoint occupancy alone SHALL NOT trigger teleport. While Pac-Man is centered on a portal endpoint, buffered turn input that targets that endpoint's outward direction SHALL be applied even when normal collision checks for that turn are blocked.
@@ -51,22 +34,3 @@ After successful portal teleport, Pac-Man visibility SHALL blink for a fixed dur
 #### Scenario: Buffered outward turn from perpendicular approach is applied at centered endpoint
 - **WHEN** Pac-Man is centered on a portal endpoint with current direction perpendicular to outward direction and buffered next direction set to that outward direction
 - **THEN** Pac-Man turns into the outward direction on that tick and begins outward movement toward teleport threshold
-
-### Requirement: Pause state presents overlay and scene treatment while simulation is paused
-When simulation is paused, the runtime SHALL show pause presentation feedback, and SHALL remove that presentation when simulation resumes.
-
-#### Scenario: Pause overlay follows runtime pause state
-- **WHEN** runtime transitions between paused and resumed states
-- **THEN** pause overlay/scene treatment is visible only during pause and is removed after resume
-
-### Requirement: Scared ghost warning alternates between scared and base color deterministically
-During the final warning window of scared mode, the runtime SHALL alternate ghost visuals between the scared (blue) sprite and that ghost's base sprite color using deterministic cadence progression.
-
-#### Scenario: Warning alternation starts at scared-window threshold
-- **WHEN** a ghost remains scared and the remaining scared time reaches the configured warning duration
-- **THEN** that ghost starts alternating between scared and base-color visuals
-
-#### Scenario: Warning alternation cadence and termination are deterministic
-- **WHEN** update ticks advance through the warning window
-- **THEN** visual alternation uses configured deterministic cadence progression and ends when scared mode expires
-

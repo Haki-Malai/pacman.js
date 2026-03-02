@@ -28,8 +28,12 @@ function outwardDirectionFromSource(source: { x: number; y: number }, destinatio
   return source.y < destination.y ? 'up' : 'down';
 }
 
+function halfTileSteps(tileSize: number): number {
+  return Math.ceil(tileSize / 2);
+}
+
 describe('mechanics scenarios: portals', () => {
-  it('MEC-PORT-001 teleport requires centered entity', () => {
+  it('MEC-PORT-001 teleport requires outward half-tile progress', () => {
     const scenario = getScenarioOrThrow('MEC-PORT-001');
 
     runMechanicsAssertion(
@@ -37,9 +41,9 @@ describe('mechanics scenarios: portals', () => {
         scenarioId: scenario.id,
         seed: scenario.seed,
         tick: 10,
-        inputTrace: ['try teleport offset', 'try teleport centered'],
+        inputTrace: ['try centered teleport', 'try pre-threshold teleport', 'try half-tile-threshold teleport'],
         snapshotWindow: [],
-        assertion: 'only centered entity may teleport through portal',
+        assertion: 'portal teleport occurs only at outward half-tile threshold',
       },
       () => {
         const grid = createPortalPairGrid();
@@ -47,16 +51,22 @@ describe('mechanics scenarios: portals', () => {
 
         const entity = {
           tile: { x: 0, y: 1 },
-          moved: { x: 3, y: 0 },
+          moved: { x: 0, y: 0 },
+          direction: 'left' as const,
         };
 
-        const movedWhileOffset = portals.tryTeleport(entity, grid, 10);
-        expect(movedWhileOffset).toBe(false);
+        const movedWhileCentered = portals.tryTeleport(entity, grid, 10, 16);
+        expect(movedWhileCentered).toBe(false);
         expect(entity.tile).toEqual({ x: 0, y: 1 });
 
-        entity.moved = { x: 0, y: 0 };
-        const movedWhileCentered = portals.tryTeleport(entity, grid, 10);
-        expect(movedWhileCentered).toBe(true);
+        entity.moved = { x: -7, y: 0 };
+        const movedBeforeThreshold = portals.tryTeleport(entity, grid, 10, 16);
+        expect(movedBeforeThreshold).toBe(false);
+        expect(entity.tile).toEqual({ x: 0, y: 1 });
+
+        entity.moved = { x: -8, y: 0 };
+        const movedAtThreshold = portals.tryTeleport(entity, grid, 10, 16);
+        expect(movedAtThreshold).toBe(true);
         expect(entity.tile).toEqual({ x: 4, y: 1 });
       },
     );
@@ -77,12 +87,15 @@ describe('mechanics scenarios: portals', () => {
       () => {
         const grid = createPortalPairGrid();
         const portals = new PortalService(grid);
-        const entity = {
+        const entity: { tile: { x: number; y: number }; moved: { x: number; y: number }; direction: 'left' | 'right' } = {
           tile: { x: 0, y: 1 },
-          moved: { x: 0, y: 0 },
+          moved: { x: -8, y: 0 },
+          direction: 'left',
         };
 
-        const first = portals.tryTeleport(entity, grid, 22);
+        const first = portals.tryTeleport(entity, grid, 22, 16);
+        entity.direction = 'right';
+        entity.moved = { x: 8, y: 0 };
         const second = portals.tryTeleport(entity, grid, 22);
 
         expect(first).toBe(true);
@@ -109,7 +122,8 @@ describe('mechanics scenarios: portals', () => {
         const portals = new PortalService(grid);
         const entity = {
           tile: { x: 0, y: 1 },
-          moved: { x: 0, y: 0 },
+          moved: { x: -8, y: 0 },
+          direction: 'left' as const,
         };
 
         const moved = portals.tryTeleport(entity, grid, 33);
@@ -135,9 +149,9 @@ describe('mechanics scenarios: portals', () => {
           scenarioId: scenario.id,
           seed: scenario.seed,
           tick: harness.world.tick,
-          inputTrace: ['inspect parsed portal endpoint tiles', 'attempt centered teleport from left endpoint'],
+          inputTrace: ['inspect parsed portal endpoint tiles', 'hold outward direction', 'advance to threshold'],
           snapshotWindow: [harness.snapshot()],
-          assertion: 'default map portal endpoint pairs are deterministic and centered teleport succeeds between endpoints',
+          assertion: 'default map portal endpoint pairs are deterministic and teleport occurs at outward half-tile threshold',
         },
         () => {
           const portalPairs = harness.world.map.portalPairs ?? [];
@@ -157,10 +171,14 @@ describe('mechanics scenarios: portals', () => {
           harness.world.pacman.direction.next = outwardDirection;
           harness.world.pacman.moved = { x: 0, y: 0 };
 
-          const moved = harness.portalService.tryTeleport(harness.world.pacman, harness.world.collisionGrid, 44);
+          const thresholdSteps = halfTileSteps(harness.world.tileSize);
+          for (let step = 0; step < thresholdSteps - 1; step += 1) {
+            const beforeThreshold = harness.stepTick();
+            expect(beforeThreshold.pacman.tile).toEqual(pair.from);
+          }
 
-          expect(moved).toBe(true);
-          expect(harness.world.pacman.tile).toEqual(destination);
+          const atThreshold = harness.stepTick();
+          expect(atThreshold.pacman.tile).toEqual(destination);
         },
       );
     } finally {
@@ -183,9 +201,9 @@ describe('mechanics scenarios: portals', () => {
           scenarioId: scenario.id,
           seed: scenario.seed,
           tick: harness.world.tick,
-          inputTrace: ['set pacman at top endpoint', 'hold outward up direction', 'run one tick'],
+          inputTrace: ['set pacman at top endpoint', 'hold outward direction', 'advance to threshold in both directions'],
           snapshotWindow: [harness.snapshot()],
-          assertion: 'top/bottom production endpoints teleport symmetrically while centered',
+          assertion: 'top/bottom production endpoints teleport symmetrically at outward half-tile threshold',
         },
         () => {
           const verticalPair = (harness.world.map.portalPairs ?? []).find((pair) => isVerticalPair(pair));
@@ -199,12 +217,23 @@ describe('mechanics scenarios: portals', () => {
           harness.world.pacman.direction.next = 'up';
           harness.world.pacman.moved = { x: 0, y: 0 };
 
+          const thresholdSteps = halfTileSteps(harness.world.tileSize);
+          for (let step = 0; step < thresholdSteps - 1; step += 1) {
+            const beforeThreshold = harness.stepTick();
+            expect(beforeThreshold.pacman.tile).toEqual(topEndpoint);
+          }
+
           const toBottom = harness.stepTick();
           expect(toBottom.pacman.tile).toEqual(bottomEndpoint);
 
           harness.world.pacman.direction.current = 'down';
           harness.world.pacman.direction.next = 'down';
           harness.world.pacman.moved = { x: 0, y: 0 };
+
+          for (let step = 0; step < thresholdSteps - 1; step += 1) {
+            const beforeThreshold = harness.stepTick();
+            expect(beforeThreshold.pacman.tile).toEqual(bottomEndpoint);
+          }
 
           const toTop = harness.stepTick();
           expect(toTop.pacman.tile).toEqual(topEndpoint);
@@ -230,9 +259,15 @@ describe('mechanics scenarios: portals', () => {
           scenarioId: scenario.id,
           seed: scenario.seed,
           tick: harness.world.tick,
-          inputTrace: ['set pacman at right portal endpoint', 'hold outward direction right', 'run one tick'],
+          inputTrace: [
+            'set pacman at right portal endpoint',
+            'set current direction perpendicular to portal',
+            'buffer outward turn input',
+            'advance to threshold',
+          ],
           snapshotWindow: [harness.snapshot()],
-          assertion: 'outward input at portal endpoint should not leak into void and should resolve endpoint teleport',
+          assertion:
+            'buffered turn into portal outward direction should take effect at endpoint, avoid void leak before threshold, then teleport',
         },
         () => {
           const horizontalPair = (harness.world.map.portalPairs ?? []).find((pair) => isHorizontalPair(pair));
@@ -250,12 +285,24 @@ describe('mechanics scenarios: portals', () => {
                 : 'up';
 
           harness.movementRules.setEntityTile(harness.world.pacman, outwardEndpoint);
-          harness.world.pacman.direction.current = outwardDirection;
+          harness.world.pacman.direction.current = outwardDirection === 'left' || outwardDirection === 'right' ? 'up' : 'left';
           harness.world.pacman.direction.next = outwardDirection;
           harness.world.pacman.moved = { x: 0, y: 0 };
 
-          const snapshot = harness.stepTick();
+          const thresholdSteps = halfTileSteps(harness.world.tileSize);
+          for (let step = 0; step < thresholdSteps - 1; step += 1) {
+            const beforeThreshold = harness.stepTick();
+            expect(beforeThreshold.pacman.tile).toEqual(outwardEndpoint);
+            if (step === 0) {
+              expect(beforeThreshold.pacman.direction).toBe(outwardDirection);
+            }
+            expect(beforeThreshold.pacman.tile.x).toBeGreaterThanOrEqual(0);
+            expect(beforeThreshold.pacman.tile.x).toBeLessThan(harness.world.map.width);
+            expect(beforeThreshold.pacman.tile.y).toBeGreaterThanOrEqual(0);
+            expect(beforeThreshold.pacman.tile.y).toBeLessThan(harness.world.map.height);
+          }
 
+          const snapshot = harness.stepTick();
           expect(snapshot.pacman.tile).toEqual(inwardEndpoint);
           expect(snapshot.pacman.tile.x).toBeGreaterThanOrEqual(0);
           expect(snapshot.pacman.tile.x).toBeLessThan(harness.world.map.width);
@@ -268,7 +315,7 @@ describe('mechanics scenarios: portals', () => {
     }
   });
 
-  it('demo map inferred horizontal portals teleport on outward input without void leak', () => {
+  it('demo map inferred horizontal portals teleport at threshold without void leak', () => {
     const harness = new MechanicsDomainHarness({
       seed: 2707,
       fixture: 'demo-map',
@@ -289,6 +336,12 @@ describe('mechanics scenarios: portals', () => {
       harness.world.pacman.direction.current = outwardDirection;
       harness.world.pacman.direction.next = outwardDirection;
       harness.world.pacman.moved = { x: 0, y: 0 };
+
+      const thresholdSteps = halfTileSteps(harness.world.tileSize);
+      for (let step = 0; step < thresholdSteps - 1; step += 1) {
+        const beforeThreshold = harness.stepTick();
+        expect(beforeThreshold.pacman.tile).toEqual(outwardEndpoint);
+      }
 
       const snapshot = harness.stepTick();
 

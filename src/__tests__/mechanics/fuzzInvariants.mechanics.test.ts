@@ -252,9 +252,10 @@ describe('mechanics invariants fuzz', () => {
       fc.property(fc.integer({ min: 1, max: 100000 }), fc.integer({ min: 1, max: 1000 }), (seed, tick) => {
         const grid = createPortalPairGrid();
         const portalService = new PortalService(grid);
-        const entity = {
+        const entity: { tile: { x: number; y: number }; moved: { x: number; y: number }; direction: 'left' | 'right' } = {
           tile: { x: 0, y: 1 },
-          moved: { x: 0, y: 0 },
+          moved: { x: -8, y: 0 },
+          direction: 'left',
         };
 
         runMechanicsAssertion(
@@ -268,6 +269,8 @@ describe('mechanics invariants fuzz', () => {
           },
           () => {
             expect(portalService.tryTeleport(entity, grid, tick)).toBe(true);
+            entity.direction = 'right';
+            entity.moved = { x: 8, y: 0 };
             expect(portalService.tryTeleport(entity, grid, tick)).toBe(false);
           },
         );
