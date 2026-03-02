@@ -86,16 +86,20 @@ export class InputSystem {
     }
 
     if (event.code === 'KeyC') {
+      if (event.altKey) {
+        event.preventDefault();
+        this.world.collisionDebugEnabled = !this.world.collisionDebugEnabled;
+        if (!this.world.collisionDebugEnabled) {
+          this.world.hoveredDebugTile = null;
+          this.world.debugPanelText = '';
+        }
+        return;
+      }
+
       if (event.shiftKey) {
         event.preventDefault();
         void this.copyDebugPanelText();
         return;
-      }
-
-      this.world.collisionDebugEnabled = !this.world.collisionDebugEnabled;
-      if (!this.world.collisionDebugEnabled) {
-        this.world.hoveredDebugTile = null;
-        this.world.debugPanelText = '';
       }
       return;
     }

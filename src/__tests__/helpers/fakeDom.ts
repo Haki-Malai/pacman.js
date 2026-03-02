@@ -38,6 +38,22 @@ function collectMatches(root: FakeElement, matcher: SelectorMatcher, matches: Fa
   }
 }
 
+function findById(root: FakeElement, id: string): FakeElement | null {
+  const rootId = (root as unknown as { id?: string }).id;
+  if (rootId === id) {
+    return root;
+  }
+
+  for (const child of root.children) {
+    const match = findById(child, id);
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
+}
+
 export class FakeClassList {
   constructor(private readonly owner: FakeElement) {}
 
@@ -175,5 +191,9 @@ export class FakeDocument {
 
   querySelector(selector: string): FakeElement | null {
     return this.body.querySelector(selector);
+  }
+
+  getElementById(id: string): FakeElement | null {
+    return findById(this.body, id);
   }
 }

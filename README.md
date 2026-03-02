@@ -51,3 +51,8 @@ This is a pacman game i am currently working on for fun. I have developed it aga
 
 ## About the game
 The code is written with scalability in mind. Levels are authored in Tiled using the included tileset and exported JSON map. Object layers supply Pacman and ghost spawns (including pen bounds) and place collectibles directly in the map data.
+
+## Developer diagnostics controls
+- `Option+KeyC` toggles combined developer diagnostics mode (collision debug overlay + runtime FPS/frame-time panel).
+- `Shift+KeyC` copies the current collision debug panel text to clipboard.
+- Plain `KeyC` does not toggle diagnostics mode.

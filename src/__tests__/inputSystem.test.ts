@@ -164,6 +164,93 @@ describe('InputSystem', () => {
     expect(togglePause).toHaveBeenCalledTimes(0);
   });
 
+  it('toggles diagnostics mode on Option+KeyC and clears debug state when disabling', () => {
+    const { input, world } = createHarness();
+
+    const enablePreventDefault = vi.fn();
+    input.emitKeyDown({
+      code: 'KeyC',
+      key: 'c',
+      altKey: true,
+      shiftKey: false,
+      repeat: false,
+      preventDefault: enablePreventDefault,
+    } as unknown as KeyboardEvent);
+
+    expect(enablePreventDefault).toHaveBeenCalledTimes(1);
+    expect(world.collisionDebugEnabled).toBe(true);
+
+    world.hoveredDebugTile = { x: 2, y: 3 } as WorldState['hoveredDebugTile'];
+    world.debugPanelText = 'debug text';
+
+    const disablePreventDefault = vi.fn();
+    input.emitKeyDown({
+      code: 'KeyC',
+      key: 'c',
+      altKey: true,
+      shiftKey: false,
+      repeat: false,
+      preventDefault: disablePreventDefault,
+    } as unknown as KeyboardEvent);
+
+    expect(disablePreventDefault).toHaveBeenCalledTimes(1);
+    expect(world.collisionDebugEnabled).toBe(false);
+    expect(world.hoveredDebugTile).toBeNull();
+    expect(world.debugPanelText).toBe('');
+  });
+
+  it('does not toggle diagnostics mode on plain KeyC', () => {
+    const { input, world } = createHarness();
+    world.collisionDebugEnabled = false;
+    const preventDefault = vi.fn();
+
+    input.emitKeyDown({
+      code: 'KeyC',
+      key: 'c',
+      altKey: false,
+      shiftKey: false,
+      repeat: false,
+      preventDefault,
+    } as unknown as KeyboardEvent);
+
+    expect(preventDefault).not.toHaveBeenCalled();
+    expect(world.collisionDebugEnabled).toBe(false);
+  });
+
+  it('keeps Shift+KeyC debug copy path active without toggling diagnostics mode', async () => {
+    const { input, world } = createHarness();
+    world.debugPanelText = 'Collision Debug\nsample';
+    const clipboardWrite = vi.fn().mockResolvedValue(undefined);
+    const originalNavigator = globalThis.navigator;
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: { clipboard: { writeText: clipboardWrite } },
+    });
+
+    try {
+      const preventDefault = vi.fn();
+      input.emitKeyDown({
+        code: 'KeyC',
+        key: 'c',
+        altKey: false,
+        shiftKey: true,
+        repeat: false,
+        preventDefault,
+      } as unknown as KeyboardEvent);
+
+      await Promise.resolve();
+
+      expect(preventDefault).toHaveBeenCalledTimes(1);
+      expect(clipboardWrite).toHaveBeenCalledWith('Collision Debug\nsample');
+      expect(world.collisionDebugEnabled).toBe(false);
+    } finally {
+      Object.defineProperty(globalThis, 'navigator', {
+        configurable: true,
+        value: originalNavigator,
+      });
+    }
+  });
+
   it('commits swipe direction only after threshold and axis lock', () => {
     const { input, world, togglePause } = createHarness();
 
