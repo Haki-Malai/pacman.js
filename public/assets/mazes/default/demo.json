@@ -212,12 +212,12 @@
             {
               "name": "up",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "down",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "left",
@@ -227,7 +227,7 @@
             {
               "name": "right",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "penGate",
@@ -250,7 +250,7 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
@@ -265,12 +265,12 @@
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -303,12 +303,12 @@
             {
               "name": "down",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
@@ -336,12 +336,12 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "down",
@@ -379,7 +379,7 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
@@ -399,7 +399,7 @@
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -422,7 +422,7 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
@@ -432,7 +432,7 @@
             {
               "name": "down",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "left",
@@ -442,7 +442,7 @@
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -465,7 +465,7 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "up",
@@ -475,7 +475,7 @@
             {
               "name": "down",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "left",
@@ -485,7 +485,7 @@
             {
               "name": "right",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "penGate",
@@ -508,7 +508,7 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "up",
@@ -518,12 +518,12 @@
             {
               "name": "down",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "left",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "right",
@@ -551,27 +551,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "down",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -609,12 +609,12 @@
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -637,27 +637,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "down",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -680,27 +680,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "down",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -723,27 +723,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "down",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -766,27 +766,27 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "up",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "down",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "left",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "right",
               "type": "bool",
-              "value": false
+              "value": true
             },
             {
               "name": "penGate",
@@ -809,7 +809,7 @@
             {
               "name": "collides",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "up",
@@ -819,7 +819,7 @@
             {
               "name": "down",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "left",
@@ -829,7 +829,7 @@
             {
               "name": "right",
               "type": "bool",
-              "value": true
+              "value": false
             },
             {
               "name": "penGate",
