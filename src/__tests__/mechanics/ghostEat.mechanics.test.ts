@@ -1,10 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import {
-  GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS,
-  GHOST_JAIL_RELEASE_DELAY_MS,
-  GHOST_JAIL_RELEASE_INTERVAL_MS,
-  GHOST_JAIL_RELEASE_TWEEN_MS,
-} from '../../config/constants';
 import { getGameState, resetGameState } from '../../state/gameState';
 import { getScenarioOrThrow } from '../helpers/mechanicsSpec';
 import { runMechanicsAssertion } from '../helpers/mechanicsTestUtils';
@@ -48,7 +42,7 @@ describe('mechanics scenarios: scared ghost eat flow', () => {
           inputTrace: [
             'set two scared ghosts as collision targets',
             'eat first ghost then eat second ghost',
-            'advance jail release delay and tween timers',
+            'advance staged release timers and phased release movement',
           ],
           snapshotWindow: [harness.snapshot()],
           assertion: 'ghosts should jail-return on eat and score should follow chain progression',
@@ -67,12 +61,24 @@ describe('mechanics scenarios: scared ghost eat flow', () => {
           expect(secondGhost.tile).toEqual(harness.world.ghostJailReturnTile);
           expect(secondGhost.state.free).toBe(false);
 
-          harness.scheduler.update(GHOST_JAIL_RELEASE_DELAY_MS);
-          harness.scheduler.update(GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS + GHOST_JAIL_RELEASE_TWEEN_MS + 50);
+          const stepReleaseOnlyTick = () => {
+            harness.world.nextTick();
+            harness.scheduler.update(1000 / 60);
+            harness.ghostReleaseSystem.update();
+          };
+
+          let ticks = 0;
+          while (!firstGhost.state.free && ticks < 2400) {
+            stepReleaseOnlyTick();
+            ticks += 1;
+          }
           expect(firstGhost.state.free).toBe(true);
 
-          harness.scheduler.update(GHOST_JAIL_RELEASE_INTERVAL_MS);
-          harness.scheduler.update(GHOST_JAIL_RELEASE_ALIGN_TWEEN_MS + GHOST_JAIL_RELEASE_TWEEN_MS + 50);
+          ticks = 0;
+          while (!secondGhost.state.free && ticks < 2400) {
+            stepReleaseOnlyTick();
+            ticks += 1;
+          }
           expect(secondGhost.state.free).toBe(true);
         },
       );

@@ -1,6 +1,6 @@
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
-export type MovementActor = 'pacman' | 'ghost';
+export type MovementActor = 'pacman' | 'ghost' | 'ghostRelease';
 
 export const DIRECTIONS: Direction[] = ['up', 'down', 'left', 'right'];
 

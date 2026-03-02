@@ -29,12 +29,56 @@
         "src/game/systems/GhostReleaseSystem.ts",
         "src/game/domain/services/GhostJailService.ts",
         "src/engine/timer.ts",
-        "src/engine/tween.ts"
+        "src/game/domain/services/MovementRules.ts"
       ],
       "fixPlan": [
         "confirm release delay timer scheduling",
-        "confirm tween completion sets free/soonFree flags",
+        "confirm phase progression sets free/soonFree flags",
         "validate pause interaction with scheduler"
+      ]
+    },
+    {
+      "id": "MEC-JAIL-003",
+      "suspectModules": [
+        "src/game/domain/services/MovementRules.ts",
+        "src/game/domain/valueObjects/Direction.ts"
+      ],
+      "fixPlan": [
+        "verify MovementActor split between ghost and ghostRelease",
+        "validate pen-gate bypass applies only for release actor"
+      ]
+    },
+    {
+      "id": "MEC-JAIL-004",
+      "suspectModules": [
+        "src/game/systems/GhostReleaseSystem.ts",
+        "src/engine/timer.ts"
+      ],
+      "fixPlan": [
+        "verify deterministic side toggle sequencing across scheduled releases",
+        "confirm release order matches timer cadence"
+      ]
+    },
+    {
+      "id": "MEC-JAIL-005",
+      "suspectModules": [
+        "src/game/systems/GhostReleaseSystem.ts",
+        "src/game/systems/GhostPacmanCollisionSystem.ts"
+      ],
+      "fixPlan": [
+        "verify jail return sets non-free/soonFree state before requeue",
+        "confirm second release cycle re-enters exiting flow and completes"
+      ]
+    },
+    {
+      "id": "MEC-JAIL-006",
+      "suspectModules": [
+        "src/game/systems/GhostReleaseSystem.ts",
+        "src/game/domain/services/GhostJailService.ts"
+      ],
+      "fixPlan": [
+        "trace exiting ghost tile progression for bounded jail corridor movement",
+        "verify release-row transition remains within expected y range"
       ]
     },
     {

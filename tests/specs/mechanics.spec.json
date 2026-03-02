@@ -97,12 +97,56 @@
       "id": "MEC-JAIL-002",
       "status": "implemented",
       "layer": "systems",
-      "mechanic": "ghost-release-timer-and-tween",
+      "mechanic": "ghost-release-timer-and-phased-path",
       "seed": 1202,
-      "ticks": 500,
+      "ticks": 1800,
       "fixture": "default-map",
-      "actions": ["run release delay", "run release tween"],
-      "expectations": ["ghost exits jail and becomes free"]
+      "actions": ["run release delay", "run side staging and gate-cross phases"],
+      "expectations": ["ghost enters exiting-jail phase and reaches free state through staged release path"]
+    },
+    {
+      "id": "MEC-JAIL-003",
+      "status": "implemented",
+      "layer": "domain",
+      "mechanic": "pen-gate-actor-lock-split",
+      "seed": 1203,
+      "ticks": 1,
+      "fixture": "pen-gate-grid",
+      "actions": ["evaluate pen-gate traversal for ghost actor", "evaluate pen-gate traversal for ghostRelease actor"],
+      "expectations": ["free ghost traversal remains blocked on pen-gate edge", "release actor traversal is allowed on pen-gate edge"]
+    },
+    {
+      "id": "MEC-JAIL-004",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "release-side-alternation",
+      "seed": 1204,
+      "ticks": 1200,
+      "fixture": "default-map",
+      "actions": ["trigger first scheduled release", "trigger second scheduled release"],
+      "expectations": ["first release stage starts toward left side", "second release stage starts toward right side"]
+    },
+    {
+      "id": "MEC-JAIL-005",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "re-jail-re-release-single-pass-reset",
+      "seed": 1205,
+      "ticks": 2400,
+      "fixture": "default-map",
+      "actions": ["release ghost once", "return ghost to jail state", "release same ghost again"],
+      "expectations": ["ghost re-enters exiting-jail phase after jail return", "ghost becomes free again on second release cycle"]
+    },
+    {
+      "id": "MEC-JAIL-006",
+      "status": "implemented",
+      "layer": "systems",
+      "mechanic": "release-path-bounded-collision-safe",
+      "seed": 1206,
+      "ticks": 1600,
+      "fixture": "default-map",
+      "actions": ["record exiting ghost tiles during release"],
+      "expectations": ["exiting path stays within jail x bounds", "exiting path stays between jail row and release row before free state"]
     },
     {
       "id": "MEC-PORT-001",

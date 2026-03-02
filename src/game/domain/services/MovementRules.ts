@@ -45,7 +45,7 @@ export function canMove(
   const down = collisionTiles.down;
   const left = collisionTiles.left;
   const right = collisionTiles.right;
-  const bypassPenGate = actor === 'ghost';
+  const bypassPenGate = actor === 'ghostRelease';
 
   const blocksEdge = (tile: CollisionTile, blocked: boolean): boolean => {
     if (!blocked) {
