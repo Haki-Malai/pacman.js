@@ -12,6 +12,26 @@ export class CanvasRendererAdapter {
     return this.renderer.context;
   }
 
+  get width(): number {
+    return this.renderer.width;
+  }
+
+  get height(): number {
+    return this.renderer.height;
+  }
+
+  get deviceWidth(): number {
+    return this.renderer.deviceWidth;
+  }
+
+  get deviceHeight(): number {
+    return this.renderer.deviceHeight;
+  }
+
+  get pixelRatio(): number {
+    return this.renderer.pixelRatio;
+  }
+
   resize(width: number, height: number): void {
     this.renderer.resize(width, height);
   }
@@ -26,6 +46,10 @@ export class CanvasRendererAdapter {
 
   endWorld(): void {
     this.renderer.endWorld();
+  }
+
+  drawImageDevice(image: CanvasImageSource, x: number, y: number): void {
+    this.renderer.drawImageDevice(image, x, y);
   }
 
   drawImageCentered(

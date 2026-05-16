@@ -47,6 +47,10 @@ export class CameraSystem {
 
   private handleResize(): void {
     this.renderer.resize(window.innerWidth, window.innerHeight);
-    this.camera.setViewport(this.canvas.width, this.canvas.height);
+
+    const viewportWidth = Number.isFinite(this.renderer.width) ? this.renderer.width : this.canvas.width;
+    const viewportHeight = Number.isFinite(this.renderer.height) ? this.renderer.height : this.canvas.height;
+
+    this.camera.setViewport(viewportWidth, viewportHeight);
   }
 }

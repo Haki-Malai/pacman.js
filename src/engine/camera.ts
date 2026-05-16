@@ -77,8 +77,9 @@ export class Camera2D {
     };
   }
 
-  applyTransform(ctx: CanvasRenderingContext2D): void {
-    ctx.setTransform(this.zoom, 0, 0, this.zoom, -this.x * this.zoom, -this.y * this.zoom);
+  applyTransform(ctx: CanvasRenderingContext2D, pixelRatio = 1): void {
+    const scale = this.zoom * pixelRatio;
+    ctx.setTransform(scale, 0, 0, scale, -this.x * scale, -this.y * scale);
   }
 
   private getDesiredFollowPosition(): { x: number; y: number } | undefined {
