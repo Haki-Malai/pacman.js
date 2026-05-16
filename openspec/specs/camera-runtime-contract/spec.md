@@ -37,6 +37,24 @@ Camera viewport state SHALL be recomputed from current canvas dimensions wheneve
 - **WHEN** the window is resized during an active session
 - **THEN** renderer and camera viewport dimensions are refreshed and subsequent camera updates honor the new viewport
 
+### Requirement: Camera and renderer use logical viewport dimensions on high-DPI displays
+Renderer backing resolution MAY scale with device pixel ratio, but camera viewport and bounds calculations SHALL use logical viewport dimensions so resize, follow, clamp, and center behavior remain consistent across standard and high-DPI displays.
+
+#### Scenario: High-DPI resize preserves camera framing
+- **WHEN** the runtime canvas is resized on a high-DPI display
+- **THEN** the backing canvas resolution may increase for sharp rendering, while camera viewport dimensions continue to match the logical screen size used for gameplay framing
+
+#### Scenario: Camera transform accounts for backing pixel ratio
+- **WHEN** world rendering begins after a high-DPI resize
+- **THEN** camera zoom and translation are applied at the backing pixel scale without changing gameplay-space camera coordinates
+
+### Requirement: Map presentation remains pixel-aligned and crisp
+Map rendering SHALL preserve pixel-art clarity by disabling smoothing and snapping rendered map layers to backing pixels during world presentation.
+
+#### Scenario: Map layer renders without subpixel blur
+- **WHEN** the map is drawn through the camera on any supported device pixel ratio
+- **THEN** tile imagery is presented with pixelated/crisp rendering and without subpixel seams from fractional backing-pixel placement
+
 ### Requirement: Camera behavior is protected by automated regression tests
 The project MUST maintain deterministic automated tests that cover startup positioning, follow interpolation, bounds policy (clamp-or-center), and resize behavior for camera runtime logic.
 
