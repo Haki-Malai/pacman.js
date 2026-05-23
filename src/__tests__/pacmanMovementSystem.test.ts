@@ -178,4 +178,90 @@ describe('PacmanMovementSystem portal blink', () => {
     expect(advanceEntityMock).toHaveBeenCalledOnce();
     expect(canAdvanceOutwardMock).toHaveBeenCalledWith(expect.objectContaining({ direction: 'left' }), world.collisionGrid);
   });
+
+  it('keeps current direction when buffered portal turn is unavailable', () => {
+    const world = {
+      pacman: {
+        tile: { x: 0, y: 0 },
+        moved: { x: 0, y: 0 },
+        direction: { current: 'up', next: 'left' },
+        angle: 0,
+        flipY: false,
+        portalBlinkRemainingMs: 0,
+        deathRecoveryRemainingMs: 0,
+      },
+      collisionGrid: {
+        getTilesAt: vi.fn(() => ({
+          current: openTile(),
+          up: openTile(),
+          down: openTile(),
+          left: openTile(),
+          right: openTile(),
+        })),
+      },
+      tileSize: 16,
+      tick: 13,
+    } as unknown as WorldState;
+
+    const movementRules = {
+      applyBufferedDirection: vi.fn(),
+      canMove: vi.fn(() => false),
+      advanceEntity: vi.fn(),
+      syncEntityPosition: vi.fn(),
+    } as unknown as MovementRules;
+
+    const portalService = {
+      canAdvanceOutward: vi.fn(() => false),
+      tryTeleport: vi.fn(() => false),
+    } as unknown as PortalService;
+
+    new PacmanMovementSystem(world, movementRules, portalService).update(16);
+
+    expect(world.pacman.direction.current).toBe('up');
+  });
+
+  it('treats legal buffered turns as normal movement, not portal overrides', () => {
+    const world = {
+      pacman: {
+        tile: { x: 0, y: 0 },
+        moved: { x: 0, y: 0 },
+        direction: { current: 'up', next: 'right' },
+        angle: 0,
+        flipY: false,
+        portalBlinkRemainingMs: 10,
+        deathRecoveryRemainingMs: PACMAN_DEATH_RECOVERY.durationMs,
+        deathRecoveryElapsedMs: PACMAN_DEATH_RECOVERY.durationMs - 1,
+        deathRecoveryNextToggleAtMs: PACMAN_DEATH_RECOVERY.durationMs,
+        deathRecoveryVisible: true,
+      },
+      collisionGrid: {
+        getTilesAt: vi.fn(() => ({
+          current: openTile(),
+          up: openTile(),
+          down: openTile(),
+          left: openTile(),
+          right: openTile(),
+        })),
+      },
+      tileSize: 16,
+      tick: 14,
+    } as unknown as WorldState;
+
+    const movementRules = {
+      applyBufferedDirection: vi.fn(),
+      canMove: vi.fn(() => true),
+      advanceEntity: vi.fn(),
+      syncEntityPosition: vi.fn(),
+    } as unknown as MovementRules;
+
+    const portalService = {
+      canAdvanceOutward: vi.fn(() => false),
+      tryTeleport: vi.fn(() => false),
+    } as unknown as PortalService;
+
+    new PacmanMovementSystem(world, movementRules, portalService).update(1);
+
+    expect(world.pacman.direction.current).toBe('up');
+    expect(world.pacman.deathRecoveryNextToggleAtMs).toBe(0);
+  });
 });

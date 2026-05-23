@@ -68,19 +68,19 @@ function makeOpenMap(width: number, height: number, ghostHome?: WorldMapData['gh
 
 function markPenGateRun(map: WorldMapData, y: number, minX: number, maxX: number): void {
   for (let x = minX; x <= maxX; x += 1) {
-    map.tiles[y]![x]!.collision.penGate = true;
+    map.tiles[y][x].collision.penGate = true;
   }
 }
 
 function markSameLocalIdRun(map: WorldMapData, y: number, minX: number, maxX: number, localId: number): void {
   for (let x = minX; x <= maxX; x += 1) {
-    map.tiles[y]![x]!.localId = localId;
+    map.tiles[y][x].localId = localId;
   }
 }
 
 function markSequentialLocalIdRun(map: WorldMapData, y: number, minX: number, maxX: number, startLocalId: number): void {
   for (let x = minX; x <= maxX; x += 1) {
-    map.tiles[y]![x]!.localId = startLocalId + x - minX;
+    map.tiles[y][x].localId = startLocalId + x - minX;
   }
 }
 
@@ -297,24 +297,29 @@ describe('ghost jail service coverage', () => {
 
     markPenGateRun(map, 1, 1, 2);
     markPenGateRun(map, 2, 1, 3);
-    markPenGateRun(map, 4, 1, 5);
+    markPenGateRun(map, 3, 2, 4);
+    markPenGateRun(map, 4, 3, 5);
+    markPenGateRun(map, 5, 1, 5);
 
-    expect(service.resolveGhostJailBounds(map, { x: 0, y: 0 })).toEqual({ minX: 1, maxX: 5, y: 5 });
-    expect(service.resolveSpawnTile(undefined, { x: 0, y: 0 }, map)).toEqual({ x: 3, y: 4 });
+    expect(service.resolveGhostJailBounds(map, { x: 0, y: 0 })).toEqual({ minX: 1, maxX: 5, y: 6 });
+    expect(service.resolveSpawnTile(undefined, { x: 0, y: 0 }, map)).toEqual({ x: 3, y: 5 });
   });
 
   it('infers jail and fallback spawn from structural map geometry', () => {
     const service = new GhostJailService();
-    const map = makeOpenMap(7, 7, undefined);
+    const map = makeOpenMap(7, 8, undefined);
     map.ghostHome = undefined;
 
     markSameLocalIdRun(map, 2, 1, 3, 3);
-    markSequentialLocalIdRun(map, 3, 2, 4, 20);
-    markSameLocalIdRun(map, 4, 2, 4, 9);
-    markSameLocalIdRun(map, 5, 1, 5, 11);
+    markSequentialLocalIdRun(map, 1, 1, 3, 20);
+    markSequentialLocalIdRun(map, 2, 2, 4, 30);
+    markSequentialLocalIdRun(map, 3, 1, 5, 40);
+    markSequentialLocalIdRun(map, 4, 2, 4, 50);
+    markSameLocalIdRun(map, 5, 2, 4, 9);
+    markSameLocalIdRun(map, 6, 1, 5, 11);
 
-    expect(service.resolveGhostJailBounds(map, { x: 0, y: 0 })).toEqual({ minX: 2, maxX: 4, y: 4 });
-    expect(service.resolveSpawnTile(undefined, { x: 0, y: 0 }, map)).toEqual({ x: 3, y: 3 });
+    expect(service.resolveGhostJailBounds(map, { x: 0, y: 0 })).toEqual({ minX: 2, maxX: 4, y: 5 });
+    expect(service.resolveSpawnTile(undefined, { x: 0, y: 0 }, map)).toEqual({ x: 3, y: 4 });
 
     const tinyMap = makeOpenMap(2, 2, undefined);
     tinyMap.ghostHome = undefined;
