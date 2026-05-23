@@ -7,7 +7,7 @@ import { TimerHandle } from '../../engine/timer';
 import { GhostEntity } from '../domain/entities/GhostEntity';
 import { GhostJailService } from '../domain/services/GhostJailService';
 import { MovementRules } from '../domain/services/MovementRules';
-import { Direction, MovementActor } from '../domain/valueObjects/Direction';
+import { Direction } from '../domain/valueObjects/Direction';
 import { RandomSource } from '../shared/random/RandomSource';
 import { WorldState } from '../domain/world/WorldState';
 import { TimerSchedulerAdapter } from '../infrastructure/adapters/TimerSchedulerAdapter';
@@ -22,7 +22,7 @@ interface ReleaseProgress {
   releaseY: number;
 }
 
-type MoveOutcome = 'moved' | 'reached' | 'blocked';
+type MoveOutcome = 'moved' | 'reached';
 const POSITION_EPSILON = 0.001;
 
 export class GhostReleaseSystem {
@@ -115,10 +115,6 @@ export class GhostReleaseSystem {
     const side = this.nextReleaseSide;
     const releaseY = this.resolveReleaseY();
     const gateColumnX = this.resolveGateColumn(side, releaseY);
-    if (gateColumnX === null) {
-      this.queueGhostRelease(ghost, GHOST_JAIL_RELEASE_INTERVAL_MS);
-      return;
-    }
 
     this.nextReleaseSide = side === 'left' ? 'right' : 'left';
 
@@ -141,11 +137,7 @@ export class GhostReleaseSystem {
     if (progress.phase === 'to_side_center') {
       const sideCenterX = progress.side === 'left' ? this.world.ghostJailBounds.minX : this.world.ghostJailBounds.maxX;
       const sideTarget = { x: sideCenterX, y: this.world.ghostJailBounds.y };
-      const outcome = this.moveGhostTowardTarget(ghost, sideTarget, 'ghostRelease');
-      if (outcome === 'blocked') {
-        this.abortRelease(ghost);
-        return;
-      }
+      const outcome = this.moveGhostTowardTarget(ghost, sideTarget);
       if (outcome === 'reached') {
         progress.phase = 'to_gate_column';
       }
@@ -154,16 +146,7 @@ export class GhostReleaseSystem {
 
     if (progress.phase === 'to_gate_column') {
       const gateTarget = { x: progress.gateColumnX, y: this.world.ghostJailBounds.y };
-      const outcome = this.moveGhostTowardTarget(ghost, gateTarget, 'ghostRelease');
-      if (outcome === 'blocked') {
-        const fallbackGate = this.resolveGateColumn(progress.side, progress.releaseY);
-        if (fallbackGate === null) {
-          this.abortRelease(ghost);
-          return;
-        }
-        progress.gateColumnX = fallbackGate;
-        return;
-      }
+      const outcome = this.moveGhostTowardTarget(ghost, gateTarget);
       if (outcome === 'reached') {
         progress.phase = 'cross_gate_once';
       }
@@ -172,17 +155,7 @@ export class GhostReleaseSystem {
 
     if (progress.phase === 'cross_gate_once') {
       const releaseTarget = { x: progress.gateColumnX, y: progress.releaseY };
-      const outcome = this.moveGhostTowardTarget(ghost, releaseTarget, 'ghostRelease');
-      if (outcome === 'blocked') {
-        const fallbackGate = this.resolveGateColumn(progress.side, progress.releaseY);
-        if (fallbackGate === null || fallbackGate === progress.gateColumnX) {
-          this.abortRelease(ghost);
-          return;
-        }
-        progress.gateColumnX = fallbackGate;
-        progress.phase = 'to_gate_column';
-        return;
-      }
+      const outcome = this.moveGhostTowardTarget(ghost, releaseTarget);
       if (outcome === 'reached') {
         this.completeRelease(ghost, progress);
       }
@@ -221,7 +194,7 @@ export class GhostReleaseSystem {
     return releaseY;
   }
 
-  private resolveGateColumn(side: ReleaseSide, releaseY: number): number | null {
+  private resolveGateColumn(side: ReleaseSide, releaseY: number): number {
     const columns = this.resolveGateScanColumns(side);
     for (const columnX of columns) {
       if (this.isGateColumnTraversable(columnX, releaseY)) {
@@ -258,11 +231,7 @@ export class GhostReleaseSystem {
     return this.movementRules.canMove('up', 0, 0, jailCollisionTiles, 'ghostRelease');
   }
 
-  private moveGhostTowardTarget(
-    ghost: GhostEntity,
-    targetTile: { x: number; y: number },
-    actor: MovementActor,
-  ): MoveOutcome {
+  private moveGhostTowardTarget(ghost: GhostEntity, targetTile: { x: number; y: number }): MoveOutcome {
     const snappedBeforeMove = this.snapResidualOffsetsAtTargetAxes(ghost, targetTile);
     if (snappedBeforeMove) {
       this.movementRules.syncEntityPosition(ghost);
@@ -275,15 +244,6 @@ export class GhostReleaseSystem {
     const direction = this.resolveDirectionTowardTarget(ghost, targetTile);
     if (!direction) {
       return 'reached';
-    }
-
-    const collisionTiles = this.world.collisionGrid.getTilesAt(ghost.tile);
-    const canMoveDirection =
-      actor === 'ghostRelease'
-        ? true
-        : this.movementRules.canMove(direction, ghost.moved.y, ghost.moved.x, collisionTiles, actor);
-    if (!canMoveDirection) {
-      return 'blocked';
     }
 
     ghost.direction = direction;
@@ -370,14 +330,6 @@ export class GhostReleaseSystem {
     ghost.direction = 'up';
     ghost.state.free = true;
     ghost.state.soonFree = false;
-  }
-
-  private abortRelease(ghost: GhostEntity): void {
-    this.cleanupGhostReleaseState(ghost);
-    if (!ghost.active || ghost.state.free) {
-      return;
-    }
-    this.queueGhostRelease(ghost, GHOST_JAIL_RELEASE_INTERVAL_MS);
   }
 
   private cleanupGhostReleaseState(ghost: GhostEntity): void {

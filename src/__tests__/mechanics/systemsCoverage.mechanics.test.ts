@@ -398,6 +398,140 @@ describe('ghost release system coverage', () => {
     expect(setEntityTileMock).toHaveBeenCalledWith(ghost, { x: 0, y: 0 });
     system.destroy();
   });
+
+  it('covers release timer replacement, release guards, and clamped release rows', () => {
+    const ghost = new GhostEntity({
+      key: 'inky',
+      tile: { x: 1, y: 1 },
+      direction: 'left',
+      speed: 1,
+      displayWidth: 10,
+      displayHeight: 10,
+    });
+
+    const world = {
+      ghosts: [ghost],
+      ghostsExitingJail: new Set<GhostEntity>(),
+      ghostJailBounds: { minX: 0, maxX: 2, y: 1 },
+      pacman: { tile: { x: 0, y: 0 } },
+      map: { width: 3, height: 3 },
+      collisionGrid: {
+        getTilesAt: vi.fn(() => ({
+          current: openTile(),
+          up: openTile(),
+          down: openTile(),
+          left: openTile(),
+          right: openTile(),
+        })),
+      },
+      tileSize: 16,
+    } as unknown as WorldState;
+
+    const movementRules = {
+      canMove: vi.fn(() => true),
+      advanceEntity: vi.fn(),
+      syncEntityPosition: vi.fn(),
+      setEntityTile: vi.fn(),
+    } as unknown as MovementRules;
+    const jailService = { moveGhostInJail: vi.fn() } as unknown as GhostJailService;
+    const scheduler = new TimerSchedulerAdapter();
+    const system = new GhostReleaseSystem(world, movementRules, jailService, scheduler, new SeededRandom(12));
+    const internals = system as unknown as {
+      releaseGhost: (targetGhost: GhostEntity, ghostIndex: number) => void;
+      releaseProgressByGhost: Map<GhostEntity, { releaseY: number }>;
+    };
+
+    system.queueGhostRelease(ghost, 1000);
+    system.queueGhostRelease(ghost, 1000);
+    ghost.active = false;
+    system.update();
+    scheduler.update(1000);
+    internals.releaseGhost(ghost, 0);
+    expect(world.ghostsExitingJail.has(ghost)).toBe(false);
+
+    ghost.active = true;
+    ghost.state.free = false;
+    ghost.state.soonFree = true;
+    world.ghostJailBounds.y = 0;
+    internals.releaseGhost(ghost, 0);
+    expect(internals.releaseProgressByGhost.get(ghost)?.releaseY).toBe(0);
+
+    world.ghostsExitingJail.clear();
+    internals.releaseProgressByGhost.clear();
+    ghost.state.soonFree = true;
+    world.ghostJailBounds.y = 99;
+    internals.releaseGhost(ghost, 0);
+    expect(internals.releaseProgressByGhost.get(ghost)?.releaseY).toBe(2);
+  });
+
+  it('covers release path target helpers for residual offsets and direction resolution', () => {
+    const ghost = new GhostEntity({
+      key: 'pinky',
+      tile: { x: 1, y: 1 },
+      direction: 'left',
+      speed: 1,
+      displayWidth: 10,
+      displayHeight: 10,
+    });
+
+    const world = {
+      ghosts: [ghost],
+      ghostsExitingJail: new Set<GhostEntity>(),
+      ghostJailBounds: { minX: 0, maxX: 2, y: 1 },
+      pacman: { tile: { x: 0, y: 0 } },
+      map: { width: 3, height: 3 },
+      collisionGrid: {
+        getTilesAt: vi.fn(() => ({
+          current: openTile(),
+          up: openTile(),
+          down: openTile(),
+          left: openTile(),
+          right: openTile(),
+        })),
+      },
+      tileSize: 16,
+    } as unknown as WorldState;
+
+    const syncEntityPositionMock = vi.fn();
+    const movementRules = {
+      canMove: vi.fn(() => true),
+      advanceEntity: vi.fn(),
+      syncEntityPosition: syncEntityPositionMock,
+      setEntityTile: vi.fn(),
+    } as unknown as MovementRules;
+    const jailService = { moveGhostInJail: vi.fn() } as unknown as GhostJailService;
+    const system = new GhostReleaseSystem(world, movementRules, jailService, new TimerSchedulerAdapter(), new SeededRandom(13));
+    const internals = system as unknown as {
+      moveGhostTowardTarget: (targetGhost: GhostEntity, targetTile: { x: number; y: number }) => 'moved' | 'reached';
+      resolveGateScanColumns: (side: 'left' | 'right') => number[];
+    };
+
+    ghost.moved = { x: 0.5, y: -0.5 };
+    expect(internals.moveGhostTowardTarget(ghost, { x: 1, y: 1 })).toBe('reached');
+    expect(ghost.moved).toEqual({ x: 0, y: 0 });
+    expect(syncEntityPositionMock).toHaveBeenCalled();
+
+    const cases: Array<{ tile: { x: number; y: number }; moved: { x: number; y: number }; target: { x: number; y: number }; direction: string }> = [
+      { tile: { x: 1, y: 0 }, moved: { x: 0, y: 0 }, target: { x: 1, y: 1 }, direction: 'down' },
+      { tile: { x: 1, y: 2 }, moved: { x: 0, y: 0 }, target: { x: 1, y: 1 }, direction: 'up' },
+      { tile: { x: 1, y: 1 }, moved: { x: 0, y: 2 }, target: { x: 1, y: 1 }, direction: 'up' },
+      { tile: { x: 1, y: 1 }, moved: { x: 0, y: -2 }, target: { x: 1, y: 1 }, direction: 'down' },
+      { tile: { x: 0, y: 1 }, moved: { x: 0, y: 0 }, target: { x: 1, y: 1 }, direction: 'right' },
+      { tile: { x: 2, y: 1 }, moved: { x: 0, y: 0 }, target: { x: 1, y: 1 }, direction: 'left' },
+      { tile: { x: 1, y: 1 }, moved: { x: 2, y: 0 }, target: { x: 1, y: 1 }, direction: 'left' },
+      { tile: { x: 1, y: 1 }, moved: { x: -2, y: 0 }, target: { x: 1, y: 1 }, direction: 'right' },
+    ];
+
+    cases.forEach((entry) => {
+      ghost.tile = { ...entry.tile };
+      ghost.moved = { ...entry.moved };
+      internals.moveGhostTowardTarget(ghost, entry.target);
+      expect(ghost.direction).toBe(entry.direction);
+    });
+
+    expect(internals.resolveGateScanColumns('left')).toEqual([0, 1, 2]);
+    expect(internals.resolveGateScanColumns('right')).toEqual([2, 1, 0]);
+  });
 });
 
 describe('animation system coverage', () => {
