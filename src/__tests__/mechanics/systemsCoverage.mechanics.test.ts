@@ -4,12 +4,14 @@ import {
   GHOST_JAIL_RELEASE_INTERVAL_MS,
 } from '../../config/constants';
 import { GhostEntity } from '../../game/domain/entities/GhostEntity';
+import { GhostDecisionService } from '../../game/domain/services/GhostDecisionService';
 import { GhostJailService } from '../../game/domain/services/GhostJailService';
 import { MovementRules } from '../../game/domain/services/MovementRules';
 import { PortalService } from '../../game/domain/services/PortalService';
 import { WorldState } from '../../game/domain/world/WorldState';
 import { TimerSchedulerAdapter } from '../../game/infrastructure/adapters/TimerSchedulerAdapter';
 import { AnimationSystem } from '../../game/systems/AnimationSystem';
+import { GhostMovementSystem } from '../../game/systems/GhostMovementSystem';
 import { GhostReleaseSystem } from '../../game/systems/GhostReleaseSystem';
 import { PacmanMovementSystem } from '../../game/systems/PacmanMovementSystem';
 import { SeededRandom } from '../../game/shared/random/SeededRandom';
@@ -146,6 +148,67 @@ describe('pacman movement system coverage', () => {
     system.update(45);
     expect(world.pacman.portalBlinkRemainingMs).toBe(0);
     expect(world.pacman.portalBlinkElapsedMs).toBe(0);
+  });
+});
+
+describe('ghost movement system coverage', () => {
+  it('covers portal-outward movement and non-centered blocked movement branches', () => {
+    const ghost = new GhostEntity({
+      key: 'blinky',
+      tile: { x: 1, y: 1 },
+      direction: 'left',
+      speed: 1,
+      displayWidth: 10,
+      displayHeight: 10,
+    });
+    ghost.state.free = true;
+
+    const world = {
+      ghosts: [ghost],
+      ghostsExitingJail: new Set<GhostEntity>(),
+      collisionGrid: {
+        getTilesAt: vi.fn(() => ({
+          current: openTile(),
+          up: openTile(),
+          down: openTile(),
+          left: openTile(),
+          right: openTile(),
+        })),
+      },
+      tileSize: 16,
+      tick: 4,
+    } as unknown as WorldState;
+
+    const advanceEntityMock = vi.fn();
+    const syncEntityPositionMock = vi.fn();
+    const movementRules = {
+      canMove: vi.fn(() => false),
+      advanceEntity: advanceEntityMock,
+      syncEntityPosition: syncEntityPositionMock,
+    } as unknown as MovementRules;
+    const chooseDirectionAtCenterMock = vi.fn(() => 'right');
+    const chooseDirectionWhenBlockedMock = vi.fn(() => 'right');
+    const decisions = {
+      chooseDirectionAtCenter: chooseDirectionAtCenterMock,
+      chooseDirectionWhenBlocked: chooseDirectionWhenBlockedMock,
+    } as unknown as GhostDecisionService;
+    const canAdvanceOutwardMock = vi.fn(() => true);
+    const portalService = {
+      canAdvanceOutward: canAdvanceOutwardMock,
+      tryTeleport: vi.fn(() => false),
+    } as unknown as PortalService;
+
+    const system = new GhostMovementSystem(world, movementRules, decisions, portalService, new SeededRandom(14));
+    system.update();
+    expect(advanceEntityMock).toHaveBeenCalledOnce();
+    expect(chooseDirectionAtCenterMock).not.toHaveBeenCalled();
+
+    ghost.moved = { x: 1, y: 0 };
+    canAdvanceOutwardMock.mockReturnValue(false);
+    system.update();
+
+    expect(chooseDirectionWhenBlockedMock).not.toHaveBeenCalled();
+    expect(syncEntityPositionMock).toHaveBeenCalledTimes(2);
   });
 });
 
