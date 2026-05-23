@@ -62,6 +62,28 @@ function makeMap(grid: CollisionTile[][], ghostHome?: WorldMapData['ghostHome'])
   };
 }
 
+function makeOpenMap(width: number, height: number, ghostHome?: WorldMapData['ghostHome']): WorldMapData {
+  return makeMap(Array.from({ length: height }, () => Array.from({ length: width }, () => openTile())), ghostHome);
+}
+
+function markPenGateRun(map: WorldMapData, y: number, minX: number, maxX: number): void {
+  for (let x = minX; x <= maxX; x += 1) {
+    map.tiles[y]![x]!.collision.penGate = true;
+  }
+}
+
+function markSameLocalIdRun(map: WorldMapData, y: number, minX: number, maxX: number, localId: number): void {
+  for (let x = minX; x <= maxX; x += 1) {
+    map.tiles[y]![x]!.localId = localId;
+  }
+}
+
+function markSequentialLocalIdRun(map: WorldMapData, y: number, minX: number, maxX: number, startLocalId: number): void {
+  for (let x = minX; x <= maxX; x += 1) {
+    map.tiles[y]![x]!.localId = startLocalId + x - minX;
+  }
+}
+
 function rngWith(values: number[]) {
   let index = 0;
   return {
@@ -268,6 +290,37 @@ describe('ghost jail service coverage', () => {
     expect(service.resolveGhostJailBounds(mapFallback, { x: 2, y: 1 })).toEqual({ minX: 2, maxX: 2, y: 1 });
   });
 
+  it('infers jail bounds from qualifying pen-gate runs before structural fallback', () => {
+    const service = new GhostJailService();
+    const map = makeOpenMap(7, 7, undefined);
+    map.ghostHome = undefined;
+
+    markPenGateRun(map, 1, 1, 2);
+    markPenGateRun(map, 2, 1, 3);
+    markPenGateRun(map, 4, 1, 5);
+
+    expect(service.resolveGhostJailBounds(map, { x: 0, y: 0 })).toEqual({ minX: 1, maxX: 5, y: 5 });
+    expect(service.resolveSpawnTile(undefined, { x: 0, y: 0 }, map)).toEqual({ x: 3, y: 4 });
+  });
+
+  it('infers jail and fallback spawn from structural map geometry', () => {
+    const service = new GhostJailService();
+    const map = makeOpenMap(7, 7, undefined);
+    map.ghostHome = undefined;
+
+    markSameLocalIdRun(map, 2, 1, 3, 3);
+    markSequentialLocalIdRun(map, 3, 2, 4, 20);
+    markSameLocalIdRun(map, 4, 2, 4, 9);
+    markSameLocalIdRun(map, 5, 1, 5, 11);
+
+    expect(service.resolveGhostJailBounds(map, { x: 0, y: 0 })).toEqual({ minX: 2, maxX: 4, y: 4 });
+    expect(service.resolveSpawnTile(undefined, { x: 0, y: 0 }, map)).toEqual({ x: 3, y: 3 });
+
+    const tinyMap = makeOpenMap(2, 2, undefined);
+    tinyMap.ghostHome = undefined;
+    expect(service.resolveGhostJailBounds(tinyMap, { x: 9, y: 9 })).toEqual({ minX: 1, maxX: 1, y: 1 });
+  });
+
   it('covers release tile candidate selection branches', () => {
     const service = new GhostJailService();
     const movementRules = new MovementRules(TILE_SIZE);
@@ -394,5 +447,13 @@ describe('ghost jail service coverage', () => {
 
     expect(ghost.tile.x).toBe(2);
     expect(ghost.direction).toBe('left');
+
+    ghost.direction = 'left';
+    rules.setEntityTile(ghost, { x: 1, y: 2 });
+    ghost.moved.x = -1;
+    service.moveGhostInJail(ghost, { minX: 1, maxX: 2, y: 2 }, rules, rngWith([0.2]), TILE_SIZE + 4);
+
+    expect(ghost.tile.x).toBe(1);
+    expect(ghost.direction).toBe('right');
   });
 });
